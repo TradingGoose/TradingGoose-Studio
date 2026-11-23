@@ -397,7 +397,7 @@ describe('Robinhood connection helper route', () => {
       })
       const loopbackUrl = new URL(ROBINHOOD_LOOPBACK_REDIRECT_URI)
       loopbackUrl.port = String(relayPort)
-      const hostedCallback = 'https://preview.example.test/api/auth/oauth2/callback/robinhood'
+      const hostedCallback = 'https://preview.example.test/api/auth/callback/robinhood'
 
       await expect(
         getLocalStatus(

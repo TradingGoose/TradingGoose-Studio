@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it, vi } from 'vitest'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { AgentBlock } from '@/blocks/blocks/agent'
 import { GitHubBlock } from '@/blocks/blocks/github'
@@ -15,7 +17,9 @@ import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
 import { PortfolioStateTriggerBlock } from '@/triggers/blocks/portfolio_state_trigger'
 import { apiTrigger } from '@/triggers/core/api'
 import { genericWebhookTrigger } from '@/triggers/generic/webhook'
+import { hubspotContactCreatedTrigger } from '@/triggers/hubspot/contact_created'
 import { scheduleTrigger } from '@/triggers/schedule/trigger'
+import { Text } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/text/text'
 import {
   getLocalizedBlockMetadata,
   getLocalizedDefaultBlockName,
@@ -812,6 +816,42 @@ describe('block-editor i18n helpers', () => {
       getTriggerSubBlockCopy('en', 'github_webhook', 'triggerInstructions')?.steps?.length
     ).toBeGreaterThan(0)
   })
+
+  it.each(['https://www.tradinggoose.ai', 'https://studio.example.test:8443'])(
+    'renders the HubSpot redirect URL for %s in the default and translated setup instructions',
+    (origin) => {
+      vi.stubEnv('NEXT_PUBLIC_APP_URL', origin)
+      try {
+        const config = hubspotContactCreatedTrigger.subBlocks.find(
+          (item) => item.id === 'triggerInstructions'
+        )!
+        const instructions = [
+          config,
+          ...(['en', 'es', 'zh'] as const).map((locale) =>
+            localizeWorkflowSubBlockConfig(
+              locale,
+              config,
+              'hubspot',
+              hubspotContactCreatedTrigger.id
+            )
+          ),
+        ]
+        for (const { defaultValue } of instructions) {
+          const html = renderToStaticMarkup(
+            createElement(Text, {
+              blockId: 'hubspot',
+              subBlockId: config.id,
+              content: String(defaultValue),
+            })
+          )
+          expect(html).toContain(`<code>${origin}/api/auth/callback/hubspot</code>`)
+          expect(html).not.toContain('{NEXT_PUBLIC_APP_URL}')
+        }
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    }
+  )
 
   it('localizes monitor trigger instructions through centralized trigger override entries', () => {
     const inlineInstruction = 'inline instructions'

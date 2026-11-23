@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { link } = vi.hoisted(() => ({ link: vi.fn() }))
 
 vi.mock('@/lib/auth-client', () => ({
-  client: { oauth2: { link } },
+  client: { linkSocial: link },
 }))
 
 import { startOAuthConnectFlow } from './connect'
@@ -30,7 +30,7 @@ describe('startOAuthConnectFlow', () => {
       })
     ).rejects.toThrow('Unauthorized')
     expect(link).toHaveBeenCalledWith({
-      providerId: 'robinhood',
+      provider: 'robinhood',
       callbackURL: '/workspace/ws-1/integrations',
       errorCallbackURL: '/workspace/ws-1/integrations',
     })

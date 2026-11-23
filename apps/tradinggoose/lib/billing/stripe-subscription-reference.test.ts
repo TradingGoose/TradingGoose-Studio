@@ -5,7 +5,7 @@ import { stripe } from '@better-auth/stripe'
 import { betterAuth } from 'better-auth'
 import { testUtils } from 'better-auth/plugins'
 import type Stripe from 'stripe'
-import { expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 
 it('uses the user Stripe customer for an organization subscription reference', async () => {
   const checkoutCreate = vi.fn().mockResolvedValue({
@@ -86,3 +86,179 @@ it('uses the user Stripe customer for an organization subscription reference', a
     undefined
   )
 })
+
+const accountMail = vi.hoisted(() =>
+  vi.fn(async (_message: { to: string; text: string; subject: string }) => ({ success: true }))
+)
+const customer = vi.hoisted(() => ({ retrieve: vi.fn(), update: vi.fn() }))
+
+vi.mock('@/lib/email/mailer', () => ({
+  sendEmail: accountMail,
+  addVerifiedUserEmailToAudience: vi.fn(),
+}))
+vi.mock('@/lib/email/locale', () => ({ resolveEmailLocale: () => 'en' }))
+vi.mock('@/lib/system-services/stripe-runtime', () => ({
+  createStripeClientProxy: () => ({ customers: customer }),
+  hasStripeSecretKey: () => false,
+  getStripeServiceConfig: () => ({}),
+}))
+vi.mock('@/lib/registration/service', () => ({
+  getRegistrationEligibility: () => ({ allowed: true }),
+  markWaitlistEntrySignedUp: vi.fn(),
+}))
+vi.mock('@/lib/workspaces/service', () => ({ createDefaultWorkspaceForUser: vi.fn() }))
+vi.mock('@/lib/billing/core/usage', () => ({ handleNewUser: vi.fn() }))
+vi.mock('@/lib/billing/settings', () => ({
+  getBillingGateState: () => ({ billingEnabled: false }),
+}))
+vi.mock('@/lib/env', async (original) => ({
+  ...(await original<typeof import('@/lib/env')>()),
+  env: process.env,
+}))
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.clearAllMocks()
+})
+
+function cookies(response: Response) {
+  return response.headers
+    .getSetCookie()
+    .map((cookie) => cookie.split(';')[0])
+    .join('; ')
+}
+
+it.each([true, false])(
+  'keeps password access and syncs confirmed email with signup verification %s',
+  async (verifySignup) => {
+    vi.resetModules()
+    vi.stubEnv('EMAIL_VERIFICATION_ENABLED', String(verifySignup))
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
+    vi.stubEnv('BETTER_AUTH_SECRET', 'disposable-auth-handler-fixture-at-least-32-characters')
+    vi.stubEnv('ALLOWED_LOGIN_EMAILS', 'OLD@EXAMPLE.COM')
+    vi.stubEnv('ALLOWED_LOGIN_DOMAINS', 'TEAM.EXAMPLE')
+    const { auth: appAuth } = await import('@/lib/auth')
+    // The production adapter checks the plugin fields against our Drizzle schema at startup.
+    await appAuth.$context
+    const auth = betterAuth({ ...appAuth.options, database: undefined })
+    const { adapter } = await auth.$context
+    const original = 'old@example.com'
+    const newEmail = 'new@team.example'
+    const password = 'test-password-5729'
+    const origin = 'http://localhost:3000'
+
+    function post(path: string, body: Record<string, string>, cookie = '') {
+      return auth.handler(
+        new Request(origin + '/api/auth' + path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', origin, cookie },
+          body: JSON.stringify(body),
+        })
+      )
+    }
+    function lastCode(to: string, subject: string) {
+      const message = accountMail.mock.lastCall?.[0]
+      expect(message).toMatchObject({ to, subject: expect.stringContaining(subject) })
+      const otp = message!.text.split('\n').at(-1)!
+      expect(otp).toMatch(/^\d{6}$/)
+      return otp
+    }
+
+    const signup = await post('/sign-up/email', {
+      name: 'Preserved Name',
+      email: original,
+      username: 'User_Name',
+      password,
+    })
+    expect(signup.status).toBe(200)
+    const { user } = await signup.json()
+    expect(user).toMatchObject({ name: 'Preserved Name', username: 'user_name' })
+    const byId = [{ field: 'id', value: user.id }]
+    const byUser = [{ field: 'userId', value: user.id }]
+    const credential = await adapter.findOne({ model: 'account', where: byUser })
+    expect(credential).toMatchObject({ providerId: 'credential', password: expect.any(String) })
+    expect((await post('/sign-in/username', { username: 'user_name', password })).status).toBe(404)
+    expect(accountMail).toHaveBeenCalledTimes(verifySignup ? 1 : 0)
+    let cookie = cookies(signup)
+
+    if (verifySignup) {
+      lastCode(original, 'Verify your email')
+      expect(cookie).toBe('')
+      await post('/email-otp/send-verification-otp', { email: original, type: 'sign-in' })
+      const signInOtp = lastCode(original, 'Sign in')
+      expect((await post('/sign-in/email-otp', { email: original, otp: signInOtp })).status).toBe(
+        404
+      )
+      expect(await adapter.findOne({ model: 'account', where: byUser })).toEqual(credential)
+      expect(
+        (
+          await post('/email-otp/send-verification-otp', {
+            email: original,
+            type: 'email-verification',
+          })
+        ).status
+      ).toBe(200)
+      const otp = lastCode(original, 'Verify your email')
+      vi.stubEnv('ALLOWED_LOGIN_EMAILS', '')
+      expect((await post('/email-otp/verify-email', { email: original, otp })).status).toBe(403)
+      expect(await adapter.findMany({ model: 'session', where: byUser })).toHaveLength(0)
+      vi.stubEnv('ALLOWED_LOGIN_EMAILS', original)
+      const verified = await post('/email-otp/verify-email', { email: original, otp })
+      expect(verified.status).toBe(200)
+      cookie = cookies(verified)
+    }
+    expect(cookie).toBeTruthy()
+    expect(
+      await (
+        await auth.handler(new Request(origin + '/api/auth/get-session', { headers: { cookie } }))
+      ).json()
+    ).toMatchObject({ user: { id: user.id, email: original } })
+
+    customer.retrieve.mockResolvedValue({ id: 'cus_personal', email: original })
+    await adapter.update({
+      model: 'user',
+      where: byId,
+      update: { stripeCustomerId: 'cus_personal' },
+    })
+    accountMail.mockClear()
+    expect(
+      (
+        await post(
+          '/email-otp/request-email-change',
+          { newEmail: 'other@sub.team.example' },
+          cookie
+        )
+      ).status
+    ).toBe(403)
+    expect(accountMail).not.toHaveBeenCalled()
+    expect((await post('/email-otp/request-email-change', { newEmail }, cookie)).status).toBe(200)
+    expect(accountMail).toHaveBeenCalledTimes(1)
+    const otp = lastCode(newEmail, 'Verify your new email')
+    expect(customer.update).not.toHaveBeenCalled()
+
+    vi.stubEnv('ALLOWED_LOGIN_DOMAINS', '')
+    expect((await post('/email-otp/change-email', { newEmail, otp }, cookie)).status).toBe(403)
+    vi.stubEnv('ALLOWED_LOGIN_DOMAINS', 'TEAM.EXAMPLE')
+    const incorrect = otp === '000000' ? '000001' : '000000'
+    expect((await post('/email-otp/change-email', { newEmail, otp: incorrect }, cookie)).ok).toBe(
+      false
+    )
+    expect(await adapter.findOne({ model: 'user', where: byId })).toMatchObject({ email: original })
+    expect(customer.update).not.toHaveBeenCalled()
+
+    expect((await post('/email-otp/change-email', { newEmail, otp }, cookie)).status).toBe(200)
+    expect(await adapter.findOne({ model: 'user', where: byId })).toMatchObject({
+      id: user.id,
+      email: newEmail,
+      emailVerified: true,
+      name: user.name,
+    })
+    expect(customer.update).toHaveBeenCalledTimes(1)
+    expect(customer.update).toHaveBeenCalledWith('cus_personal', { email: newEmail })
+    expect((await post('/sign-out', {}, cookie)).status).toBe(200)
+    const signIn = await post('/sign-in/email', { email: newEmail, password })
+    expect(signIn.status).toBe(200)
+    expect((await signIn.json()).user.id).toBe(user.id)
+  },
+  30_000
+)

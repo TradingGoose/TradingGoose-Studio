@@ -1,20 +1,12 @@
 import { db, ssoProvider } from '@tradinggoose/db'
+import { APIError } from 'better-auth/api'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import {
-  getOrganizationBillingData,
-  isOrganizationOwnerOrAdmin,
-} from '@/lib/billing/core/organization'
-import { getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOrganizationAccessState } from '@/lib/organization/access'
+import { requireSsoOrganization } from '@/lib/sso/management'
 
 const logger = createLogger('SSO-Providers')
-
-type OrganizationSession = {
-  activeOrganizationId?: string | null
-}
 
 function getProviderType(provider: {
   oidcConfig: string | null
@@ -55,37 +47,7 @@ export async function GET() {
       return NextResponse.json({ providers })
     }
 
-    const activeOrganizationId = (session.session as OrganizationSession | undefined)
-      ?.activeOrganizationId
-    if (!activeOrganizationId) {
-      return NextResponse.json({ error: 'Active organization is required' }, { status: 400 })
-    }
-
-    const [{ billingEnabled }, canManageSso, organizationBillingData] = await Promise.all([
-      getBillingGateState(),
-      isOrganizationOwnerOrAdmin(session.user.id, activeOrganizationId),
-      getOrganizationBillingData(activeOrganizationId),
-    ])
-    const access = getOrganizationAccessState({
-      billingEnabled,
-      hasOrganization: true,
-      isOrganizationAdmin: canManageSso,
-      organizationTier: organizationBillingData?.subscriptionTier,
-    })
-
-    if (!access.canManageOrganization) {
-      return NextResponse.json(
-        { error: 'Only organization owners and admins can manage SSO' },
-        { status: 403 }
-      )
-    }
-
-    if (!access.canConfigureSso) {
-      return NextResponse.json(
-        { error: 'Single Sign-On is not enabled for this organization' },
-        { status: 403 }
-      )
-    }
+    const activeOrganizationId = await requireSsoOrganization(session)
 
     const results = await db
       .select({
@@ -93,6 +55,7 @@ export async function GET() {
         providerId: ssoProvider.providerId,
         domain: ssoProvider.domain,
         issuer: ssoProvider.issuer,
+        domainVerified: ssoProvider.domainVerified,
         oidcConfig: ssoProvider.oidcConfig,
         samlConfig: ssoProvider.samlConfig,
         organizationId: ssoProvider.organizationId,
@@ -105,6 +68,7 @@ export async function GET() {
       providerId: provider.providerId,
       domain: provider.domain,
       issuer: provider.issuer,
+      domainVerified: provider.domainVerified === true,
       organizationId: provider.organizationId,
       providerType: getProviderType(provider),
       hasOidcConfig: Boolean(provider.oidcConfig),
@@ -120,6 +84,8 @@ export async function GET() {
 
     return NextResponse.json({ providers })
   } catch (error) {
+    if (error instanceof APIError)
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
     logger.error('Failed to fetch SSO providers', { error })
     return NextResponse.json({ error: 'Failed to fetch SSO providers' }, { status: 500 })
   }

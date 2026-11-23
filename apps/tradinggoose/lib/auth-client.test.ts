@@ -19,10 +19,9 @@ vi.mock('@better-auth/stripe/client', () => ({
 }))
 
 vi.mock('better-auth/client/plugins', () => ({
-  customSessionClient: vi.fn(() => 'custom-session-client'),
   emailOTPClient: vi.fn(() => 'email-otp-client'),
-  genericOAuthClient: vi.fn(() => 'generic-oauth-client'),
   organizationClient: vi.fn(() => 'organization-client'),
+  usernameClient: vi.fn(() => 'username-client'),
 }))
 
 vi.mock('@/lib/env', () => ({

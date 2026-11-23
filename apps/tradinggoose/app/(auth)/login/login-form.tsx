@@ -377,6 +377,7 @@ export default function LoginPage({
       )
 
       if (!result || result.error) {
+        if (result?.error?.code === 'EMAIL_NOT_VERIFIED') throw result.error
         if (requiresReauthCleanup || isSessionRecoveryError(result?.error)) {
           shouldRunReauthCleanupRef.current = true
           void runReauthCleanup()
@@ -399,7 +400,12 @@ export default function LoginPage({
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('verificationEmail', email)
         }
-        router.push('/verify')
+        const destination = authRedirectUrls.providerCallbackPath(callbackUrl)
+        router.push(
+          destination === '/workspace'
+            ? '/verify'
+            : `/verify?redirectAfter=${encodeURIComponent(destination)}`
+        )
         return
       }
       if (isSessionRecoveryError(err)) {

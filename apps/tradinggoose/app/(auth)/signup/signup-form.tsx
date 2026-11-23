@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
-import { useLocale, useMessages } from 'next-intl'
+import { useMessages } from 'next-intl'
+import { UsernameInput } from '@/components/auth/username-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,7 +25,7 @@ import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { inter } from '@/app/fonts/inter'
 import { Link, useRouter } from '@/i18n/navigation'
-import { type LocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
+import { normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('SignupForm')
 
@@ -83,7 +84,6 @@ function SignupFormContent({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
-  const locale = useLocale() as LocaleCode
   const copy = useMessages()
   const commonCopy = copy.auth.common
   const signupCopy = copy.auth.signup
@@ -104,6 +104,7 @@ function SignupFormContent({
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
+  const [usernameError, setUsernameError] = useState('')
   const [name, setName] = useState('')
   const [nameErrors, setNameErrors] = useState<string[]>([])
   const [showNameValidationError, setShowNameValidationError] = useState(false)
@@ -229,6 +230,12 @@ function SignupFormContent({
     e.preventDefault()
     setIsLoading(true)
 
+    const usernameInput = e.currentTarget.elements.namedItem('username') as HTMLInputElement
+    if (!usernameInput.reportValidity()) {
+      setIsLoading(false)
+      return
+    }
+    setUsernameError('')
     const formData = new FormData(e.currentTarget)
     const emailValueRaw = formData.get('email') as string
     const emailValue = emailValueRaw.trim().toLowerCase()
@@ -289,6 +296,7 @@ function SignupFormContent({
           email: emailValue,
           password: passwordValue,
           name: sanitizedName,
+          username: usernameInput.value.trim(),
         },
         {
           onError: (ctx) => {
@@ -297,7 +305,14 @@ function SignupFormContent({
             const authErrorCode =
               normalizeAuthErrorCode(ctx.error.code) ?? normalizeAuthErrorCode(ctx.error.message)
 
-            if (authErrorCode === 'USER_ALREADY_EXISTS') {
+            if (authErrorCode?.includes('USERNAME')) {
+              const usernameCopy = copy.workspace.settingsModal.account.username
+              setUsernameError(
+                authErrorCode === 'USERNAME_IS_ALREADY_TAKEN'
+                  ? usernameCopy.taken
+                  : ctx.error.message || usernameCopy.failed
+              )
+            } else if (authErrorCode === 'USER_ALREADY_EXISTS') {
               errorMessage.push(signupCopy.errors.accountExists)
               setEmailError(errorMessage[errorMessage.length - 1])
             } else if (
@@ -346,24 +361,9 @@ function SignupFormContent({
         return
       }
 
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('verificationEmail', emailValue)
-        if (isInviteFlow && redirectUrl) {
-          sessionStorage.setItem('inviteRedirectUrl', redirectUrl)
-          sessionStorage.setItem('isInviteFlow', 'true')
-        }
-      }
-
-      try {
-        await client.emailOtp.sendVerificationOtp({
-          email: emailValue,
-          type: 'sign-in',
-        })
-      } catch (otpErr) {
-        logger.warn('Failed to send sign-in OTP after signup; user can press Resend', otpErr)
-      }
-
-      router.push('/verify?fromSignup=true')
+      sessionStorage.setItem('verificationEmail', emailValue)
+      const redirectParam = redirectUrl ? `&redirectAfter=${encodeURIComponent(redirectUrl)}` : ''
+      router.push(`/verify?fromSignup=true${redirectParam}`)
     } catch (error) {
       logger.error('Signup error:', error)
       setIsLoading(false)
@@ -434,6 +434,7 @@ function SignupFormContent({
               </div>
             )}
           </div>
+          <UsernameInput error={usernameError} />
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
               <Label htmlFor='email'>{commonCopy.email}</Label>

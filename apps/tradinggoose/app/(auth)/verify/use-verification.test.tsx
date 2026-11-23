@@ -10,7 +10,8 @@ import { getPublicCopy } from '@/i18n/public-copy'
 import { useVerification } from './use-verification'
 
 const mockPush = vi.hoisted(() => vi.fn())
-const mockEmailOtpSignIn = vi.hoisted(() => vi.fn())
+const mockVerifyEmail = vi.hoisted(() => vi.fn())
+const mockGetSession = vi.hoisted(() => vi.fn())
 const mockSendVerificationOtp = vi.hoisted(() => vi.fn())
 const mockRefetchSession = vi.hoisted(() => vi.fn())
 const mockFetch = vi.hoisted(() => vi.fn())
@@ -32,10 +33,9 @@ vi.mock('@/i18n/navigation', () => ({
 
 vi.mock('@/lib/auth-client', () => ({
   client: {
-    signIn: {
-      emailOtp: mockEmailOtpSignIn,
-    },
+    getSession: mockGetSession,
     emailOtp: {
+      verifyEmail: mockVerifyEmail,
       sendVerificationOtp: mockSendVerificationOtp,
     },
   },
@@ -45,6 +45,7 @@ vi.mock('@/lib/auth-client', () => ({
 }))
 
 interface VerificationControls {
+  resendCode: () => void
   handleOtpChange: (value: string) => void
 }
 
@@ -120,7 +121,10 @@ describe('useVerification', () => {
     })
 
     mockPush.mockReset()
-    mockEmailOtpSignIn.mockReset()
+    mockGetSession
+      .mockReset()
+      .mockResolvedValue({ data: { user: { id: 'user-1', email: 'ada@example.com' } } })
+    mockVerifyEmail.mockReset()
     mockSendVerificationOtp.mockReset()
     mockRefetchSession.mockReset()
     mockFetch.mockReset()
@@ -155,7 +159,7 @@ describe('useVerification', () => {
 
   it('pushes the canonical workspace path after successful verification', async () => {
     sessionStore.set('verificationEmail', 'ada@example.com')
-    mockEmailOtpSignIn.mockResolvedValue({})
+    mockVerifyEmail.mockResolvedValue({})
     mockRefetchSession.mockResolvedValue(undefined)
 
     let controls!: VerificationControls
@@ -172,7 +176,7 @@ describe('useVerification', () => {
       await vi.advanceTimersByTimeAsync(1300)
     })
 
-    expect(mockEmailOtpSignIn).toHaveBeenCalledWith({
+    expect(mockVerifyEmail).toHaveBeenCalledWith({
       email: 'ada@example.com',
       otp: '123456',
     })
@@ -190,9 +194,8 @@ describe('useVerification', () => {
 
   it('pushes canonical invite redirects through generated navigation', async () => {
     sessionStore.set('verificationEmail', 'ada@example.com')
-    sessionStore.set('inviteRedirectUrl', '/workspace/ws-1/dashboard')
-    sessionStore.set('isInviteFlow', 'true')
-    mockEmailOtpSignIn.mockResolvedValue({})
+    testState.searchParams.set('redirectAfter', '/workspace/ws-1/dashboard')
+    mockVerifyEmail.mockResolvedValue({})
     mockRefetchSession.mockResolvedValue(undefined)
 
     let controls!: VerificationControls
@@ -210,6 +213,35 @@ describe('useVerification', () => {
     })
 
     expect(mockPush).toHaveBeenCalledWith('/workspace/ws-1/dashboard')
+  })
+
+  it('resends verification codes and requires a session before continuing', async () => {
+    sessionStore.set('verificationEmail', 'ada@example.com')
+    testState.searchParams.set('redirectAfter', '/invite/abc')
+    mockVerifyEmail.mockResolvedValue({})
+    mockSendVerificationOtp.mockResolvedValue({})
+    mockGetSession.mockResolvedValue({ data: null })
+    let controls!: VerificationControls
+    await renderHarness('en', (value) => {
+      controls = value
+    })
+
+    await act(async () => {
+      controls.resendCode()
+    })
+    expect(mockSendVerificationOtp).toHaveBeenCalledWith({
+      email: 'ada@example.com',
+      type: 'email-verification',
+    })
+    await act(async () => {
+      controls.handleOtpChange('123456')
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300)
+    })
+    expect(mockGetSession).toHaveBeenCalled()
+    expect(mockPush).toHaveBeenCalledWith('/login?callbackUrl=%2Finvite%2Fabc')
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it('persists locale before redirecting when verification is disabled', async () => {

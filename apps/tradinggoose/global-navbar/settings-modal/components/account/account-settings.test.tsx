@@ -2,16 +2,28 @@
 
 import type React from 'react'
 import { act } from 'react'
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getOrganizationAccessState } from '@/lib/organization/access'
+import { getUserRole } from '@/lib/organization/helpers'
 import { getGeneralSettingsResponsePatch } from '@/hooks/queries/general-settings'
-import { getPublicCopy } from '@/i18n/public-copy'
+import { organizationKeys } from '@/hooks/queries/organization'
+import { getClientMessages, getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
 import { AccountSettings } from './account-settings'
 
 const mockUseSession = vi.fn()
+const mockRefetch = vi.fn()
+const auth = vi.hoisted(() => ({
+  isUsernameAvailable: vi.fn(),
+  updateUser: vi.fn(),
+  emailOtp: { requestEmailChange: vi.fn(), changeEmail: vi.fn() },
+}))
+vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ replace: vi.fn() }) }))
+let queryClient: QueryClient
 const mockSetTelemetryEnabled = vi.fn()
 const generalState = {
   isLoading: false,
@@ -54,6 +66,7 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 vi.mock('@/lib/auth-client', () => ({
+  client: auth,
   useSession: () => mockUseSession(),
 }))
 vi.mock('@/stores/settings/general/store', () => ({
@@ -62,9 +75,11 @@ vi.mock('@/stores/settings/general/store', () => ({
 
 function renderAccountSettings(root: Root, locale: LocaleCode) {
   root.render(
-    <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-      <AccountSettings />
-    </NextIntlClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <NextIntlClientProvider locale={locale} messages={getClientMessages(locale, 'workspace')}>
+        <AccountSettings />
+      </NextIntlClientProvider>
+    </QueryClientProvider>
   )
 }
 function findButtonByText(container: HTMLElement, text: string) {
@@ -102,11 +117,17 @@ describe('AccountSettings localization', () => {
   let root: Root
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    })
+    vi.clearAllMocks()
     mockSetTelemetryEnabled.mockReset()
     mockUseSession.mockReturnValue({
+      refetch: mockRefetch,
       data: {
         user: {
           id: 'user-1',
+          username: 'ada',
           name: 'Ada Lovelace',
           email: 'ada@example.com',
           image: null,
@@ -150,6 +171,7 @@ describe('AccountSettings localization', () => {
     act(() => {
       root.unmount()
     })
+    queryClient.clear()
     container.remove()
     vi.restoreAllMocks()
   })
@@ -169,6 +191,96 @@ describe('AccountSettings localization', () => {
     expect(container.textContent).toContain(copy.telemetry.label)
     expect(container.textContent).toContain(copy.telemetry.tooltipBody)
     expect(container.textContent).toContain(copy.telemetry.body)
+  })
+
+  async function submitField(selector: string, value: string) {
+    const input = container.querySelector<HTMLInputElement>(selector)!
+    await act(async () => {
+      setInputValue(input, value)
+      input.form!.requestSubmit()
+      await flush()
+    })
+  }
+
+  it('keeps the display name independent and handles a username claimed before or after the check', async () => {
+    const copy = getPublicCopy('en').workspace.settingsModal.account.username
+    await act(async () => {
+      renderAccountSettings(root, 'en')
+      await flush()
+    })
+    auth.isUsernameAvailable.mockResolvedValueOnce({ data: { available: false } })
+    await submitField('#username', 'TAKEN')
+    expect(auth.updateUser).not.toHaveBeenCalled()
+    expect(container.querySelector('#username-error')).toHaveTextContent(copy.taken)
+    auth.isUsernameAvailable.mockResolvedValue({ data: { available: true } })
+    auth.updateUser.mockResolvedValueOnce({ error: { code: 'USERNAME_IS_ALREADY_TAKEN' } })
+    await submitField('#username', 'Claimed')
+    expect(container.querySelector('#username-error')).toHaveTextContent(copy.taken)
+    expect(mockRefetch).not.toHaveBeenCalled()
+    auth.updateUser.mockResolvedValueOnce({ data: {} })
+    await submitField('#username', 'AdaTwo')
+    expect(auth.isUsernameAvailable).toHaveBeenLastCalledWith({ username: 'AdaTwo' })
+    expect(auth.updateUser).toHaveBeenLastCalledWith({ username: 'AdaTwo' })
+    expect(mockRefetch).toHaveBeenCalledOnce()
+    expect(container.textContent).toContain('Ada Lovelace')
+  })
+
+  it('refreshes the session and active organization members only after the proposed email is confirmed', async () => {
+    const oldEmail = 'ada@example.com'
+    const newEmail = 'ada@new.example'
+    const organization = (email: string) => ({
+      id: 'org',
+      name: 'Organization',
+      slug: 'org',
+      createdAt: new Date(),
+      members: [{ id: 'membership', role: 'owner', user: { id: 'user-1', email } }],
+    })
+    const queryKey = organizationKeys.detail('org')
+    queryClient.setQueryData(queryKey, organization(oldEmail))
+    const loadMembers = vi.fn(async () => organization(newEmail))
+    const observer = new QueryObserver(queryClient, { queryKey, queryFn: loadMembers })
+    const unsubscribe = observer.subscribe(() => {})
+    mockRefetch.mockImplementationOnce(() => {
+      mockUseSession.mockReturnValue({
+        data: { user: { id: 'user-1', email: newEmail } },
+        refetch: mockRefetch,
+      })
+    })
+    auth.emailOtp.requestEmailChange.mockResolvedValue({})
+    auth.emailOtp.changeEmail
+      .mockResolvedValueOnce({ error: { message: 'Invalid code' } })
+      .mockResolvedValueOnce({})
+    try {
+      await act(async () => {
+        renderAccountSettings(root, 'en')
+        await flush()
+      })
+      await submitField('#new-email', newEmail)
+      expect(auth.emailOtp.requestEmailChange).toHaveBeenCalledWith({ newEmail })
+      await submitField('#email-change-code', '000000')
+      expect(container.textContent).toContain(oldEmail)
+      expect(container.textContent).toContain('Invalid code')
+      expect(loadMembers).not.toHaveBeenCalled()
+      expect(mockRefetch).not.toHaveBeenCalled()
+      await submitField('#email-change-code', '123456')
+      expect(auth.emailOtp.changeEmail).toHaveBeenLastCalledWith({ newEmail, otp: '123456' })
+      expect(mockRefetch).toHaveBeenCalledOnce()
+      expect(loadMembers).toHaveBeenCalledOnce()
+      const email = mockUseSession().data.user.email
+      expect(email).toBe(newEmail)
+      expect(container.textContent).toContain(newEmail)
+      const role = getUserRole(observer.getCurrentResult().data, email)
+      expect(role).toBe('owner')
+      expect(
+        getOrganizationAccessState({
+          billingEnabled: false,
+          hasOrganization: true,
+          isOrganizationAdmin: role === 'owner',
+        })
+      ).toMatchObject({ canManageOrganization: true, canConfigureSso: true })
+    } finally {
+      unsubscribe()
+    }
   })
 
   it('synchronizes each settings response around independent active mutations', async () => {

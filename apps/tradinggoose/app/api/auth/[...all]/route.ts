@@ -1,5 +1,6 @@
+import { getAuthStateVerificationIdentifier, type StateData } from 'better-auth'
 import { toNextJsHandler } from 'better-auth/next-js'
-import { auth, getSession } from '@/lib/auth'
+import { auth, createOAuthAuth, getSession } from '@/lib/auth'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
 import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
@@ -10,7 +11,7 @@ import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscription
 import { getBillingTierById } from '@/lib/billing/tiers'
 import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
-import { getRobinhoodOAuthClientIdFromState } from '@/lib/oauth/robinhood'
+import { ROBINHOOD_OAUTH_CALLBACK_PATH } from '@/lib/oauth/robinhood-constants'
 import {
   loadSystemOAuthClientCredentials,
   runWithSystemOAuthClientCredentials,
@@ -18,9 +19,7 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-const SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES = ['/api/auth/callback/', '/api/auth/oauth2/callback/']
 const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
-const ROBINHOOD_OAUTH_CALLBACK_PATH = '/api/auth/oauth2/callback/robinhood'
 const APP_OWNED_AUTH_POST_PATHS = new Set([
   '/api/auth/organization/update',
   '/api/auth/organization/cancel-invitation',
@@ -34,67 +33,17 @@ const APP_OWNED_AUTH_POST_PATHS = new Set([
   '/api/auth/organization/accept-invitation',
 ])
 
-const isSystemOAuthCallbackPath = (pathname: string) =>
-  SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-
-const shouldHydrateSystemOAuthCredentials = (pathname: string) =>
-  isSystemOAuthCallbackPath(pathname) ||
-  pathname === '/api/auth/oauth2/link' ||
-  pathname === '/api/auth/sign-in/oauth2' ||
-  pathname === '/api/auth/sign-in/social'
-
-async function getRequestedSystemOAuthProviderId(request: Request, pathname: string) {
-  if (isSystemOAuthCallbackPath(pathname)) {
-    return pathname.split('/').at(-1)?.trim() ?? ''
-  }
-
-  if (
-    pathname === '/api/auth/oauth2/link' ||
-    pathname === '/api/auth/sign-in/oauth2' ||
-    pathname === '/api/auth/sign-in/social'
-  ) {
-    const body = await request
-      .clone()
-      .json()
-      .catch(() => null)
-    if (!body || typeof body !== 'object') {
-      return ''
-    }
-
-    if ('providerId' in body) {
-      return String(body.providerId)
-    }
-
-    return 'provider' in body ? String(body.provider) : ''
-  }
-
-  return ''
-}
-
-async function handleRobinhoodOAuthRequest(request: Request, pathname: string) {
-  const isLinkRequest = request.method === 'POST' && pathname === '/api/auth/oauth2/link'
-  const isCallbackRequest = request.method === 'GET' && pathname === ROBINHOOD_OAUTH_CALLBACK_PATH
-  if (!isLinkRequest && !isCallbackRequest) {
-    return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
-  }
-
-  if (isLinkRequest) {
-    return runWithSystemOAuthClientCredentials(() => auth.handler(request), {
-      robinhood: { clientId: '', clientSecret: '', fields: {} },
-    })
-  }
-
-  const clientId = await getRobinhoodOAuthClientIdFromState(
-    new URL(request.url).searchParams.get('state')?.trim() ?? ''
+async function getExplicitLinkContext(providerId: string, state: string | null) {
+  if (!state) return null
+  const { internalAdapter } = await auth.$context
+  const record = await internalAdapter.findVerificationValue(
+    getAuthStateVerificationIdentifier(state)
   )
-
-  if (!clientId) {
-    return Response.json({ error: 'Robinhood OAuth connection expired' }, { status: 400 })
-  }
-
-  return runWithSystemOAuthClientCredentials(() => auth.handler(request), {
-    robinhood: { clientId, clientSecret: '', fields: {} },
-  })
+  if (!record) return null
+  const stored: StateData = JSON.parse(record.value)
+  return stored.link?.userId && stored.serverContext?.providerId === providerId
+    ? stored.serverContext
+    : null
 }
 
 async function prepareSubscriptionUpgrade(request: Request): Promise<Request | Response> {
@@ -243,29 +192,50 @@ export const handleAuthRequest = async (request: Request) => {
     requestToHandle = preparedRequest
   }
 
-  if (!shouldHydrateSystemOAuthCredentials(pathname)) {
+  const isCallback = pathname.startsWith('/api/auth/callback/')
+  if (
+    !isCallback &&
+    pathname !== '/api/auth/link-social' &&
+    pathname !== '/api/auth/sign-in/social'
+  ) {
     return auth.handler(requestToHandle)
   }
 
-  const providerId = await getRequestedSystemOAuthProviderId(request, pathname)
-  if (!providerId) {
+  const providerId = isCallback
+    ? pathname.split('/').at(-1)
+    : (
+        await request
+          .clone()
+          .json()
+          .catch(() => null)
+      )?.provider
+  if (typeof providerId !== 'string' || !providerId) {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
   }
-
-  if (isSignInOAuthProviderId(providerId)) {
-    return auth.handler(request)
-  }
-
+  if (isSignInOAuthProviderId(providerId)) return auth.handler(requestToHandle)
   const credentials = await loadSystemOAuthClientCredentials([providerId])
-  if (!credentials[providerId]) {
+  const providerCredentials = credentials[providerId]
+  if (!providerCredentials) {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
   }
 
+  const link = isCallback
+    ? await getExplicitLinkContext(providerId, new URL(request.url).searchParams.get('state'))
+    : null
   if (providerId === 'robinhood') {
-    return handleRobinhoodOAuthRequest(requestToHandle, pathname)
+    if (request.method === 'GET' && pathname === ROBINHOOD_OAUTH_CALLBACK_PATH) {
+      if (typeof link?.robinhoodClientId !== 'string' || !link.robinhoodClientId) {
+        return Response.json({ error: 'Robinhood OAuth connection expired' }, { status: 400 })
+      }
+      providerCredentials.clientId = link.robinhoodClientId
+    } else if (request.method !== 'POST' || pathname !== '/api/auth/link-social') {
+      return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
+    }
   }
-
-  return runWithSystemOAuthClientCredentials(() => auth.handler(requestToHandle), credentials)
+  return runWithSystemOAuthClientCredentials(
+    () => createOAuthAuth(providerId, providerCredentials, Boolean(link)).handler(requestToHandle),
+    credentials
+  )
 }
 
 export const { GET, POST } = toNextJsHandler(handleAuthRequest)

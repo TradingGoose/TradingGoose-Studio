@@ -1,9 +1,11 @@
 'use client'
 
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
+import { UsernameForm } from '@/components/auth/username-form'
 import { AgentIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,9 +14,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
-import { useSession } from '@/lib/auth-client'
+import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
+import { organizationKeys } from '@/hooks/queries/organization'
 import { useGeneralStore } from '@/stores/settings/general/store'
 
 const logger = createLogger('AccountSettings')
@@ -28,7 +31,8 @@ const toEpochMillis = (value: string | Date | null | undefined): number | null =
 }
 
 export function AccountSettings() {
-  const { data: session } = useSession()
+  const { data: session, refetch } = useSession()
+  const queryClient = useQueryClient()
   const authRedirectUrls = useAuthRedirectUrls()
   const tAccount = useTranslations('workspace.settingsModal.account')
   const userId = session?.user?.id ?? null
@@ -63,7 +67,10 @@ export function AccountSettings() {
   }
 
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const email = session?.user?.email ?? ''
+  const [pendingEmail, setPendingEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [changingEmail, setChangingEmail] = useState(false)
   const [profilePictureError, setProfilePictureError] = useState<string | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
@@ -149,7 +156,6 @@ export function AccountSettings() {
 
         const data = await response.json()
         setName(data.user.name)
-        setEmail(data.user.email)
         setUserImage(data.user.image || null)
         setAvatarVersion(data.user.updatedAt ? new Date(data.user.updatedAt).getTime() : Date.now())
         if (typeof window !== 'undefined' && userId) {
@@ -161,7 +167,6 @@ export function AccountSettings() {
       } catch (error) {
         logger.error('Error fetching profile:', error)
         setName(session?.user?.name ?? '')
-        setEmail(session?.user?.email ?? '')
         setUserImage(session?.user?.image ?? null)
         setAvatarVersion(
           session?.user?.updatedAt ? new Date(session.user.updatedAt).getTime() : Date.now()
@@ -241,8 +246,42 @@ export function AccountSettings() {
     }
   }
 
+  async function changeEmail(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = event.currentTarget
+    const fields = new FormData(form)
+    setChangingEmail(true)
+    setEmailError('')
+    try {
+      if (!pendingEmail) {
+        const newEmail = String(fields.get('newEmail')).trim().toLowerCase()
+        const { error } = await client.emailOtp.requestEmailChange({ newEmail })
+        if (error) throw new Error(error.message)
+        setPendingEmail(newEmail)
+      } else {
+        const { error } = await client.emailOtp.changeEmail({
+          newEmail: pendingEmail,
+          otp: String(fields.get('otp')).trim(),
+        })
+        if (error) throw new Error(error.message)
+        setPendingEmail('')
+        form.reset()
+        await Promise.all([
+          refetch(),
+          queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
+        ])
+      }
+    } catch (error) {
+      setEmailError(
+        error instanceof Error && error.message ? error.message : tAccount('status.saveError')
+      )
+    } finally {
+      setChangingEmail(false)
+    }
+  }
+
   const handlePasswordReset = async () => {
-    const targetEmail = session?.user?.email ?? email
+    const targetEmail = email
     if (!targetEmail) {
       setPasswordResetStatus({
         type: 'error',
@@ -476,13 +515,63 @@ export function AccountSettings() {
                   </div>
                 )}
               </div>
-              <div className='space-y-1'>
-                <Label>{tAccount('emailAddress')}</Label>
-                <div className='rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm'>
-                  {email || '—'}
+              <UsernameForm current={session?.user?.username ?? undefined} />
+              <form onSubmit={changeEmail} className='max-w-md space-y-2' aria-busy={changingEmail}>
+                <p className='text-sm'>
+                  {tAccount('emailAddress')}: {email || '—'}
+                </p>
+                {pendingEmail ? (
+                  <>
+                    <Label htmlFor='email-change-code'>
+                      {tAccount('codeSentTo', { email: pendingEmail })}
+                    </Label>
+                    <Input
+                      id='email-change-code'
+                      name='otp'
+                      key='otp'
+                      autoComplete='one-time-code'
+                      inputMode='numeric'
+                      required
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Label htmlFor='new-email'>{tAccount('newEmail')}</Label>
+                    <Input
+                      id='new-email'
+                      name='newEmail'
+                      key='newEmail'
+                      type='email'
+                      autoComplete='email'
+                      required
+                    />
+                  </>
+                )}
+                <div className='flex gap-2'>
+                  <Button type='submit' size='sm' disabled={changingEmail}>
+                    {tAccount(pendingEmail ? 'confirmEmail' : 'sendCode')}
+                  </Button>
+                  {pendingEmail && (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      disabled={changingEmail}
+                      onClick={() => {
+                        setPendingEmail('')
+                        setEmailError('')
+                      }}
+                    >
+                      {tAccount('cancelEmail')}
+                    </Button>
+                  )}
                 </div>
-                <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
-              </div>
+                {emailError && (
+                  <p role='alert' className='text-destructive text-xs'>
+                    {emailError}
+                  </p>
+                )}
+              </form>
             </div>
 
             <div className='rounded-sm border bg-muted/30 px-4 py-4'>

@@ -2,6 +2,13 @@
  * @vitest-environment node
  */
 
+import dns from 'node:dns/promises'
+import { syncBuiltinESMExports } from 'node:module'
+import { sso } from '@better-auth/sso'
+import { betterAuth } from 'better-auth'
+import { memoryAdapter } from 'better-auth/adapters/memory'
+import { organization } from 'better-auth/plugins'
+import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -56,10 +63,6 @@ vi.mock('@/lib/env', () => ({
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => mockLogger,
-}))
-
-vi.mock('@/lib/security/input-validation', () => ({
-  validateExternalUrl: vi.fn(() => ({ isValid: true })),
 }))
 
 describe('SSO register route', () => {
@@ -236,6 +239,8 @@ describe('SSO register route', () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(
         JSON.stringify({
+          issuer: 'https://issuer.example.com',
+          token_endpoint_auth_methods_supported: ['client_secret_post'],
           authorization_endpoint: 'https://issuer.example.com/oauth2/v1/authorize',
           token_endpoint: 'https://issuer.example.com/oauth2/v1/token',
           userinfo_endpoint: 'https://issuer.example.com/oauth2/v1/userinfo',
@@ -310,6 +315,30 @@ describe('SSO register route', () => {
     expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
   })
 
+  it('rejects managed OAuth provider IDs before OIDC discovery or registration', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'owner' },
+      session: { activeOrganizationId: 'org' },
+    })
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('http://localhost/api/auth/sso/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerType: 'oidc',
+          providerId: 'tradier-live',
+          issuer: 'https://idp.example.com',
+          domain: 'example.com',
+          clientId: 'client',
+          clientSecret: 'secret',
+        }),
+      })
+    )
+    expect(response.status).toBe(422)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
+  })
+
   it('registers oidc providers for the active organization via issuer discovery', async () => {
     mockGetSession.mockResolvedValue({
       user: {
@@ -325,6 +354,8 @@ describe('SSO register route', () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(
         JSON.stringify({
+          issuer: 'https://issuer.example.com',
+          token_endpoint_auth_methods_supported: ['client_secret_post'],
           authorization_endpoint: 'https://issuer.example.com/oauth2/v1/authorize',
           token_endpoint: 'https://issuer.example.com/oauth2/v1/token',
           userinfo_endpoint: 'https://issuer.example.com/oauth2/v1/userinfo',
@@ -358,14 +389,10 @@ describe('SSO register route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(fetch).toHaveBeenCalledWith(
-      'https://issuer.example.com/.well-known/openid-configuration',
-      expect.objectContaining({
-        headers: {
-          Accept: 'application/json',
-        },
-      })
-    )
+    expect(fetch).toHaveBeenCalledTimes(1)
+    const [url, options] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toBe('https://issuer.example.com/.well-known/openid-configuration')
+    expect(options?.redirect).toBe('manual')
     expect(mockRegisterSSOProvider).toHaveBeenCalledWith({
       body: expect.objectContaining({
         providerId: 'okta',
@@ -376,22 +403,21 @@ describe('SSO register route', () => {
           tokenEndpoint: 'https://issuer.example.com/oauth2/v1/token',
           userInfoEndpoint: 'https://issuer.example.com/oauth2/v1/userinfo',
           jwksEndpoint: 'https://issuer.example.com/oauth2/v1/keys',
+          skipDiscovery: true,
+          tokenEndpointAuthentication: 'client_secret_post',
           mapping: {
-            id: 'sub',
             email: 'email',
             name: 'name',
             image: 'picture',
           },
         }),
       }),
-      headers: expect.objectContaining({
-        'content-type': 'application/json',
-      }),
+      headers: expect.any(Headers),
     })
     expect(mockIsOrganizationOwnerOrAdmin).toHaveBeenCalledWith('user-1', 'org-1')
   })
 
-  it('registers saml providers for the active organization with Better Auth ACS callback url', async () => {
+  it('registers manual SAML with distinct IdP and SP identities', async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -415,6 +441,7 @@ describe('SSO register route', () => {
           providerType: 'saml',
           entryPoint: 'https://idp.example.com/sso/saml',
           cert: 'certificate',
+          idpEntityId: 'https://idp.example.com',
         }),
         headers: {
           'content-type': 'application/json',
@@ -428,12 +455,240 @@ describe('SSO register route', () => {
         providerId: 'okta-saml',
         organizationId: 'org-1',
         samlConfig: expect.objectContaining({
-          callbackUrl: 'http://localhost:3000/api/auth/sso/saml2/sp/acs/okta-saml',
+          idpMetadata: { entityID: 'https://idp.example.com' },
+          mapping: { email: 'email', name: 'name' },
         }),
       }),
-      headers: expect.objectContaining({
-        'content-type': 'application/json',
-      }),
+      headers: expect.any(Headers),
     })
+  })
+  it.each([
+    ['private issuer', 'https://10.0.0.2', undefined],
+    ['IPv6 loopback issuer', 'https://[::1]', undefined],
+    ['redirect', 'https://issuer.example.com', Response.redirect('https://other.example.com')],
+    [
+      'mismatched issuer',
+      'https://issuer.example.com',
+      Response.json({
+        issuer: 'https://other.example.com',
+        authorization_endpoint: 'https://issuer.example.com/auth',
+        token_endpoint: 'https://issuer.example.com/token',
+        jwks_uri: 'https://issuer.example.com/keys',
+      }),
+    ],
+    [
+      'insecure endpoint',
+      'https://issuer.example.com',
+      Response.json({
+        issuer: 'https://issuer.example.com',
+        authorization_endpoint: 'http://issuer.example.com/auth',
+        token_endpoint: 'https://issuer.example.com/token',
+        jwks_uri: 'https://issuer.example.com/keys',
+      }),
+    ],
+  ] as const)('rejects %s before registration', async (_, issuer, doc) => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1' },
+      session: { activeOrganizationId: 'org-1' },
+    })
+    if (doc) vi.mocked(fetch).mockResolvedValue(doc)
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('http://localhost/api/auth/sso/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerType: 'oidc',
+          issuer,
+          domain: 'example.com',
+          providerId: 'okta',
+          clientId: 'client',
+          clientSecret: 'secret',
+        }),
+      })
+    )
+    expect(response.status).toBe(400)
+    expect(fetch).toHaveBeenCalledTimes(doc ? 1 : 0)
+    expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
+  })
+  it('requires an IdP identity before saving a manual SAML provider', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1' },
+      session: { activeOrganizationId: 'org-1' },
+    })
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('http://localhost/api/auth/sso/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerType: 'saml',
+          issuer: 'https://studio.example.com',
+          domain: 'example.com',
+          providerId: 'okta-saml',
+          entryPoint: 'https://idp.example.com/sso',
+          cert: 'certificate',
+        }),
+      })
+    )
+    expect(response.status).toBe(400)
+    expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
+  })
+  it('verifies DNS and links the signed OIDC subject to the existing password user', async () => {
+    const origin = 'http://localhost:3000'
+    const issuer = 'https://93.184.216.34'
+    const email = 'owner@example.com'
+    const callbackURL = '/signup?complete=username&callbackUrl=%2Finvite%2Fteam'
+    const auth = betterAuth({
+      baseURL: origin,
+      secret: 'local-integration-test-secret-safe-for-fixtures-only',
+      database: memoryAdapter({
+        user: [],
+        session: [],
+        account: [],
+        verification: [],
+        organization: [],
+        member: [],
+        ssoProvider: [],
+      }),
+      emailAndPassword: { enabled: true },
+      plugins: [organization(), sso({ domainVerification: { enabled: true } })],
+    })
+    const api = (path: string, body?: object, cookie = '') =>
+      auth.handler(
+        new Request(`${origin}/api/auth${path}`, {
+          method: body ? 'POST' : 'GET',
+          headers: { origin, cookie, 'content-type': 'application/json' },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+        })
+      )
+    const cookies = (r: Response) =>
+      r.headers
+        .getSetCookie()
+        .map((c) => c.split(';')[0])
+        .join('; ')
+    const signup = await api('/sign-up/email', {
+      name: 'Owner',
+      email,
+      password: 'Account-fixture-123!',
+    })
+    const cookie = cookies(signup)
+    const { user } = await signup.json()
+    const { internalAdapter, adapter } = await auth.$context
+    await internalAdapter.updateUser(user.id, { emailVerified: true })
+    const org = await (
+      await api('/organization/create', { name: 'Org', slug: 'org' }, cookie)
+    ).json()
+    mockGetSession.mockResolvedValue({ user, session: { activeOrganizationId: org.id } })
+    mockRegisterSSOProvider.mockImplementation((options) => auth.api.registerSSOProvider(options))
+
+    const { privateKey, publicKey } = await generateKeyPair('RS256')
+    const jwk = await exportJWK(publicKey)
+    const subject = 'idp-owner-1'
+    const claims = { sub: subject, email, name: 'Owner', email_verified: true }
+    const token = await new SignJWT(claims)
+      .setProtectedHeader({ alg: 'RS256', kid: 'fixture' })
+      .setIssuer(issuer)
+      .setAudience('client')
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(privateKey)
+    const discovery = vi.fn(() =>
+      Response.json({
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        jwks_uri: `${issuer}/keys`,
+      })
+    )
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const { pathname } = new URL(String(input))
+      if (pathname === '/.well-known/openid-configuration') return discovery()
+      if (pathname === '/token')
+        return Response.json({ token_type: 'Bearer', access_token: 'fixture', id_token: token })
+      if (pathname === '/keys')
+        return Response.json({ keys: [{ ...jwk, alg: 'RS256', kid: 'fixture' }] })
+      throw new Error(`Unexpected fixture endpoint ${pathname}`)
+    })
+
+    const { POST } = await import('./route')
+    const registration = await POST(
+      new NextRequest(`${origin}/api/auth/sso/register`, {
+        method: 'POST',
+        headers: { origin, cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          providerType: 'oidc',
+          providerId: 'okta',
+          issuer,
+          domain: 'example.com',
+          clientId: 'client',
+          clientSecret: 'secret',
+        }),
+      })
+    )
+    expect(registration.status).toBe(200)
+    const { domainVerificationToken } = await registration.json()
+    expect(domainVerificationToken).toBeTruthy()
+    const start = () => api('/sign-in/sso', { providerId: 'okta', callbackURL })
+    expect((await start()).status).toBe(401)
+    const txt = vi.spyOn(dns, 'resolveTxt').mockResolvedValue([[domainVerificationToken]])
+    syncBuiltinESMExports()
+    const verifyDomain = async () => {
+      expect((await api('/sso/verify-domain', { providerId: 'okta' }, cookie)).status).toBe(204)
+      expect(txt).toHaveBeenCalledWith('_better-auth-token-okta.example.com')
+    }
+    const complete = async () => {
+      const started = await start()
+      expect(started.status).toBe(200)
+      const state = new URL((await started.json()).url).searchParams.get('state')
+      const callback = await api(
+        `/sso/callback/okta?${new URLSearchParams({ code: 'idp-code', state: state! })}`,
+        undefined,
+        cookies(started)
+      )
+      expect(callback.headers.get('location')).toBe(callbackURL)
+      const session = await api('/get-session', undefined, cookies(callback))
+      expect((await session.json()).user.id).toBe(user.id)
+    }
+    try {
+      await verifyDomain()
+      await complete()
+      const accounts = await internalAdapter.findAccounts(user.id)
+      expect(accounts.map((row) => row.providerId).sort()).toEqual(['credential', 'okta'])
+      expect(accounts.find((row) => row.providerId === 'okta')?.accountId).toBe(subject)
+      const where = [{ field: 'providerId', value: 'okta' }]
+      const savedProvider = await adapter.findOne<{ id: string; oidcConfig: string }>({
+        model: 'ssoProvider',
+        where,
+      })
+      const config = JSON.parse(savedProvider!.oidcConfig)
+      // 1.6.2 persisted this mapping and had no verified domain column.
+      await adapter.update({
+        model: 'ssoProvider',
+        where,
+        update: {
+          domainVerified: null,
+          oidcConfig: JSON.stringify({ ...config, mapping: { ...config.mapping, id: 'sub' } }),
+        },
+      })
+      expect((await start()).status).toBe(401)
+      const challenge = await api(
+        '/sso/request-domain-verification',
+        { providerId: 'okta' },
+        cookie
+      )
+      txt.mockResolvedValue([[(await challenge.json()).domainVerificationToken]])
+      await verifyDomain()
+      await complete()
+      expect((await internalAdapter.findAccounts(user.id)).map((row) => row.id).sort()).toEqual(
+        accounts.map((row) => row.id).sort()
+      )
+      expect((await adapter.findOne<{ id: string }>({ model: 'ssoProvider', where }))?.id).toBe(
+        savedProvider!.id
+      )
+      expect(await adapter.count({ model: 'user' })).toBe(1)
+      expect(discovery).toHaveBeenCalledTimes(1)
+    } finally {
+      txt.mockRestore()
+      syncBuiltinESMExports()
+    }
   })
 })
