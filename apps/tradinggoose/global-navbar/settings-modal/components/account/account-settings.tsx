@@ -449,11 +449,10 @@ export function AccountSettings() {
           </CardHeader>
           <CardContent className='space-y-4'>
             <div
-              className={`group relative flex flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed px-4 py-6 text-center transition-all ${
-                isDragActive
-                  ? 'border-primary bg-primary/10'
-                  : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
-              }`}
+              className={`group relative flex flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed px-4 py-6 text-center transition-all ${isDragActive
+                ? 'border-primary bg-primary/10'
+                : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
+                }`}
               onClick={handleThumbnailClick}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}

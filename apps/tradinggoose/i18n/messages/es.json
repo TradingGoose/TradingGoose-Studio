@@ -422,8 +422,16 @@
         "waitlist": "Honk! Presentamos TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio ya está aquí"
       },
-      "leadWords": ["Construir", "Probar", "Ejecutar"],
-      "highlightWords": ["Análisis de Trading", "Detección de Señales", "Evaluación de Riesgos"],
+      "leadWords": [
+        "Construir",
+        "Probar",
+        "Ejecutar"
+      ],
+      "highlightWords": [
+        "Análisis de Trading",
+        "Detección de Señales",
+        "Evaluación de Riesgos"
+      ],
       "titleConnector": "tu",
       "suffix": "con TradingGoose",
       "description": "Conecta tus propios proveedores de datos, escribe indicadores personalizados para monitorear los precios del mercado y enlázalos en flujos de trabajo que activen operaciones de compra, venta o cualquier acción que definas.",
@@ -751,7 +759,13 @@
         "experience": {
           "label": "Años de experiencia *",
           "placeholder": "Selecciona el nivel de experiencia",
-          "options": ["0-1 años", "1-3 años", "3-5 años", "5-10 años", "10+ años"]
+          "options": [
+            "0-1 años",
+            "1-3 años",
+            "3-5 años",
+            "5-10 años",
+            "10+ años"
+          ]
         },
         "location": {
           "label": "Ubicación *",
@@ -3890,7 +3904,10 @@
             },
             "headers": {
               "title": "Encabezados de Response",
-              "columns": ["Clave", "Valor"],
+              "columns": [
+                "Clave",
+                "Valor"
+              ],
               "description": "Encabezados HTTP adicionales para incluir en la respuesta"
             }
           },
@@ -19054,7 +19071,10 @@
             },
             "variables": {
               "title": "Variables",
-              "columns": ["Clave", "Valor"]
+              "columns": [
+                "Clave",
+                "Valor"
+              ]
             },
             "apiKey": {
               "title": "Clave de API de Anthropic",
