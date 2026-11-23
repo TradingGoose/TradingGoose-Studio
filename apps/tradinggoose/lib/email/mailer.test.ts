@@ -201,38 +201,42 @@ describe('mailer', () => {
       expect(mockSend).not.toHaveBeenCalled()
     })
 
-    it('should log unsent email text when no email service is configured', async () => {
-      mockResolveResendServiceConfig.mockResolvedValue({
-        apiKey: null,
-        audienceId: null,
-      })
-      mockResolveAzureCommunicationEmailServiceConfig.mockResolvedValue({
-        connectionString: null,
-      })
-
-      const result = await sendEmail({
-        ...testEmailOptions,
-        text: 'Verification code: 123456',
-        emailType: 'transactional',
-      })
-
-      expect(result).toEqual({
-        success: true,
-        message: 'Email logging successful (no email service configured)',
-        data: { id: 'mock-email-id' },
-      })
-      expect(mockSend).not.toHaveBeenCalled()
-      expect(mockAzureBeginSend).not.toHaveBeenCalled()
-      expect(mockLoggerInfo).toHaveBeenCalledWith(
-        'Email not sent (no email service configured):',
-        expect.objectContaining({
-          to: testEmailOptions.to,
-          subject: testEmailOptions.subject,
-          from: 'TradingGoose <noreply@tradinggoose.ai>',
-          text: 'Verification code: 123456',
+    it.each([false, true])(
+      'honors logTextWhenUnconfigured=%s for undelivered mail',
+      async (logTextWhenUnconfigured) => {
+        mockResolveResendServiceConfig.mockResolvedValue({
+          apiKey: null,
+          audienceId: null,
         })
-      )
-    })
+        mockResolveAzureCommunicationEmailServiceConfig.mockResolvedValue({
+          connectionString: null,
+        })
+
+        const result = await sendEmail({
+          ...testEmailOptions,
+          text: 'Verification code: 123456',
+          logTextWhenUnconfigured,
+          emailType: 'transactional',
+        })
+
+        expect(result).toEqual({
+          success: true,
+          message: 'Email logging successful (no email service configured)',
+          data: { id: 'mock-email-id' },
+        })
+        expect(mockSend).not.toHaveBeenCalled()
+        expect(mockAzureBeginSend).not.toHaveBeenCalled()
+        expect(mockLoggerInfo).toHaveBeenCalledWith(
+          'Email not sent (no email service configured):',
+          {
+            to: testEmailOptions.to,
+            subject: testEmailOptions.subject,
+            from: 'TradingGoose <noreply@tradinggoose.ai>',
+            ...(logTextWhenUnconfigured ? { text: 'Verification code: 123456' } : {}),
+          }
+        )
+      }
+    )
 
     it.concurrent('should handle Resend API errors and fallback to Azure', async () => {
       // Mock Resend to fail

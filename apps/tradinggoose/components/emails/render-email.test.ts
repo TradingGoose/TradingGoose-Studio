@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   getEmailSubject,
+  renderEmailChangeLinkEmail,
   renderPlanWelcomeEmail,
   renderWaitlistConfirmationEmail,
   renderWorkspaceInvitationEmail,
@@ -27,6 +28,21 @@ vi.mock('@/lib/urls/utils', () => ({
 }))
 
 describe('localized email rendering', () => {
+  it.each([
+    ['en', 'Change your email for TradingGoose', 'This link expires in 15 minutes.'],
+    ['es', 'Cambia tu correo de TradingGoose', 'Este enlace caduca en 15 minutos.'],
+    ['zh', '更改你的 TradingGoose 邮箱', '此链接将在 15 分钟后失效。'],
+  ] as const)(
+    'renders the current-mailbox link and its lifetime in %s',
+    async (locale, subject, expiry) => {
+      const link = `https://test.tradinggoose.ai/${locale}/reset-email#accountId=abc&otp=123456`
+      const html = await renderEmailChangeLinkEmail(link, locale)
+      expect(getEmailSubject('email-change-link', locale)).toBe(subject)
+      expect(html).toContain(`href="${link.replace('&', '&amp;')}"`)
+      expect(html).toContain(expiry)
+    }
+  )
+
   it('localizes email subjects by locale', () => {
     expect(getEmailSubject('waitlist-confirmation', 'es')).toBe(
       'Recibimos tu solicitud de acceso a TradingGoose'
