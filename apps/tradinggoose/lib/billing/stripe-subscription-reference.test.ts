@@ -137,7 +137,7 @@ function cookies(response: Response) {
 }
 
 it.each([true, false])(
-  'keeps password access and syncs confirmed email with signup verification %s',
+  'handles password login and syncs confirmed email with verification %s',
   async (verifySignup) => {
     vi.resetModules()
     vi.stubEnv('EMAIL_VERIFICATION_ENABLED', String(verifySignup))
@@ -180,7 +180,11 @@ it.each([true, false])(
     })
     expect(signup.status).toBe(200)
     const { user } = await signup.json()
-    expect(user).toMatchObject({ name: 'Preserved Name', username: 'user_name' })
+    expect(user).toMatchObject({
+      name: 'Preserved Name',
+      username: 'user_name',
+      emailVerified: false,
+    })
     const byId = [{ field: 'id', value: user.id }]
     const byUser = [{ field: 'userId', value: user.id }]
     const credential = await adapter.findOne({ model: 'account', where: byUser })
@@ -198,14 +202,15 @@ it.each([true, false])(
         404
       )
       expect(await adapter.findOne({ model: 'account', where: byUser })).toEqual(credential)
-      expect(
-        (
-          await post('/email-otp/send-verification-otp', {
-            email: original,
-            type: 'email-verification',
-          })
-        ).status
-      ).toBe(200)
+    }
+
+    accountMail.mockClear()
+    const login = await post('/sign-in/email', { email: original, password })
+    if (verifySignup) {
+      expect(login.status).toBe(403)
+      expect(await login.json()).toMatchObject({ code: 'EMAIL_NOT_VERIFIED' })
+      expect(cookies(login)).toBe('')
+      expect(accountMail).toHaveBeenCalledTimes(1)
       const otp = lastCode(original, 'Verify your email')
       vi.stubEnv('ALLOWED_LOGIN_EMAILS', '')
       expect((await post('/email-otp/verify-email', { email: original, otp })).status).toBe(403)
@@ -214,6 +219,10 @@ it.each([true, false])(
       const verified = await post('/email-otp/verify-email', { email: original, otp })
       expect(verified.status).toBe(200)
       cookie = cookies(verified)
+    } else {
+      expect(login.status).toBe(200)
+      expect(cookies(login)).toBeTruthy()
+      expect(accountMail).not.toHaveBeenCalled()
     }
     expect(cookie).toBeTruthy()
     expect(
@@ -271,6 +280,7 @@ it.each([true, false])(
     const signIn = await post('/sign-in/email', { email: newEmail, password })
     expect(signIn.status).toBe(200)
     expect((await signIn.json()).user.id).toBe(user.id)
+    expect(await adapter.findOne({ model: 'account', where: byUser })).toEqual(credential)
   },
   30_000
 )

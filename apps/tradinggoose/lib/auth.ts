@@ -684,6 +684,7 @@ export const auth = betterAuth({
   },
   emailVerification: {
     sendOnSignUp: isEmailVerificationEnabled,
+    sendOnSignIn: isEmailVerificationEnabled,
     autoSignInAfterVerification: isEmailVerificationEnabled,
     afterEmailVerification: async (user) => {
       await addVerifiedUserEmailToAudience(user)
