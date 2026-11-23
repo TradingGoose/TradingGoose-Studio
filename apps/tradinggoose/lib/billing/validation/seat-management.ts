@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import {
   invitation,
@@ -11,6 +12,7 @@ import { and, count, eq } from 'drizzle-orm'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { OrganizationTransaction } from '@/lib/organization/admission'
 
 const logger = createLogger('SeatManagement')
 
@@ -34,14 +36,19 @@ interface OrganizationSeatInfo {
   canAddSeats: boolean
 }
 
-export async function getSeatOccupancy(organizationId: string): Promise<{
+type SeatReader = Pick<typeof db, 'select'>
+
+export async function getSeatOccupancy(
+  organizationId: string,
+  store: SeatReader = db
+): Promise<{
   members: number
   pending: number
   occupied: number
 }> {
   const [memberCount, pendingInvitationCount] = await Promise.all([
-    db.select({ count: count() }).from(member).where(eq(member.organizationId, organizationId)),
-    db
+    store.select({ count: count() }).from(member).where(eq(member.organizationId, organizationId)),
+    store
       .select({ count: count() })
       .from(invitation)
       .where(and(eq(invitation.organizationId, organizationId), eq(invitation.status, 'pending'))),
@@ -67,11 +74,12 @@ export async function getOccupiedSeatCount(organizationId: string): Promise<numb
  */
 export async function validateSeatAvailability(
   organizationId: string,
-  additionalSeats = 1
+  additionalSeats = 1,
+  store: SeatReader = db
 ): Promise<SeatValidationResult> {
   try {
     // Get organization subscription directly (referenceId = organizationId)
-    const subscription = await getOrganizationSubscription(organizationId)
+    const subscription = await getOrganizationSubscription(organizationId, store)
 
     if (!subscription) {
       return {
@@ -83,7 +91,7 @@ export async function validateSeatAvailability(
       }
     }
 
-    const { occupied: currentSeats } = await getSeatOccupancy(organizationId)
+    const { occupied: currentSeats } = await getSeatOccupancy(organizationId, store)
 
     if (subscription.tier.ownerType !== 'organization') {
       return {
@@ -188,28 +196,29 @@ export async function getOrganizationSeatInfo(
 }
 
 /**
- * Validate and reserve seats for bulk invitations
+ * Inspect seats for bulk invitations
  */
 export async function validateBulkInvitations(
   organizationId: string,
-  emailList: string[]
+  emailList: string[],
+  store: SeatReader = db
 ): Promise<{
   canInviteAll: boolean
   validEmails: string[]
   duplicateEmails: string[]
   existingMembers: string[]
+  pendingInvitations: string[]
   seatsNeeded: number
   seatsAvailable: number
   validationResult: SeatValidationResult
 }> {
   try {
-    const uniqueEmails = [...new Set(emailList)]
-    const validEmails = uniqueEmails.filter(
-      (email) => quickValidateEmail(email.trim().toLowerCase()).isValid
-    )
-    const duplicateEmails = emailList.filter((email, index) => emailList.indexOf(email) !== index)
+    const normalized = emailList.map((email) => email.trim().toLowerCase())
+    const uniqueEmails = [...new Set(normalized)]
+    const validEmails = uniqueEmails.filter((email) => quickValidateEmail(email).isValid)
+    const duplicateEmails = normalized.filter((email, index) => normalized.indexOf(email) !== index)
 
-    const existingMembers = await db
+    const existingMembers = await store
       .select({ userEmail: user.email })
       .from(member)
       .innerJoin(user, eq(member.userId, user.id))
@@ -218,7 +227,7 @@ export async function validateBulkInvitations(
     const existingEmails = existingMembers.map((m) => m.userEmail)
     const newEmails = validEmails.filter((email) => !existingEmails.includes(email))
 
-    const pendingInvitations = await db
+    const pendingInvitations = await store
       .select({ email: invitation.email })
       .from(invitation)
       .where(and(eq(invitation.organizationId, organizationId), eq(invitation.status, 'pending')))
@@ -227,13 +236,14 @@ export async function validateBulkInvitations(
     const finalEmailsToInvite = newEmails.filter((email) => !pendingEmails.includes(email))
 
     const seatsNeeded = finalEmailsToInvite.length
-    const validationResult = await validateSeatAvailability(organizationId, seatsNeeded)
+    const validationResult = await validateSeatAvailability(organizationId, seatsNeeded, store)
 
     return {
       canInviteAll: validationResult.canInvite && finalEmailsToInvite.length > 0,
       validEmails: finalEmailsToInvite,
       duplicateEmails,
       existingMembers: validEmails.filter((email) => existingEmails.includes(email)),
+      pendingInvitations: validEmails.filter((email) => pendingEmails.includes(email)),
       seatsNeeded,
       seatsAvailable: validationResult.availableSeats,
       validationResult,
@@ -258,11 +268,35 @@ export async function validateBulkInvitations(
       validEmails: [],
       duplicateEmails: [],
       existingMembers: [],
+      pendingInvitations: [],
       seatsNeeded: 0,
       seatsAvailable: 0,
       validationResult,
     }
   }
+}
+
+export async function reserveOrganizationInvitations(
+  tx: OrganizationTransaction,
+  input: { organizationId: string; inviterId: string; emails: string[]; role: string }
+) {
+  const { organizationId, inviterId, emails, role } = input
+  const validation = await validateBulkInvitations(organizationId, emails, tx)
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const invitations = validation.canInviteAll
+    ? validation.validEmails.map((email) => ({
+        id: randomUUID(),
+        email,
+        organizationId,
+        inviterId,
+        role,
+        status: 'pending',
+        expiresAt,
+        createdAt: new Date(),
+      }))
+    : []
+  if (invitations.length) await tx.insert(invitation).values(invitations)
+  return { validation, invitations }
 }
 
 /**

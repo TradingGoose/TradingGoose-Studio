@@ -1,3 +1,5 @@
+import { getBaseUrl } from '@/lib/urls/utils'
+
 /**
  * Props for the Text component
  */
@@ -31,7 +33,9 @@ export function Text({ blockId, subBlockId, content, className }: TextProps) {
       >
         <div
           className='prose prose-sm dark:prose-invert max-w-none break-words text-sm [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-700 [&_a]:dark:text-blue-400 [&_a]:dark:hover:text-blue-300 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_strong]:font-semibold [&_ul]:ml-5 [&_ul]:list-disc'
-          dangerouslySetInnerHTML={{ __html: content }}
+          dangerouslySetInnerHTML={{
+            __html: content.replaceAll('{NEXT_PUBLIC_APP_URL}', getBaseUrl),
+          }}
         />
       </div>
     )

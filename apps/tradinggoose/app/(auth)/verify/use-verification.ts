@@ -105,64 +105,13 @@ export function useVerification({
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isVerified, setIsVerified] = useState(false)
-  const [isSendingInitialOtp, setIsSendingInitialOtp] = useState(false)
   const [isInvalidOtp, setIsInvalidOtp] = useState(false)
   const [failureMessage, setFailureMessage] = useState('')
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
-  const [isInviteFlow, setIsInviteFlow] = useState(false)
+  const destination = normalizeCallbackUrl(searchParams.get('redirectAfter')) ?? '/workspace'
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedEmail = sessionStorage.getItem('verificationEmail')
-      if (storedEmail) {
-        setEmail(storedEmail)
-      }
-
-      const storedRedirectUrl = sessionStorage.getItem('inviteRedirectUrl')
-      if (storedRedirectUrl) {
-        const normalizedRedirectUrl = normalizeCallbackUrl(
-          storedRedirectUrl,
-          window.location.origin
-        )
-
-        if (normalizedRedirectUrl) {
-          setRedirectUrl(normalizedRedirectUrl)
-        } else {
-          logger.warn('Invalid stored verification redirect blocked', { url: storedRedirectUrl })
-        }
-      }
-
-      const storedIsInviteFlow = sessionStorage.getItem('isInviteFlow')
-      if (storedIsInviteFlow === 'true') {
-        setIsInviteFlow(true)
-      }
-    }
-
-    const redirectParam = searchParams.get('redirectAfter')
-    if (redirectParam) {
-      const normalizedRedirectUrl = normalizeCallbackUrl(
-        redirectParam,
-        typeof window !== 'undefined' ? window.location.origin : undefined
-      )
-
-      if (normalizedRedirectUrl) {
-        setRedirectUrl(normalizedRedirectUrl)
-      } else {
-        logger.warn('Invalid verification redirect blocked', { url: redirectParam })
-      }
-    }
-
-    const inviteFlowParam = searchParams.get('invite_flow')
-    if (inviteFlowParam === 'true') {
-      setIsInviteFlow(true)
-    }
-  }, [searchParams])
-
-  useEffect(() => {
-    if (email && !isSendingInitialOtp && hasEmailService) {
-      setIsSendingInitialOtp(true)
-    }
-  }, [email, isSendingInitialOtp, hasEmailService])
+    setEmail(sessionStorage.getItem('verificationEmail') ?? '')
+  }, [])
 
   const isOtpComplete = otp.length === 6
 
@@ -183,6 +132,22 @@ export function useVerification({
     }
   }
 
+  async function finishVerification() {
+    const session = await client.getSession()
+    if (
+      !session.data?.user ||
+      (email && session.data.user.email.toLowerCase() !== email.toLowerCase())
+    ) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(destination)}`)
+      return
+    }
+    setIsVerified(true)
+    await refetchSession()
+    await persistPreferredLocale()
+    sessionStorage.removeItem('verificationEmail')
+    router.push(destination)
+  }
+
   async function verifyCode() {
     if (!isOtpComplete || !email) return
 
@@ -192,49 +157,10 @@ export function useVerification({
 
     try {
       const normalizedEmail = email.trim().toLowerCase()
-      const response = await client.signIn.emailOtp({
-        email: normalizedEmail,
-        otp,
-      })
-
-      if (response && !response.error) {
-        setIsVerified(true)
-
-        try {
-          await refetchSession()
-        } catch (e) {
-          logger.warn('Failed to refetch session after verification', e)
-        }
-
-        await persistPreferredLocale()
-
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('verificationEmail')
-
-          if (isInviteFlow) {
-            sessionStorage.removeItem('inviteRedirectUrl')
-            sessionStorage.removeItem('isInviteFlow')
-          }
-        }
-
-        setTimeout(() => {
-          if (isInviteFlow && redirectUrl) {
-            router.push(redirectUrl)
-          } else {
-            router.push('/workspace')
-          }
-        }, 1000)
-      } else {
-        logger.info('Setting invalid OTP state - API error response')
-        const message = failureCopy.invalid
-        setIsInvalidOtp(true)
-        setFailureMessage(message)
-        logger.info('Error state after API error:', {
-          isInvalidOtp: true,
-          failureMessage: message,
-        })
-        setOtp('')
-      }
+      const { error } = await client.emailOtp.verifyEmail({ email: normalizedEmail, otp })
+      if (error) throw error
+      setOtp('')
+      await finishVerification()
     } catch (error: unknown) {
       const message = resolveVerificationFailureMessage(copy, error)
 
@@ -262,7 +188,10 @@ export function useVerification({
     client.emailOtp
       .sendVerificationOtp({
         email: normalizedEmail,
-        type: 'sign-in',
+        type: 'email-verification',
+      })
+      .then(({ error }) => {
+        if (error) setFailureMessage(failureCopy.resendFailed)
       })
       .catch(() => {
         setFailureMessage(failureCopy.resendFailed)
@@ -291,30 +220,12 @@ export function useVerification({
   }, [otp, email, isLoading, isVerified])
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (!isEmailVerificationEnabled) {
-        setIsVerified(true)
-
-        const handleRedirect = async () => {
-          try {
-            await refetchSession()
-          } catch (error) {
-            logger.warn('Failed to refetch session during verification skip:', error)
-          }
-
-          await persistPreferredLocale()
-
-          if (isInviteFlow && redirectUrl) {
-            router.push(redirectUrl)
-          } else {
-            router.push('/workspace')
-          }
-        }
-
-        handleRedirect()
-      }
+    if (!isEmailVerificationEnabled) {
+      void finishVerification().catch(() =>
+        router.push(`/login?callbackUrl=${encodeURIComponent(destination)}`)
+      )
     }
-  }, [isEmailVerificationEnabled, redirectUrl, router, isInviteFlow])
+  }, [isEmailVerificationEnabled, destination])
 
   return {
     otp,

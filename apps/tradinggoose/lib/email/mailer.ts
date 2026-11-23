@@ -27,6 +27,7 @@ export interface EmailOptions {
   subject: string
   html?: string
   text?: string
+  logTextWhenUnconfigured?: boolean
   from?: string
   emailType?: EmailType
   includeUnsubscribe?: boolean
@@ -184,7 +185,7 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
       to: options.to,
       subject: options.subject,
       from: processedData.senderEmail,
-      text: processedData.text,
+      ...(options.logTextWhenUnconfigured === false ? {} : { text: processedData.text }),
     })
     return {
       success: true,

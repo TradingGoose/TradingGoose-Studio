@@ -4,6 +4,8 @@ import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState 
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
+import { useSaveUsername } from '@/components/auth/username-form'
+import { VerifyCurrentEmail } from '@/components/auth/verify-current-email'
 import { AgentIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,7 +14,11 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
-import { useSession } from '@/lib/auth-client'
+import {
+  type CurrentEmailVerification,
+  requestEmailChangeLink,
+  useSession,
+} from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -27,11 +33,190 @@ const toEpochMillis = (value: string | Date | null | undefined): number | null =
   return Number.isNaN(time) ? null : time
 }
 
+const editButtonClass =
+  'inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+
+function ProfileNameField({
+  id,
+  value,
+  onSave,
+}: {
+  id: 'displayName' | 'username'
+  value: string
+  onSave: (value: string) => Promise<string | undefined>
+}) {
+  const t = useTranslations('workspace.settingsModal.account')
+  const [draft, setDraft] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  const username = id === 'username'
+  const editing = draft !== null
+
+  useEffect(() => {
+    if (editing) {
+      input.current?.focus()
+      input.current?.select()
+    }
+  }, [editing])
+
+  useEffect(() => {
+    if (error) input.current?.focus()
+  }, [error])
+
+  const cancel = () => {
+    setDraft(null)
+    setError('')
+  }
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (draft === null || busy) return
+    const next = draft.trim()
+    if (next && (username ? next.toLowerCase() === value.toLowerCase() : next === value)) {
+      cancel()
+      return
+    }
+    setBusy(true)
+    setError('')
+    const message = await onSave(next)
+    setBusy(false)
+    if (message) setError(message)
+    else cancel()
+  }
+
+  return (
+    <div className='space-y-1'>
+      <Label htmlFor={id}>{t(username ? 'username.label' : 'displayName')}</Label>
+      {editing ? (
+        <form
+          className=''
+          onSubmit={save}
+          aria-busy={busy}
+          onBlur={(event) => {
+            if (!busy && !event.currentTarget.contains(event.relatedTarget)) cancel()
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && !busy) {
+              event.preventDefault()
+              event.stopPropagation()
+              cancel()
+            }
+          }}
+        >
+          <div className='flex max-w-md flex-wrap items-center gap-2'>
+            <Input
+              id={id}
+              ref={input}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={busy}
+              required={username}
+              autoComplete={username ? 'username' : 'off'}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? `${id}-error` : undefined}
+              className='h-7 min-w-0 grow basis-24'
+            />
+            <div className='flex gap-1'>
+              <button
+                type='submit'
+                className={editButtonClass}
+                onMouseDown={(event) => event.preventDefault()}
+                disabled={busy}
+              >
+                <Check className='h-3.5 w-3.5' />
+                <span className='sr-only'>{t(username ? 'username.save' : 'saveName')}</span>
+              </button>
+              <button type='button' className={editButtonClass} onClick={cancel} disabled={busy}>
+                <X className='h-3.5 w-3.5' />
+                <span className='sr-only'>
+                  {t(username ? 'username.cancel' : 'cancelEditingName')}
+                </span>
+              </button>
+            </div>
+          </div>
+          {error && (
+            <p role='alert' id={`${id}-error`} className='text-destructive text-xs'>
+              {error}
+            </p>
+          )}
+        </form>
+      ) : (
+        <div className='flex items-center gap-2'>
+          <p className='truncate font-medium' title={value}>
+            {value || '—'}
+          </p>
+          <button type='button' className={editButtonClass} onClick={() => setDraft(value)}>
+            <Pencil className='h-3.5 w-3.5' />
+            <span className='sr-only'>{t(username ? 'username.edit' : 'editName')}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ResetLinkControl({
+  label,
+  description,
+  sent,
+  failed,
+  send,
+}: {
+  label: string
+  description: string
+  sent: string
+  failed: string
+  send: () => Promise<string | undefined>
+}) {
+  const t = useTranslations('workspace.settingsModal.account')
+  const [sending, setSending] = useState(false)
+  const [status, setStatus] = useState<{ success: boolean; message: string } | null>(null)
+
+  async function handleSend() {
+    setSending(true)
+    setStatus(null)
+    try {
+      const error = await send()
+      setStatus({ success: !error, message: error || sent })
+    } catch {
+      setStatus({ success: false, message: failed })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div role='group' aria-label={label} className='rounded-sm border bg-muted/30 px-4 py-4'>
+      <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+        <div>
+          <Label className='font-semibold text-sm'>{label}</Label>
+          <p className='text-muted-foreground text-sm'>{description}</p>
+        </div>
+        <Button type='button' size='sm' onClick={handleSend} disabled={sending}>
+          {sending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+          {t(sending ? 'sending' : 'sendLink')}
+        </Button>
+      </div>
+      {status && (
+        <p
+          role='status'
+          className={`mt-3 text-sm ${status.success ? 'text-emerald-600' : 'text-destructive'}`}
+        >
+          {status.message}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function AccountSettings() {
   const { data: session } = useSession()
+  const saveUsername = useSaveUsername()
   const authRedirectUrls = useAuthRedirectUrls()
   const tAccount = useTranslations('workspace.settingsModal.account')
   const userId = session?.user?.id ?? null
+  const [verification, setVerification] = useState<CurrentEmailVerification | null>(null)
 
   // Telemetry state from general store
   const storeIsLoading = useGeneralStore((state) => state.isLoading)
@@ -62,24 +247,12 @@ export function AccountSettings() {
     }
   }
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const email = session?.user?.email ?? ''
   const [profilePictureError, setProfilePictureError] = useState<string | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
-  const [isSendingReset, setIsSendingReset] = useState(false)
-  const [passwordResetStatus, setPasswordResetStatus] = useState<{
-    type: 'success' | 'error'
-    message: string
-  } | null>(null)
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [editingNameValue, setEditingNameValue] = useState('')
-  const [isUpdatingName, setIsUpdatingName] = useState(false)
-  const [nameError, setNameError] = useState<string | null>(null)
   const [userImage, setUserImage] = useState<string | null>(null)
   const [avatarVersion, setAvatarVersion] = useState<number | null>(null)
-
-  const editNameInputRef = useRef<HTMLInputElement>(null)
-  const nameEditActionRef = useRef<'save' | 'cancel' | null>(null)
 
   const updateUserImage = async (imageUrl: string | null) => {
     try {
@@ -148,8 +321,7 @@ export function AccountSettings() {
         }
 
         const data = await response.json()
-        setName(data.user.name)
-        setEmail(data.user.email)
+        setDisplayName(data.user.name)
         setUserImage(data.user.image || null)
         setAvatarVersion(data.user.updatedAt ? new Date(data.user.updatedAt).getTime() : Date.now())
         if (typeof window !== 'undefined' && userId) {
@@ -160,8 +332,7 @@ export function AccountSettings() {
         }
       } catch (error) {
         logger.error('Error fetching profile:', error)
-        setName(session?.user?.name ?? '')
-        setEmail(session?.user?.email ?? '')
+        setDisplayName(session?.user?.name ?? '')
         setUserImage(session?.user?.image ?? null)
         setAvatarVersion(
           session?.user?.updatedAt ? new Date(session.user.updatedAt).getTime() : Date.now()
@@ -178,117 +349,55 @@ export function AccountSettings() {
     void fetchProfile()
   }, [session?.user, userId])
 
-  const startEditingName = () => {
-    setEditingNameValue(name)
-    setIsEditingName(true)
-    setNameError(null)
-    setTimeout(() => {
-      editNameInputRef.current?.focus()
-      editNameInputRef.current?.select()
-    }, 0)
-  }
-
-  const cancelEditingName = () => {
-    setIsEditingName(false)
-    setEditingNameValue('')
-    setNameError(null)
-  }
-
-  const commitEditingName = async () => {
-    const trimmedName = editingNameValue.trim()
-    if (!trimmedName) {
-      setNameError(tAccount('status.nameRequiredValidation'))
-      editNameInputRef.current?.focus()
-      return
-    }
-    if (trimmedName === name) {
-      setIsEditingName(false)
-      setNameError(null)
-      return
-    }
-
-    setIsUpdatingName(true)
-    setNameError(null)
+  const saveDisplayName = async (nextDisplayName: string) => {
+    if (!nextDisplayName) return tAccount('status.nameRequiredValidation')
     try {
       const response = await fetch('/api/users/me/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmedName }),
+        body: JSON.stringify({ name: nextDisplayName }),
       })
 
-      if (!response.ok) {
-        setNameError(tAccount('status.failedUpdateName'))
-        editNameInputRef.current?.focus()
-        return
-      }
+      if (!response.ok) return tAccount('status.failedUpdateName')
 
-      setName(trimmedName)
-      setIsEditingName(false)
+      setDisplayName(nextDisplayName)
       if (typeof window !== 'undefined') {
         if (userId) {
-          window.localStorage.setItem(`user-name-${userId}`, trimmedName)
+          window.localStorage.setItem(`user-name-${userId}`, nextDisplayName)
         }
         window.dispatchEvent(
-          new CustomEvent('user-name-updated', { detail: { name: trimmedName } })
+          new CustomEvent('user-name-updated', { detail: { name: nextDisplayName } })
         )
       }
     } catch (error) {
-      logger.error('Error updating name:', error)
-      setNameError(tAccount('status.unableToUpdateName'))
-      editNameInputRef.current?.focus()
-    } finally {
-      setIsUpdatingName(false)
+      logger.error('Error updating display name:', error)
+      return tAccount('status.unableToUpdateName')
     }
   }
 
-  const handlePasswordReset = async () => {
-    const targetEmail = session?.user?.email ?? email
-    if (!targetEmail) {
-      setPasswordResetStatus({
-        type: 'error',
-        message: tAccount('status.noEmail'),
-      })
-      return
-    }
-
-    setIsSendingReset(true)
-    setPasswordResetStatus(null)
-    try {
-      const response = await fetch('/api/auth/forget-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: targetEmail,
-          redirectTo: authRedirectUrls.passwordResetUrl(),
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const rawMessage = errorData?.message ?? errorData?.error?.message ?? errorData?.error
-        const normalizedError =
-          typeof rawMessage === 'string' ? rawMessage.trim().toLowerCase() : ''
-
-        if (normalizedError.includes('email is required')) {
-          throw new Error(tAccount('status.noEmail'))
-        }
-
-        throw new Error(tAccount('status.passwordResetFailed'))
+  const sendPasswordReset = async () => {
+    if (!email) return tAccount('status.noEmail')
+    const response = await fetch('/api/auth/forget-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, redirectTo: authRedirectUrls.passwordResetUrl() }),
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const rawMessage = errorData?.message ?? errorData?.error?.message ?? errorData?.error
+      if (
+        typeof rawMessage === 'string' &&
+        rawMessage.toLowerCase().includes('email is required')
+      ) {
+        return tAccount('status.noEmail')
       }
-
-      setPasswordResetStatus({
-        type: 'success',
-        message: tAccount('status.passwordResetSent'),
-      })
-    } catch (error) {
-      logger.error('Error requesting password reset:', error)
-      setPasswordResetStatus({
-        type: 'error',
-        message: error instanceof Error ? error.message : tAccount('status.passwordResetFailed'),
-      })
-    } finally {
-      setIsSendingReset(false)
+      return tAccount('status.passwordResetFailed')
     }
+  }
+
+  const sendEmailReset = async () => {
+    if (!userId || !email) return tAccount('status.noEmail')
+    setVerification(await requestEmailChangeLink(userId))
   }
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -336,19 +445,18 @@ export function AccountSettings() {
   }, [avatarVersion, previewUrl, session?.user?.image, session?.user?.updatedAt, userImage])
 
   return (
-    <div className='bg-background px-6 py-6'>
-      <div className='grid gap-6 p-6 sm:grid-cols-[280px,1fr] '>
+    <div className='bg-background py-6 [container-type:inline-size] sm:px-6'>
+      <div className='grid grid-cols-1 gap-6 p-6 [@container(min-width:40rem)]:grid-cols-[280px_minmax(0,1fr)]'>
         <Card className='border-none shadow-none'>
           <CardHeader className='pb-4'>
             <CardTitle className='font-semibold text-base'>{tAccount('profilePicture')}</CardTitle>
           </CardHeader>
           <CardContent className='space-y-4'>
             <div
-              className={`group relative flex flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed px-4 py-6 text-center transition-all ${
-                isDragActive
-                  ? 'border-primary bg-primary/10'
-                  : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
-              }`}
+              className={`group relative flex flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed px-4 py-6 text-center transition-all ${isDragActive
+                ? 'border-primary bg-primary/10'
+                : 'border-muted-foreground/35 bg-card hover:border-primary/40 hover:bg-muted/70'
+                }`}
               onClick={handleThumbnailClick}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -366,7 +474,7 @@ export function AccountSettings() {
                 {avatarSrc ? (
                   <Image
                     src={avatarSrc}
-                    alt={name || session?.user?.name || tAccount('profilePictureAlt')}
+                    alt={displayName || session?.user?.name || tAccount('profilePictureAlt')}
                     width={96}
                     height={96}
                     className='h-full w-full object-cover'
@@ -400,135 +508,37 @@ export function AccountSettings() {
             <p className='text-muted-foreground text-sm'>{tAccount('profileDetailsDescription')}</p>
           </CardHeader>
           <CardContent className='space-y-5'>
-            <div className='space-y-3'>
-              <div className='space-y-1'>
-                <Label htmlFor='accountName'>{tAccount('fullName')}</Label>
-                {isEditingName ? (
-                  <div className='py-1.5'>
-                    <div className='flex max-w-md items-center gap-2'>
-                      <Input
-                        id='accountName'
-                        ref={editNameInputRef}
-                        value={editingNameValue}
-                        onChange={(event) => setEditingNameValue(event.target.value)}
-                        onBlur={() => {
-                          if (nameEditActionRef.current === 'save') {
-                            return
-                          }
-                          nameEditActionRef.current = null
-                          cancelEditingName()
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            void commitEditingName()
-                          } else if (event.key === 'Escape') {
-                            event.preventDefault()
-                            cancelEditingName()
-                          }
-                        }}
-                        disabled={isUpdatingName}
-                        className='h-8 min-w-0 flex-1'
-                        autoComplete='off'
-                      />
-                      <button
-                        type='button'
-                        onMouseDown={() => {
-                          nameEditActionRef.current = 'save'
-                        }}
-                        className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                        onClick={() => {
-                          nameEditActionRef.current = null
-                          void commitEditingName()
-                        }}
-                        disabled={isUpdatingName}
-                      >
-                        <Check className='h-3.5 w-3.5' />
-                        <span className='sr-only'>{tAccount('saveName')}</span>
-                      </button>
-                      <button
-                        type='button'
-                        onMouseDown={() => {
-                          nameEditActionRef.current = 'cancel'
-                        }}
-                        className='inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                        onClick={cancelEditingName}
-                        disabled={isUpdatingName}
-                      >
-                        <X className='h-3.5 w-3.5' />
-                        <span className='sr-only'>{tAccount('cancelEditingName')}</span>
-                      </button>
-                    </div>
-                    {nameError && <p className='text-destructive text-xs'>{nameError}</p>}
-                  </div>
-                ) : (
-                  <div className='flex items-center gap-2'>
-                    <p className='font-medium'>{name || '—'}</p>
-                    <button
-                      type='button'
-                      className='inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-                      onClick={startEditingName}
-                      disabled={isUpdatingName}
-                    >
-                      <Pencil className='h-3.5 w-3.5' />
-                      <span className='sr-only'>{tAccount('editName')}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className='space-y-1'>
-                <Label>{tAccount('emailAddress')}</Label>
-                <div className='rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm'>
-                  {email || '—'}
-                </div>
-                <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
-              </div>
+            <div className='grid grid-cols-2 gap-4'>
+              <ProfileNameField id='displayName' value={displayName} onSave={saveDisplayName} />
+              <ProfileNameField
+                id='username'
+                value={session?.user?.username ?? ''}
+                onSave={saveUsername}
+              />
             </div>
-
-            <div className='rounded-sm border bg-muted/30 px-4 py-4'>
-              <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-                <div>
-                  <Label className='font-semibold text-sm'>{tAccount('passwordReset')}</Label>
-                  <p className='text-muted-foreground text-sm'>
-                    {tAccount('passwordResetDescription')}
-                  </p>
-                </div>
-                <Button
-                  type='button'
-                  size='sm'
-                  onClick={handlePasswordReset}
-                  disabled={isSendingReset}
-                >
-                  {isSendingReset ? (
-                    <>
-                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                      {tAccount('sending')}
-                    </>
-                  ) : (
-                    tAccount('sendLink')
-                  )}
-                </Button>
-              </div>
-              {passwordResetStatus && (
-                <p
-                  className={`mt-3 text-sm ${
-                    passwordResetStatus.type === 'success' ? 'text-emerald-600' : 'text-destructive'
-                  }`}
-                  role='status'
-                >
-                  {passwordResetStatus.message}
-                </p>
-              )}
-            </div>
+            {verification && verification.accountId === userId ? (
+              <VerifyCurrentEmail {...verification} />
+            ) : (
+              <ResetLinkControl
+                label={tAccount('emailAddress')}
+                description={tAccount('emailResetDescription', { email: email || '—' })}
+                sent={tAccount('status.emailResetSent')}
+                failed={tAccount('status.emailResetFailed')}
+                send={sendEmailReset}
+              />
+            )}
+            <ResetLinkControl
+              label={tAccount('passwordReset')}
+              description={tAccount('passwordResetDescription')}
+              sent={tAccount('status.passwordResetSent')}
+              failed={tAccount('status.passwordResetFailed')}
+              send={sendPasswordReset}
+            />
           </CardContent>
         </Card>
       </div>
       <div className='px-6 pb-6'>
         <Card className='border-none shadow-none'>
-          <CardHeader className='space-y-1 pb-5'>
-            <CardTitle className='font-semibold text-lg'>{tAccount('privacy')}</CardTitle>
-            <p className='text-muted-foreground text-sm'>{tAccount('privacyDescription')}</p>
-          </CardHeader>
           <CardContent>
             <TooltipProvider>
               <div className='flex flex-col gap-2'>

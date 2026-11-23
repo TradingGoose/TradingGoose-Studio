@@ -61,6 +61,12 @@ vi.mock('@/app/(auth)/login/login-form', () => ({
   ),
 }))
 
+vi.mock('@/components/auth/username-form', () => ({
+  UsernameForm: ({ destination }: { destination: string }) => (
+    <form data-destination={destination} />
+  ),
+}))
+
 vi.mock('@/app/(auth)/signup/signup-form', () => ({
   default: ({ registrationMode }: { registrationMode: string }) => (
     <div data-testid='signup-form' data-registration-mode={registrationMode} />
@@ -86,6 +92,7 @@ describe('localized auth entry pages', () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
+        username: 'ada',
       },
     })
 
@@ -101,6 +108,7 @@ describe('localized auth entry pages', () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
+        username: 'ada',
       },
     })
 
@@ -129,6 +137,7 @@ describe('localized auth entry pages', () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
+        username: 'ada',
       },
     })
 
@@ -139,6 +148,38 @@ describe('localized auth entry pages', () => {
     )
     expect(mockGetSession).toHaveBeenCalledWith()
     expect(mockGetOAuthProviderStatus).not.toHaveBeenCalled()
+    expect(mockGetRegistrationModeForRender).not.toHaveBeenCalled()
+  })
+
+  it('resumes an interrupted provider signup on the existing session before continuing to the invite', async () => {
+    const SignupPage = (await import('./signup/page')).default
+    const searchParams = Promise.resolve({
+      complete: 'username',
+      callbackUrl: '/invite/abc?token=one',
+    })
+    await expect(SignupPage({ searchParams })).rejects.toThrow(
+      'redirect:/es/login?callbackUrl=%2Finvite%2Fabc%3Ftoken%3Done'
+    )
+    mockGetSession.mockResolvedValue({ user: { id: 'same-user', username: null } })
+    const LoginPage = (await import('./login/page')).default
+    await expect(LoginPage({ searchParams })).rejects.toThrow(
+      'redirect:/es/signup?complete=username&callbackUrl=%2Finvite%2Fabc%3Ftoken%3Done'
+    )
+    for (let visit = 0; visit < 2; visit++) {
+      expect(renderToStaticMarkup(await SignupPage({ searchParams }))).toContain(
+        'data-destination="/invite/abc?token=one"'
+      )
+    }
+    mockGetSession.mockResolvedValue({ user: { id: 'same-user', username: 'ada' } })
+    await expect(SignupPage({ searchParams })).rejects.toThrow('redirect:/es/invite/abc?token=one')
+    await expect(
+      SignupPage({
+        searchParams: Promise.resolve({
+          complete: 'username',
+          callbackUrl: 'https://outside.example',
+        }),
+      })
+    ).rejects.toThrow('redirect:/es/workspace')
     expect(mockGetRegistrationModeForRender).not.toHaveBeenCalled()
   })
 

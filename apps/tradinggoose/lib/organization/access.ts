@@ -5,8 +5,11 @@ type OrganizationAccessTier = {
   canConfigureSso?: boolean | null
 }
 
-function isOrganizationTier(tier: OrganizationAccessTier | null | undefined): boolean {
-  return tier?.ownerType === 'organization'
+export function isOrganizationSsoEnabled(
+  billingEnabled: boolean,
+  tier: OrganizationAccessTier | null | undefined
+) {
+  return !billingEnabled || (tier?.ownerType === 'organization' && canTierConfigureSso(tier))
 }
 
 export function getOrganizationAccessState(input: {
@@ -19,8 +22,7 @@ export function getOrganizationAccessState(input: {
   const canConfigureSso =
     input.hasOrganization &&
     input.isOrganizationAdmin &&
-    (!input.billingEnabled ||
-      (isOrganizationTier(input.organizationTier) && canTierConfigureSso(input.organizationTier)))
+    isOrganizationSsoEnabled(input.billingEnabled, input.organizationTier)
 
   return {
     canCreateOrganization,

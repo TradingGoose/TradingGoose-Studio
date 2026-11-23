@@ -1,10 +1,6 @@
 import { registerClient } from '@modelcontextprotocol/sdk/client/auth.js'
-import { db, verification } from '@tradinggoose/db'
-import { eq } from 'drizzle-orm'
 import { getCanonicalScopesForProvider } from '@/lib/oauth/oauth'
 import { ROBINHOOD_OAUTH_RESOURCE } from './robinhood-constants'
-
-const ROBINHOOD_CLIENT_ID_STATE_KEY = 'robinhoodClientId'
 
 export async function registerRobinhoodOAuthClient(redirectUri: string) {
   const { hostname } = new URL(redirectUri)
@@ -44,33 +40,4 @@ export async function registerRobinhoodOAuthClient(redirectUri: string) {
   }
 
   return clientId
-}
-
-export function addRobinhoodOAuthClientToState(value: string, clientId: string) {
-  const state = JSON.parse(value)
-  const linkUserId = state?.link?.userId
-  if (typeof linkUserId !== 'string' || !linkUserId.trim()) {
-    throw new Error('Robinhood OAuth requires an authenticated link')
-  }
-  return JSON.stringify({ ...state, [ROBINHOOD_CLIENT_ID_STATE_KEY]: clientId })
-}
-
-export async function getRobinhoodOAuthClientIdFromState(state: string) {
-  if (!state) return ''
-  const [record] = await db
-    .select({ value: verification.value })
-    .from(verification)
-    .where(eq(verification.identifier, state))
-    .limit(1)
-  if (!record) return ''
-
-  try {
-    const oauthState = JSON.parse(record.value)
-    const linkUserId = oauthState?.link?.userId
-    if (typeof linkUserId !== 'string' || !linkUserId.trim()) return ''
-    const value = oauthState[ROBINHOOD_CLIENT_ID_STATE_KEY]
-    return typeof value === 'string' ? value.trim() : ''
-  } catch {
-    return ''
-  }
 }

@@ -18,6 +18,7 @@ export type EmailSubjectType =
   | 'email-verification'
   | 'forget-password'
   | 'reset-password'
+  | 'email-change-link'
   | 'change-email'
   | 'chat-access'
   | 'invitation'
@@ -117,6 +118,23 @@ export async function renderPasswordResetEmail(
         date: formatEmailDate(locale, new Date()),
         account: username || copy.resetPassword.accountFallback,
       }),
+    })
+  )
+}
+
+export async function renderEmailChangeLinkEmail(
+  link: string,
+  locale?: EmailLocale
+): Promise<string> {
+  const copy = getEmailCopy(locale)
+  return render(
+    LocalizedEmail({
+      locale,
+      preview: getEmailSubject('email-change-link', locale),
+      title: copy.emailChangeLink.title,
+      paragraphs: [copy.emailChangeLink.body],
+      cta: { href: link, label: copy.emailChangeLink.action },
+      muted: [copy.emailChangeLink.expires, copy.shared.ignore],
     })
   )
 }

@@ -13,22 +13,22 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 
 interface TeamSeatsProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  title: string
-  description: string
-  pricePerSeat: number
-  minimumSeats: number
-  maximumSeats: number | null
+  tier: Pick<
+    PublicBillingTierDisplay,
+    'displayName' | 'seatCount' | 'seatMaximum' | 'monthlyPriceUsd'
+  >
+  usedSeats?: number
   currentSeats?: number
   initialSeats?: number
   isLoading: boolean
   error?: string | null
   onConfirm: (seats: number) => Promise<void>
-  confirmButtonText: string
   showCostBreakdown?: boolean
   isCancelledAtPeriodEnd?: boolean
 }
@@ -36,34 +36,36 @@ interface TeamSeatsProps {
 export function TeamSeats({
   open,
   onOpenChange,
-  title,
-  description,
-  pricePerSeat,
-  minimumSeats,
-  maximumSeats,
+  tier,
+  usedSeats = 0,
   currentSeats,
-  initialSeats = 1,
+  initialSeats,
   isLoading,
   error,
   onConfirm,
-  confirmButtonText,
   showCostBreakdown = false,
   isCancelledAtPeriodEnd = false,
 }: TeamSeatsProps) {
   const t = useTranslations('workspace.settingsModal.team')
   const locale = useLocale()
-  const [selectedSeats, setSelectedSeats] = useState(initialSeats)
+  const minimumSeats = Math.max(tier.seatCount ?? 1, usedSeats, 1)
+  const maximumSeats = tier.seatMaximum
+  const exceedsSeatMaximum = maximumSeats !== null && minimumSeats > maximumSeats
+  const clampSeats = (seats: number) =>
+    Math.max(minimumSeats, Math.min(seats, maximumSeats ?? Number.POSITIVE_INFINITY))
+  const [requestedSeats, setRequestedSeats] = useState<number>()
+  const selectedSeats = clampSeats(requestedSeats ?? initialSeats ?? minimumSeats)
+  const pricePerSeat = tier.monthlyPriceUsd
 
   useEffect(() => {
-    if (open) {
-      setSelectedSeats(initialSeats)
+    if (!open) setRequestedSeats(undefined)
+    else if (requestedSeats !== undefined && selectedSeats !== requestedSeats) {
+      setRequestedSeats(selectedSeats)
     }
-  }, [open, initialSeats])
+  }, [open, requestedSeats, selectedSeats])
 
-  const totalMonthlyCost = selectedSeats * pricePerSeat
-  const costChange = currentSeats ? (selectedSeats - currentSeats) * pricePerSeat : 0
   const handleConfirm = async () => {
-    await onConfirm(selectedSeats)
+    if (!exceedsSeatMaximum) await onConfirm(clampSeats(selectedSeats))
   }
 
   return (
@@ -76,8 +78,14 @@ export function TeamSeats({
     >
       <DialogContent hideCloseButton={isLoading}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>{showCostBreakdown ? t('addSeats.title') : tier.displayName}</DialogTitle>
+          {pricePerSeat !== null && (
+            <DialogDescription>
+              {showCostBreakdown
+                ? t('addSeats.description', { price: formatUsd(locale, pricePerSeat) })
+                : t('pricePerSeat', { price: formatUsd(locale, pricePerSeat) })}
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         <div className='py-4'>
@@ -90,36 +98,36 @@ export function TeamSeats({
             value={selectedSeats}
             onChange={(event) => {
               const parsed = Number.parseInt(event.target.value, 10)
-              if (!Number.isFinite(parsed)) {
-                setSelectedSeats(minimumSeats)
-                return
-              }
-
-              const nextValue = Math.max(
-                minimumSeats,
-                maximumSeats === null ? parsed : Math.min(parsed, maximumSeats)
-              )
-              setSelectedSeats(nextValue)
+              setRequestedSeats(clampSeats(Number.isFinite(parsed) ? parsed : minimumSeats))
             }}
             className='rounded-sm'
-            disabled={isLoading}
+            disabled={isLoading || exceedsSeatMaximum}
           />
 
-          <p className='mt-2 text-muted-foreground text-sm'>
-            {t('yourTeamWillHave', {
-              count: selectedSeats,
-              cost: formatUsd(locale, totalMonthlyCost),
-            })}
-          </p>
+          {pricePerSeat !== null && (
+            <p className='mt-2 text-muted-foreground text-sm'>
+              {showCostBreakdown
+                ? t('yourTeamWillHave', {
+                    count: selectedSeats,
+                    cost: formatUsd(locale, selectedSeats * pricePerSeat),
+                  })
+                : `${formatUsd(locale, selectedSeats * pricePerSeat)}${t('plans.monthly')}`}
+            </p>
+          )}
           <p className='mt-1 text-muted-foreground text-xs'>
-            {maximumSeats === null
-              ? t('minimumSeatsNoMax', {
-                  minimum: formatLocalizedNumber(locale, minimumSeats),
-                })
-              : t('chooseBetweenSeats', {
-                  minimum: formatLocalizedNumber(locale, minimumSeats),
+            {exceedsSeatMaximum
+              ? t('teamExceedsSeatMaximum', {
+                  used: formatLocalizedNumber(locale, usedSeats),
                   maximum: formatLocalizedNumber(locale, maximumSeats),
-                })}
+                })
+              : maximumSeats === null
+                ? t('minimumSeatsNoMax', {
+                    minimum: formatLocalizedNumber(locale, minimumSeats),
+                  })
+                : t('chooseBetweenSeats', {
+                    minimum: formatLocalizedNumber(locale, minimumSeats),
+                    maximum: formatLocalizedNumber(locale, maximumSeats),
+                  })}
           </p>
 
           {showCostBreakdown && currentSeats !== undefined && (
@@ -132,10 +140,16 @@ export function TeamSeats({
                 <span>{t('newSeats')}</span>
                 <span>{formatLocalizedNumber(locale, selectedSeats)}</span>
               </div>
-              <div className='mt-2 flex justify-between border-t pt-2 font-medium text-sm'>
-                <span>{t('monthlyCostChange')}</span>
-                <span>{formatUsd(locale, costChange, { signDisplay: 'exceptZero' })}</span>
-              </div>
+              {pricePerSeat !== null && (
+                <div className='mt-2 flex justify-between border-t pt-2 font-medium text-sm'>
+                  <span>{t('monthlyCostChange')}</span>
+                  <span>
+                    {formatUsd(locale, (selectedSeats - currentSeats) * pricePerSeat, {
+                      signDisplay: 'exceptZero',
+                    })}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -159,6 +173,7 @@ export function TeamSeats({
                       onClick={handleConfirm}
                       disabled={
                         isLoading ||
+                        exceedsSeatMaximum ||
                         (showCostBreakdown && selectedSeats === currentSeats) ||
                         isCancelledAtPeriodEnd
                       }
@@ -171,7 +186,9 @@ export function TeamSeats({
                           <span>{t('updating')}</span>
                         </div>
                       ) : (
-                        <span>{confirmButtonText}</span>
+                        <span>
+                          {showCostBreakdown ? t('addSeats.confirm') : t('setUpTeamSubscription')}
+                        </span>
                       )}
                     </Button>
                   </span>

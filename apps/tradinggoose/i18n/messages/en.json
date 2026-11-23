@@ -80,11 +80,11 @@
     "common": {
       "email": "Email",
       "password": "Password",
-      "fullName": "Full name",
+      "displayName": "Display name",
       "workEmail": "Work email",
       "enterYourEmail": "Enter your email",
       "enterYourPassword": "Enter your password",
-      "enterYourName": "Enter your name",
+      "enterYourDisplayName": "Enter your display name",
       "enterYourWorkEmail": "Enter your work email",
       "forgotPassword": "Forgot password?",
       "showPassword": "Show password",
@@ -260,6 +260,29 @@
         "unableToSignInNow": "Unable to sign in right now. Please try again."
       }
     },
+    "resetEmail": {
+      "eyebrow": "Account settings",
+      "title": "Change your email address",
+      "description": "Use this link within 15 minutes to choose a new address. We’ll send a verification code to that address before updating your account.",
+      "invalidLink": "This link is missing, expired, or already used. Request a fresh link from Account settings.",
+      "signIn": "Sign in to the account that requested this email change.",
+      "wrongAccount": "This link belongs to a different account. Sign in to the account that requested it.",
+      "switchAccount": "Switch account",
+      "newEmail": "New email address",
+      "sendCode": "Send verification code",
+      "codeSentTo": "Enter the 6-digit code sent to {email}. It expires in 15 minutes.",
+      "confirm": "Confirm new email",
+      "invalidCode": "That code is incorrect. Check the code and try again.",
+      "codeExpired": "This code has expired or has reached its attempt limit.",
+      "restartHint": "To get another code or choose a different address, start with a fresh link sent to your current email.",
+      "restart": "Send a fresh link",
+      "sent": "Check your current email for a fresh link. It expires in 15 minutes.",
+      "complete": "Your account email is now {email}.",
+      "workspace": "Return to workspace",
+      "failure": "We couldn’t change your email. Please try again.",
+      "sendFailure": "We couldn’t send a fresh link. Please try again.",
+      "targetDeliveryFailed": "We couldn’t send a code to your new email address."
+    },
     "resetPassword": {
       "eyebrow": "Password reset",
       "title": "Reset your password",
@@ -291,15 +314,15 @@
       "submit": "Create account",
       "submitting": "Creating account...",
       "divider": "Or continue with",
-      "nameTitle": "Name can only contain letters, spaces, hyphens, and apostrophes",
+      "nameTitle": "Display names can only contain letters, spaces, hyphens, and apostrophes",
       "validation": {
         "emailRequired": "Email is required.",
         "emailInvalid": "Please enter a valid email address.",
-        "nameRequired": "Name is required.",
-        "nameEmpty": "Name cannot be empty.",
-        "nameCharacters": "Name can only contain letters, spaces, hyphens, and apostrophes.",
-        "nameSpaces": "Name cannot contain consecutive spaces.",
-        "nameTooLong": "Name will be truncated to 100 characters. Please shorten your name.",
+        "nameRequired": "Display name is required.",
+        "nameEmpty": "Display name cannot be empty.",
+        "nameCharacters": "Display names can only contain letters, spaces, hyphens, and apostrophes.",
+        "nameSpaces": "Display names cannot contain consecutive spaces.",
+        "nameTooLong": "Your display name must be 100 characters or fewer.",
         "passwordMinLength": "Password must be at least 8 characters long.",
         "passwordUppercase": "Password must include at least one uppercase letter.",
         "passwordLowercase": "Password must include at least one lowercase letter.",
@@ -399,8 +422,16 @@
         "waitlist": "Honk! Introducing TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio is here!"
       },
-      "leadWords": ["Build", "Test", "Run"],
-      "highlightWords": ["Trading Analysis", "Signal Detection", "Risk Assessment"],
+      "leadWords": [
+        "Build",
+        "Test",
+        "Run"
+      ],
+      "highlightWords": [
+        "Trading Analysis",
+        "Signal Detection",
+        "Risk Assessment"
+      ],
       "titleConnector": "your",
       "suffix": "with TradingGoose",
       "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
@@ -728,7 +759,13 @@
         "experience": {
           "label": "Years of Experience *",
           "placeholder": "Select experience level",
-          "options": ["0-1 years", "1-3 years", "3-5 years", "5-10 years", "10+ years"]
+          "options": [
+            "0-1 years",
+            "1-3 years",
+            "3-5 years",
+            "5-10 years",
+            "10+ years"
+          ]
         },
         "location": {
           "label": "Location *",
@@ -1880,24 +1917,33 @@
         "cancel": "Cancel"
       },
       "account": {
+        "username": {
+          "label": "Username",
+          "choose": "Choose a username",
+          "edit": "Edit username",
+          "cancel": "Cancel editing username",
+          "save": "Save username",
+          "taken": "That username is already taken.",
+          "failed": "Unable to save username."
+        },
         "profilePicture": "Profile Picture",
         "profilePictureAlt": "Profile picture",
         "dropImage": "Drop an image or click to upload",
         "imageHint": "PNG or JPG, max 5MB",
         "profileDetails": "Profile Details",
-        "profileDetailsDescription": "Update your name and manage access.",
-        "fullName": "Full name",
+        "profileDetailsDescription": "Update your display name and manage access.",
+        "displayName": "Display name",
         "emailAddress": "Email address",
-        "emailHint": "Email changes are handled by support.",
+        "verifyCurrentEmail": "Verify {email} before changing your email address. After verification, return to Account and request a new link.",
+        "verifyEmailButton": "Send verification code",
+        "emailResetDescription": "We’ll send an email reset link to {email}.",
         "passwordReset": "Password reset",
-        "passwordResetDescription": "We’ll email you a secure link.",
+        "passwordResetDescription": "We’ll email you a password reset link.",
         "sendLink": "Send link",
         "sending": "Sending…",
-        "saveName": "Save name",
-        "cancelEditingName": "Cancel editing name",
-        "editName": "Edit name",
-        "privacy": "Privacy",
-        "privacyDescription": "Manage how your data is collected.",
+        "saveName": "Save display name",
+        "cancelEditingName": "Cancel editing display name",
+        "editName": "Edit display name",
         "telemetry": {
           "label": "Allow anonymous telemetry",
           "tooltipLabel": "Learn more about telemetry data collection",
@@ -1906,17 +1952,20 @@
         },
         "status": {
           "profileSaved": "Profile saved.",
-          "nameRequired": "Please provide a name.",
+          "nameRequired": "Please enter a display name.",
           "saveError": "Unable to save profile settings.",
-          "nameRequiredValidation": "Name is required",
+          "nameRequiredValidation": "Display name is required",
           "profilePictureFileTooLarge": "File {name} is too large. Maximum size is 5MB.",
           "profilePictureUnsupportedFormat": "File {name} is not a supported image format. Please use PNG or JPEG.",
           "profilePictureUpdateError": "Failed to update profile picture",
           "profilePictureRemoveError": "Failed to remove profile picture",
           "unableToUpdateProfilePicture": "Unable to update profile picture.",
-          "failedUpdateName": "Failed to update name",
-          "unableToUpdateName": "Unable to update name. Please try again.",
+          "failedUpdateName": "Failed to update display name",
+          "unableToUpdateName": "Unable to update display name. Please try again.",
           "noEmail": "No email address found for this account.",
+          "verificationSendFailed": "We couldn’t send a verification code to this account. Return to Account and try again.",
+          "emailResetSent": "Email change link sent to your current inbox.",
+          "emailResetFailed": "Unable to send the email change link.",
           "passwordResetSent": "Password reset link sent to your inbox.",
           "passwordResetFailed": "Unable to send password reset email."
         }
@@ -2101,8 +2150,6 @@
         "teamUrl": "Team URL",
         "teamSlugPlaceholder": "my-team",
         "createTeamWorkspace": "Create Team Workspace",
-        "noTeamSubscriptionFound": "No Team Subscription Found",
-        "subscriptionMayNeedTransfer": "Your subscription may need to be transferred to this organization.",
         "setUpTeamSubscription": "Set Up Team Subscription",
         "seats": "Seats",
         "pricePerSeat": "({price}/month each)",
@@ -2115,6 +2162,7 @@
         "yourTeamWillHave": "Your team will have {count, plural, one {# seat} other {# seats}} with a total of {cost} inference credits per month.",
         "minimumSeatsNoMax": "Minimum {minimum} seats. No maximum seat cap applies to this tier.",
         "chooseBetweenSeats": "Choose between {minimum} and {maximum} seats for this tier.",
+        "teamExceedsSeatMaximum": "This plan supports up to {maximum} seats. Your team already uses {used}.",
         "currentSeats": "Current seats:",
         "newSeats": "New seats:",
         "monthlyCostChange": "Monthly cost change:",
@@ -2132,7 +2180,6 @@
         "inviteUnavailableMessage": "An active organization subscription is required before you can invite team members.",
         "yourself": "yourself",
         "thisMember": "this member",
-        "noPublicAdjustableTier": "No public adjustable organization tier is configured",
         "addSeats": {
           "title": "Add Team Seats",
           "description": "Each seat costs {price}/month and provides {price} in monthly inference credits. Adjust the number of licensed seats for your team.",
@@ -3855,7 +3902,10 @@
             },
             "headers": {
               "title": "Response Headers",
-              "columns": ["Key", "Value"],
+              "columns": [
+                "Key",
+                "Value"
+              ],
               "description": "Additional HTTP headers to include in the response"
             }
           },
@@ -19019,7 +19069,10 @@
             },
             "variables": {
               "title": "Variables",
-              "columns": ["Key", "Value"]
+              "columns": [
+                "Key",
+                "Value"
+              ]
             },
             "apiKey": {
               "title": "Anthropic API Key",
@@ -20183,7 +20236,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>{NEXT_PUBLIC_APP_URL}/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20210,7 +20263,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>{NEXT_PUBLIC_APP_URL}/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20232,7 +20285,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>{NEXT_PUBLIC_APP_URL}/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20254,7 +20307,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>{NEXT_PUBLIC_APP_URL}/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20303,7 +20356,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>{NEXT_PUBLIC_APP_URL}/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20352,7 +20405,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>{NEXT_PUBLIC_APP_URL}/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20374,7 +20427,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>{NEXT_PUBLIC_APP_URL}/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -20401,7 +20454,7 @@
                 "steps": [
                   "<strong>Step 1: Create a HubSpot Developer Account</strong><br/>Sign up for a free developer account at <a href=\"https://developers.hubspot.com\" target=\"_blank\">developers.hubspot.com</a> if you don't have one.",
                   "<strong>Step 2: Create a Public App via CLI</strong><br/><strong>Note:</strong> HubSpot has deprecated the web UI for creating apps. You must use the HubSpot CLI to create and manage apps. Install the CLI with <code>npm install -g @hubspot/cli</code> and run <code>hs project create</code> to create a new app. See <a href=\"https://developers.hubspot.com/docs/platform/create-an-app\" target=\"_blank\">HubSpot's documentation</a> for details.",
-                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
+                  "<strong>Step 3: Save OAuth App Credentials</strong><br/>Add <code>{NEXT_PUBLIC_APP_URL}/api/auth/callback/hubspot</code> to your HubSpot OAuth redirect URLs. Retrieve your <strong>Client ID</strong> and <strong>Client Secret</strong> from your HubSpot app configuration and enter them in the fields above.",
                   "<strong>Step 4: Get App ID and Developer API Key</strong><br/>In your HubSpot developer account, find your <strong>App ID</strong> (shown below your app name) and your <strong>Developer API Key</strong> (in app settings). You'll need both for the next steps.",
                   "<strong>Step 5: Set Required Scopes</strong><br/>Configure your app to include the required OAuth scope: <code>crm.objects.contacts.read</code>",
                   "<strong>Step 6: Save Configuration in TradingGoose</strong><br/>Click the <strong>\"Save Configuration\"</strong> button above. This will generate your unique webhook URL.",
@@ -23405,6 +23458,7 @@
       "email-verification": "Verify your email for {brandName}",
       "forget-password": "Reset your {brandName} password",
       "reset-password": "Reset your {brandName} password",
+      "email-change-link": "Change your email for {brandName}",
       "change-email": "Verify your new email for {brandName}",
       "chat-access": "Verification code for {chatTitle}",
       "invitation": "You've been invited to join {organizationName} on {brandName}",
@@ -23437,6 +23491,12 @@
       "cta": "Reset Password",
       "accountFallback": "your account email",
       "sentLine": "Sent on {date} to {account}."
+    },
+    "emailChangeLink": {
+      "title": "Change your email address",
+      "body": "Open this link while signed in to your account to choose a new email address. We’ll send a verification code to that address.",
+      "action": "Choose a new email address",
+      "expires": "This link expires in 15 minutes."
     },
     "invitation": {
       "preview": "{inviterName} invited you to join {organizationName} on {brandName}",

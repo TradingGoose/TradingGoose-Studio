@@ -1,6 +1,7 @@
 import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { hasTrustedFormOrigin } from '@/lib/auth/trusted-form-origin'
 import { approveConnectionLogin, cancelConnectionLogin } from '@/lib/connect/auth'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { normalizeLocaleCode } from '@/i18n/utils'
@@ -24,29 +25,6 @@ function redirectToLogin(request: NextRequest, locale: string, code: string) {
     `/${normalizedLocale}/connect/mcp/authorize?code=${encodeURIComponent(code)}`
   )
   return NextResponse.redirect(url)
-}
-
-function hasTrustedFormOrigin(request: NextRequest) {
-  const trustedOrigin = new URL(getBaseUrl()).origin
-  const submittedOrigin = request.headers.get('origin')
-  if (submittedOrigin) {
-    try {
-      return new URL(submittedOrigin).origin === trustedOrigin
-    } catch {
-      return false
-    }
-  }
-
-  const referer = request.headers.get('referer')
-  if (!referer) {
-    return false
-  }
-
-  try {
-    return new URL(referer).origin === trustedOrigin
-  } catch {
-    return false
-  }
 }
 
 export async function POST(request: NextRequest) {

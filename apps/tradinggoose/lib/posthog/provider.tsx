@@ -1,12 +1,16 @@
 'use client'
 
 import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
 import { getEnv } from '../env'
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   useEffect(() => {
+    // The email-change page removes its private fragment during hydration.
+    if (pathname?.endsWith('/reset-email') && window.location.hash) return
     const posthogKey = getEnv('NEXT_PUBLIC_POSTHOG_KEY')
     const disabled = getEnv('NEXT_PUBLIC_POSTHOG_DISABLED') === '1'
 
@@ -38,7 +42,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         enable_heatmaps: false,
       })
     }
-  }, [])
+  }, [pathname])
 
   return <PHProvider client={posthog}>{children}</PHProvider>
 }

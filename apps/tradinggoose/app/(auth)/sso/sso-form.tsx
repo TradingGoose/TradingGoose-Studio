@@ -7,7 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { resolveSsoAuthErrorMessage } from '@/lib/auth/auth-error-copy'
-import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
+import { getUsernameCompletionPath, useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -119,7 +119,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
     try {
       await client.signIn.sso({
         email: emailValue,
-        callbackURL: authRedirectUrls.providerCallbackPath(callbackUrl),
+        callbackURL: getUsernameCompletionPath(authRedirectUrls.providerCallbackPath(callbackUrl)),
         errorCallbackURL: authRedirectUrls.providerErrorPath(callbackUrl),
       })
     } catch (err) {

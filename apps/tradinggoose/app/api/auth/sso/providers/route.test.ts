@@ -7,14 +7,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   mockGetSession,
   mockIsOrganizationOwnerOrAdmin,
-  mockGetOrganizationBillingData,
+  mockGetOrganizationSubscription,
   mockGetBillingGateState,
   mockSelect,
   mockLogger,
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockIsOrganizationOwnerOrAdmin: vi.fn(),
-  mockGetOrganizationBillingData: vi.fn(),
+  mockGetOrganizationSubscription: vi.fn(),
   mockGetBillingGateState: vi.fn(),
   mockSelect: vi.fn(),
   mockLogger: {
@@ -50,7 +50,10 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/billing/core/organization', () => ({
   isOrganizationOwnerOrAdmin: (...args: unknown[]) => mockIsOrganizationOwnerOrAdmin(...args),
-  getOrganizationBillingData: (...args: unknown[]) => mockGetOrganizationBillingData(...args),
+}))
+
+vi.mock('@/lib/billing/core/billing', () => ({
+  getOrganizationSubscription: (...args: unknown[]) => mockGetOrganizationSubscription(...args),
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -67,8 +70,8 @@ describe('SSO providers route', () => {
     vi.clearAllMocks()
     mockIsOrganizationOwnerOrAdmin.mockResolvedValue(true)
     mockGetBillingGateState.mockResolvedValue({ billingEnabled: true })
-    mockGetOrganizationBillingData.mockResolvedValue({
-      subscriptionTier: {
+    mockGetOrganizationSubscription.mockResolvedValue({
+      tier: {
         ownerType: 'organization',
         canConfigureSso: true,
       },
@@ -82,6 +85,7 @@ describe('SSO providers route', () => {
         providerId: 'okta',
         domain: 'example.com',
         issuer: 'https://issuer.example.com',
+        domainVerified: true,
         oidcConfig: '{"clientId":"abc"}',
         samlConfig: null,
         organizationId: 'org-1',
@@ -115,6 +119,7 @@ describe('SSO providers route', () => {
           domain: 'example.com',
           issuer: 'https://issuer.example.com',
           organizationId: 'org-1',
+          domainVerified: true,
           providerType: 'oidc',
           hasOidcConfig: true,
           hasSamlConfig: false,
@@ -140,8 +145,8 @@ describe('SSO providers route', () => {
       },
     })
     mockGetBillingGateState.mockResolvedValue({ billingEnabled: false })
-    mockGetOrganizationBillingData.mockResolvedValue({
-      subscriptionTier: null,
+    mockGetOrganizationSubscription.mockResolvedValue({
+      tier: null,
     })
     mockSelect.mockReturnValue({
       from: vi.fn(() => ({
@@ -206,8 +211,8 @@ describe('SSO providers route', () => {
         activeOrganizationId: 'org-1',
       },
     })
-    mockGetOrganizationBillingData.mockResolvedValue({
-      subscriptionTier: {
+    mockGetOrganizationSubscription.mockResolvedValue({
+      tier: {
         ownerType: 'organization',
         canConfigureSso: false,
       },

@@ -230,7 +230,7 @@ describe('auth provider callback routing', () => {
           <SocialLoginButtons
             githubAvailable
             googleAvailable
-            callbackURL='/workspace'
+            callbackURL='/invite/workspace?token=abc'
             isProduction
           />
         </NextIntlClientProvider>
@@ -250,8 +250,10 @@ describe('auth provider callback routing', () => {
 
     expect(mockSocialSignIn).toHaveBeenCalledWith({
       provider,
-      callbackURL: '/workspace',
-      errorCallbackURL: getAuthErrorCallbackPath('/workspace'),
+      callbackURL: '/signup?complete=username&callbackUrl=%2Finvite%2Fworkspace%3Ftoken%3Dabc',
+      newUserCallbackURL:
+        '/signup?complete=username&callbackUrl=%2Finvite%2Fworkspace%3Ftoken%3Dabc',
+      errorCallbackURL: getAuthErrorCallbackPath('/invite/workspace?token=abc'),
     })
   })
 
@@ -289,7 +291,7 @@ describe('auth provider callback routing', () => {
 
     expect(mockSsoSignIn).toHaveBeenCalledWith({
       email: 'user@example.com',
-      callbackURL: '/workspace',
+      callbackURL: '/signup?complete=username&callbackUrl=%2Fworkspace',
       errorCallbackURL: getAuthErrorCallbackPath('/workspace'),
     })
   })

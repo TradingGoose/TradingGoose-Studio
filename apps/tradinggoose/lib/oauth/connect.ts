@@ -22,8 +22,8 @@ export async function startOAuthConnectFlow({
     return
   }
 
-  const result = await client.oauth2.link({
-    providerId,
+  const result = await client.linkSocial({
+    provider: providerId,
     callbackURL: canonicalCallbackURL,
     errorCallbackURL: canonicalCallbackURL,
   })

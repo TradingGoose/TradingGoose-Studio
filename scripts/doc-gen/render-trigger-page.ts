@@ -23,6 +23,10 @@ export function renderTriggerPage(
 
   const isMultiEvent = triggers.length > 1
   const delivery = getDeliveryDescription(primary)
+  const oauthRegistration =
+    provider === 'hubspot'
+      ? 'In your HubSpot app, register the public origin configured in `NEXT_PUBLIC_APP_URL` followed by `/api/auth/callback/hubspot` as the OAuth redirect URL. For hosted TradingGoose, register `https://www.tradinggoose.ai/api/auth/callback/hubspot`.\n\n'
+      : ''
 
   // Build config + events section
   let configSection: string
@@ -56,7 +60,7 @@ ${pageDesc}
   This is a **${delivery.label}** trigger. ${delivery.description}
 </Callout>
 
-${renderRelatedDocCard(relatedDocPage)}
+${oauthRegistration}${renderRelatedDocCard(relatedDocPage)}
 ${configSection}`
   return `${page.trimEnd()}\n`
 }

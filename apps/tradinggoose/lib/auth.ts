@@ -3,16 +3,14 @@ import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
 import { betterAuth, parseState } from 'better-auth'
-import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
-import { nextCookies } from 'better-auth/next-js'
 import {
-  customSession,
-  emailOTP,
-  genericOAuth,
-  oneTimeToken,
-  organization,
-} from 'better-auth/plugins'
+  APIError,
+  createAuthMiddleware,
+  getAuthoritativeSessionFromCtx,
+  getOAuthState,
+} from 'better-auth/api'
+import { nextCookies } from 'better-auth/next-js'
+import { emailOTP, genericOAuth, oneTimeToken, organization, username } from 'better-auth/plugins'
 import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
@@ -27,17 +25,19 @@ import {
   renderOTPEmail,
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
+import { authDatabase, nativeAuthDatabase } from '@/lib/auth/database'
+import { emailChangeDeliveryFailed, hashEmailChangeIdentifier } from '@/lib/auth/email-change'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
+import { hasOrganizationMembership } from '@/lib/billing/core/organization'
 import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
-import { hydrateSubscriptionsWithTiers, requireBillingTierById } from '@/lib/billing/tiers'
+import { hydrateSubscriptionsWithTiers } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
-import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
 import {
   handleInvoiceFinalized,
@@ -52,7 +52,11 @@ import { resolveEmailLocale } from '@/lib/email/locale'
 import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
-import { isEmailVerificationEnabled, isHosted } from '@/lib/environment'
+import {
+  isEmailVerificationEnabled,
+  isHosted,
+  needsSignupEmailVerification,
+} from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getCanonicalScopesForProvider,
@@ -62,21 +66,26 @@ import {
   MICROSOFT_PROVIDERS,
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
-import { addRobinhoodOAuthClientToState, registerRobinhoodOAuthClient } from '@/lib/oauth/robinhood'
+import { registerRobinhoodOAuthClient } from '@/lib/oauth/robinhood'
 import {
   getRobinhoodOAuthRedirectUri,
   ROBINHOOD_OAUTH_RESOURCE,
 } from '@/lib/oauth/robinhood-constants'
 import {
   getSystemOAuthClientCredentialsForRequest,
+  type SystemOAuthClientCredentials,
   setSystemOAuthClientIdForRequest,
 } from '@/lib/oauth/system-managed-config'
 import { getOrganizationAccessState } from '@/lib/organization/access'
+import { withOrganizationAdmission } from '@/lib/organization/admission'
 import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
 import {
   REGISTRATION_DISABLED_REASON,
   REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
+import { requireSsoOrganization, requireSsoRegistrationDomains } from '@/lib/sso/management'
+import { ssoOptions } from '@/lib/sso/options'
+import { assertSsoProviderIdAllowed } from '@/lib/sso/provider-id'
 import {
   createStripeClientProxy,
   getStripeServiceConfig,
@@ -88,7 +97,6 @@ import { createDefaultWorkspaceForUser } from '@/lib/workspaces/service'
 import { localizeUrl } from '@/i18n/utils'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
-import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
 const logger = createLogger('Auth')
 
@@ -159,39 +167,6 @@ type EnvBackedSocialProviderConfig = {
   clientSecret: string
 }
 
-function toSystemManagedGenericOAuthConfig(
-  config: SystemManagedGenericOAuthConfig
-): GenericOAuthConfig {
-  const providerConfig = {
-    ...config,
-    clientId: '',
-    clientSecret: '',
-  } satisfies GenericOAuthConfig
-
-  Object.defineProperties(providerConfig, {
-    clientId: {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return getSystemOAuthClientCredentialsForRequest(config.providerId).clientId
-      },
-    },
-    clientSecret: {
-      enumerable: true,
-      configurable: true,
-      get() {
-        return getSystemOAuthClientCredentialsForRequest(config.providerId).clientSecret
-      },
-    },
-  })
-
-  return providerConfig
-}
-
-function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthConfig[]) {
-  return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
-}
-
 function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
   const providerId = 'robinhood'
   const redirectUri = getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
@@ -225,32 +200,6 @@ function createRobinhoodOAuthConfig(): SystemManagedGenericOAuthConfig {
   }
 }
 
-function createGenericOAuthPlugin(options: Parameters<typeof genericOAuth>[0]) {
-  const plugin = genericOAuth(options)
-  plugin.endpoints.oAuth2LinkAccount.options.use.push(
-    createAuthMiddleware(async (ctx) => {
-      if (ctx.body?.providerId === 'robinhood') {
-        try {
-          const clientId = await registerRobinhoodOAuthClient(
-            getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
-          )
-          setSystemOAuthClientIdForRequest('robinhood', clientId)
-        } catch (error) {
-          logger.error('Robinhood OAuth client registration failed', {
-            error: error instanceof Error ? error.message : String(error),
-          })
-          throw new APIError('BAD_GATEWAY', {
-            message: 'Could not register the Robinhood connection',
-          })
-        }
-      }
-
-      return { session: ctx.context.session! }
-    })
-  )
-  return plugin
-}
-
 function createAlpacaOAuthConfig(
   providerId: 'alpaca-live' | 'alpaca-paper',
   environment: 'live' | 'paper'
@@ -278,7 +227,6 @@ function createAlpacaOAuthConfig(
       }
     },
     responseType: 'code',
-    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
   }
 }
 
@@ -319,7 +267,6 @@ function createTradierOAuthConfig(): SystemManagedGenericOAuthConfig {
       }
     },
     responseType: 'code',
-    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
   }
 }
 
@@ -435,7 +382,7 @@ function createMicrosoftOAuthProvider(providerId: string) {
     ...MICROSOFT_OAUTH_BASE_CONFIG,
     providerId,
     scopes: getCanonicalScopesForProvider(providerId),
-    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
+
     getUserInfo: async (tokens: OAuthTokens) => getMicrosoftUserInfoFromIdToken(tokens, providerId),
   }
 }
@@ -513,8 +460,80 @@ async function createStripeCustomerForSignedUpUser(user: {
   })
 }
 
+function organizationPlugin(store: Pick<typeof db, 'select'> = db) {
+  return organization({
+    allowUserToCreateOrganization: async (user) => {
+      const [{ billingEnabled }, hasOrganization] = await Promise.all([
+        getBillingGateState(store),
+        hasOrganizationMembership(user.id, store),
+      ])
+
+      return getOrganizationAccessState({
+        billingEnabled,
+        hasOrganization,
+        isOrganizationAdmin: false,
+      }).canCreateOrganization
+    },
+    // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
+    membershipLimit: 50,
+    sendInvitationEmail: async (data: any) => {
+      try {
+        const { invitation, organization, inviter } = data
+
+        const inviterName = inviter.user?.name || 'A team member'
+        const locale = await resolveEmailLocale({ email: invitation.email })
+        const inviteUrl = localizeUrl(getBaseUrl(), locale, `/invite/${invitation.id}`)
+
+        const html = await renderInvitationEmail(
+          inviterName,
+          organization.name,
+          inviteUrl,
+          invitation.email,
+          locale
+        )
+
+        const result = await sendEmail({
+          to: invitation.email,
+          subject: getEmailSubject('invitation', locale, {
+            organizationName: organization.name,
+          }),
+          html,
+          emailType: 'transactional',
+        })
+
+        if (!result.success) {
+          logger.error('Failed to send organization invitation email:', result.message)
+        }
+      } catch (error) {
+        logger.error('Error sending invitation email', { error })
+      }
+    },
+    organizationCreation: {
+      afterCreate: async ({
+        organization,
+        user,
+      }: {
+        organization: { id: string }
+        user: { id: string }
+      }) => {
+        logger.info('[organizationCreation.afterCreate] Organization created', {
+          organizationId: organization.id,
+          creatorId: user.id,
+        })
+      },
+    },
+  })
+}
+
 export const auth = betterAuth({
   baseURL: getBaseUrl(),
+  disabledPaths: ['/sign-in/email-otp', '/sign-in/username'],
+  verification: {
+    storeIdentifier: {
+      default: 'plain',
+      overrides: { 'change-email-otp-': { hash: hashEmailChangeIdentifier } },
+    },
+  },
   trustedOrigins: [
     getBaseUrl(),
     ...(env.NEXT_PUBLIC_SOCKET_URL ? [env.NEXT_PUBLIC_SOCKET_URL] : []),
@@ -522,10 +541,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: { enabled: false },
   },
-  database: drizzleAdapter(db, {
-    provider: 'pg',
-    schema,
-  }),
+  database: authDatabase,
   session: {
     expiresIn: 30 * 24 * 60 * 60, // 30 days (how long a session can last overall)
     updateAge: 24 * 60 * 60, // 24 hours (how often to refresh the expiry)
@@ -636,13 +652,29 @@ export const auth = betterAuth({
     verification: {
       create: {
         before: async (verification, context) => {
-          if (context?.path !== '/oauth2/link' || context.body?.providerId !== 'robinhood') return
-          const clientId = getSystemOAuthClientCredentialsForRequest('robinhood').clientId
-          if (!clientId) return
+          if (context?.path !== '/link-social') return
+          const providerId = context.body?.provider
+          const state = JSON.parse(verification.value)
+          if (!state.link?.userId) return
+          const serverContext = { ...state.serverContext, providerId }
+          if (providerId === 'robinhood') {
+            try {
+              const clientId = await registerRobinhoodOAuthClient(
+                getRobinhoodOAuthRedirectUri(getBaseUrl(), isHosted)
+              )
+              setSystemOAuthClientIdForRequest('robinhood', clientId)
+              serverContext.robinhoodClientId = clientId
+            } catch (error) {
+              logger.error('Robinhood OAuth client registration failed', { error })
+              throw new APIError('BAD_GATEWAY', {
+                message: 'Could not register the Robinhood connection',
+              })
+            }
+          }
           return {
             data: {
               ...verification,
-              value: addRobinhoodOAuthClientToState(verification.value, clientId),
+              value: JSON.stringify({ ...state, serverContext }),
             },
           }
         },
@@ -699,22 +731,22 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       allowDifferentEmails: true,
-      trustedProviders: [
-        // Standard OAuth providers
-        ...TRUSTED_OAUTH_PROVIDER_IDS,
-
-        // Common SSO provider patterns
-        ...SSO_TRUSTED_PROVIDERS,
-      ],
+      trustedProviders: TRUSTED_OAUTH_PROVIDER_IDS,
     },
   },
   socialProviders: buildSocialProviders(),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isEmailVerificationEnabled,
-    sendVerificationOnSignUp: false,
     throwOnMissingCredentials: true,
     throwOnInvalidCredentials: true,
+    onExistingUserSignUp: async ({ user }): Promise<void> => {
+      if (needsSignupEmailVerification(user)) {
+        await auth.api.sendVerificationOTP({
+          body: { email: user.email, type: 'email-verification' },
+        })
+      }
+    },
     sendResetPassword: async ({ user, url, token }, request) => {
       const username = user.name || ''
       const locale = await resolveEmailLocale({ userId: user.id, email: user.email })
@@ -734,6 +766,9 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
+    sendOnSignUp: isEmailVerificationEnabled,
+    sendOnSignIn: isEmailVerificationEnabled,
+    autoSignInAfterVerification: isEmailVerificationEnabled,
     afterEmailVerification: async (user) => {
       await addVerifiedUserEmailToAudience(user)
     },
@@ -741,8 +776,41 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (
-        ctx.path === '/oauth2/callback/:providerId' &&
-        ctx.params?.providerId === 'robinhood' &&
+        ctx.path === '/sign-up/email' &&
+        (typeof ctx.body?.username !== 'string' || !ctx.body.username)
+      ) {
+        throw new APIError('BAD_REQUEST', {
+          code: 'INVALID_USERNAME',
+          message: 'Username is required',
+        })
+      }
+      if (ctx.path === '/sso/register') {
+        assertSsoProviderIdAllowed(ctx.body?.providerId)
+        const domain = requireSsoRegistrationDomains(ctx.body?.domain)
+        return { context: { ...ctx, body: { ...ctx.body, domain } } }
+      }
+
+      if (ctx.path === '/sso/request-domain-verification' || ctx.path === '/sso/verify-domain') {
+        const organizationId = await requireSsoOrganization(
+          await getAuthoritativeSessionFromCtx(ctx)
+        )
+        const provider = await ctx.context.adapter.findOne({
+          model: 'ssoProvider',
+          where: [
+            { field: 'providerId', value: ctx.body?.providerId },
+            { field: 'organizationId', value: organizationId },
+          ],
+        })
+        if (!provider) {
+          throw new APIError('NOT_FOUND', {
+            message: 'Provider not found in the active organization',
+          })
+        }
+      }
+
+      if (
+        ctx.path === '/callback/:id' &&
+        ctx.params?.id === 'robinhood' &&
         typeof ctx.query?.error === 'string'
       ) {
         const { errorURL = '/error' } = await parseState(ctx)
@@ -755,11 +823,15 @@ export const auth = betterAuth({
         throw ctx.redirect(`${redirectPath}${redirectURL.search}${redirectURL.hash}`)
       }
 
-      if (
-        (ctx.path.startsWith('/sign-in') || ctx.path.startsWith('/sign-up')) &&
-        (env.ALLOWED_LOGIN_EMAILS || env.ALLOWED_LOGIN_DOMAINS)
-      ) {
-        const requestEmail = ctx.body?.email?.toLowerCase()
+      const isEmailChange =
+        ctx.path === '/email-otp/request-email-change' || ctx.path === '/email-otp/change-email'
+      if (env.ALLOWED_LOGIN_EMAILS || env.ALLOWED_LOGIN_DOMAINS) {
+        const isLogin =
+          ctx.path.startsWith('/sign-in') ||
+          ctx.path.startsWith('/sign-up') ||
+          ctx.path === '/email-otp/verify-email'
+        const email = isEmailChange ? ctx.body?.newEmail : isLogin && ctx.body?.email
+        const requestEmail = typeof email === 'string' && email.toLowerCase()
 
         if (requestEmail) {
           let isAllowed = false
@@ -780,29 +852,61 @@ export const auth = betterAuth({
           }
 
           if (!isAllowed) {
-            throw new Error('Access restricted. Please contact your administrator.')
+            throw new APIError('FORBIDDEN', {
+              message: 'Access restricted. Please contact your administrator.',
+            })
           }
         }
       }
 
-      return
+      // Signup and change-email use the same native current-mailbox proof.
+      const isSignupConfirmation = ctx.path === '/email-otp/verify-email'
+      const isSignupResend =
+        ctx.path === '/email-otp/send-verification-otp' && ctx.body?.type === 'email-verification'
+      if ((isSignupConfirmation || isSignupResend) && typeof ctx.body?.email === 'string') {
+        const account = isEmailVerificationEnabled
+          ? await ctx.context.internalAdapter.findUserByEmail(ctx.body.email.toLowerCase())
+          : null
+        if (!account || !needsSignupEmailVerification(account.user)) {
+          if (isSignupResend) return ctx.json({ success: true })
+          throw new APIError('BAD_REQUEST', { code: 'INVALID_OTP', message: 'Invalid OTP' })
+        }
+      }
+      if (ctx.path === '/send-verification-email' && !isEmailVerificationEnabled) {
+        return ctx.json({ status: true })
+      }
+      if (isEmailChange && isEmailVerificationEnabled) {
+        const session = await getAuthoritativeSessionFromCtx(ctx)
+        if (session && needsSignupEmailVerification(session.user)) {
+          throw new APIError('FORBIDDEN', {
+            code: 'EMAIL_NOT_VERIFIED',
+            message: 'Verify your current email before changing it.',
+          })
+        }
+      }
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (
+        ctx.path === '/email-otp/request-email-change' &&
+        (await emailChangeDeliveryFailed.get())
+      ) {
+        throw new APIError('BAD_GATEWAY', {
+          code: 'EMAIL_CHANGE_CODE_DELIVERY_FAILED',
+          message: 'Could not send the code to your new email. Request a fresh link.',
+        })
+      }
     }),
   },
   plugins: [
     oneTimeToken({
       expiresIn: 24 * 60 * 60, // 24 hours - Socket.IO handles connection persistence with heartbeats
     }),
-    customSession(async ({ user, session }) => ({
-      user,
-      session,
-    })),
+    username({ displayUsername: false }),
     emailOTP({
-      sendVerificationOTP: async (data: {
-        email: string
-        otp: string
-        type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
-      }) => {
-        if (!isEmailVerificationEnabled) {
+      overrideDefaultEmailVerification: true,
+      changeEmail: { enabled: true, verifyCurrentEmail: true },
+      sendVerificationOTP: async (data, ctx) => {
+        if (!isEmailVerificationEnabled && data.type !== 'change-email') {
           logger.info('Skipping email verification')
           return
         }
@@ -824,7 +928,10 @@ export const auth = betterAuth({
             )
           }
 
-          const locale = await resolveEmailLocale({ email: data.email })
+          const locale = await resolveEmailLocale({
+            userId: data.type === 'change-email' ? ctx?.context.session?.user.id : undefined,
+            email: data.email,
+          })
           const html = await renderOTPEmail(data.otp, data.email, data.type, undefined, locale)
 
           const result = await sendEmail({
@@ -832,6 +939,7 @@ export const auth = betterAuth({
             subject: getEmailSubject(data.type, locale),
             html,
             text: `${getEmailSubject(data.type, locale)}\n\n${data.otp}`,
+            logTextWhenUnconfigured: data.type !== 'change-email',
             emailType: 'transactional',
           })
 
@@ -839,6 +947,7 @@ export const auth = betterAuth({
             throw new Error(`Failed to send verification code: ${result.message}`)
           }
         } catch (error) {
+          if (data.type === 'change-email') await emailChangeDeliveryFailed.set(true)
           logger.error('Error sending verification code:', {
             error,
             email: data.email,
@@ -846,876 +955,11 @@ export const auth = betterAuth({
           throw error
         }
       },
-      sendVerificationOnSignUp: false,
       otpLength: 6, // Explicitly set the OTP length
       expiresIn: 15 * 60, // 15 minutes in seconds
     }),
-    createGenericOAuthPlugin({
-      config: toSystemManagedGenericOAuthConfigs([
-        createRobinhoodOAuthConfig(),
-        createAlpacaOAuthConfig('alpaca-live', 'live'),
-        createAlpacaOAuthConfig('alpaca-paper', 'paper'),
-        createTradierOAuthConfig(),
-        {
-          providerId: 'github-repo',
-          authorizationUrl: 'https://github.com/login/oauth/authorize',
-          accessType: 'offline',
-          prompt: 'consent',
-          tokenUrl: 'https://github.com/login/oauth/access_token',
-          userInfoUrl: 'https://api.github.com/user',
-          scopes: ['user:email', 'repo', 'read:user', 'workflow'],
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/github-repo`,
-          getUserInfo: async (tokens) => {
-            try {
-              const profileResponse = await fetch('https://api.github.com/user', {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                  'User-Agent': 'tradinggoose-studio',
-                },
-              })
-
-              if (!profileResponse.ok) {
-                logger.error('Failed to fetch GitHub profile', {
-                  status: profileResponse.status,
-                  statusText: profileResponse.statusText,
-                })
-                throw new Error(`Failed to fetch GitHub profile: ${profileResponse.statusText}`)
-              }
-
-              const profile = await profileResponse.json()
-
-              if (!profile.email) {
-                const emailsResponse = await fetch('https://api.github.com/user/emails', {
-                  headers: {
-                    Authorization: `Bearer ${tokens.accessToken}`,
-                    'User-Agent': 'tradinggoose-studio',
-                  },
-                })
-
-                if (emailsResponse.ok) {
-                  const emails = await emailsResponse.json()
-
-                  const primaryEmail =
-                    emails.find(
-                      (email: { primary: boolean; email: string; verified: boolean }) =>
-                        email.primary
-                    ) || emails[0]
-                  if (primaryEmail) {
-                    profile.email = primaryEmail.email
-                    profile.emailVerified = primaryEmail.verified || false
-                  }
-                } else {
-                  logger.warn('Failed to fetch GitHub emails', {
-                    status: emailsResponse.status,
-                    statusText: emailsResponse.statusText,
-                  })
-                }
-              }
-
-              const now = new Date()
-
-              return {
-                id: profile.id.toString(),
-                name: profile.name || profile.login,
-                email: profile.email,
-                image: profile.avatar_url,
-                emailVerified: profile.emailVerified || false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in GitHub getUserInfo', { error })
-              throw error
-            }
-          },
-        },
-
-        // Google providers
-        {
-          providerId: 'google-email',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/gmail.send',
-            'https://www.googleapis.com/auth/gmail.modify',
-            'https://www.googleapis.com/auth/gmail.labels',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-email`,
-        },
-        {
-          providerId: 'google-calendar',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/calendar',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-calendar`,
-        },
-        {
-          providerId: 'google-drive',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/drive.file',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-drive`,
-        },
-        {
-          providerId: 'google-docs',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/drive.file',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-docs`,
-        },
-        {
-          providerId: 'google-sheets',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/drive.file',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-sheets`,
-        },
-
-        {
-          providerId: 'google-forms',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/forms.responses.readonly',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-forms`,
-        },
-
-        {
-          providerId: 'google-vault',
-          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
-          accessType: 'offline',
-          scopes: [
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/ediscovery',
-            'https://www.googleapis.com/auth/devstorage.read_only',
-          ],
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/google-vault`,
-        },
-
-        ...[...MICROSOFT_PROVIDERS].map(createMicrosoftOAuthProvider),
-
-        {
-          providerId: 'wealthbox',
-          authorizationUrl: 'https://app.crmworkspace.com/oauth/authorize',
-          tokenUrl: 'https://app.crmworkspace.com/oauth/token',
-          userInfoUrl: 'https://dummy-not-used.wealthbox.com', // Dummy URL since no user info endpoint exists
-          scopes: ['login', 'data'],
-          responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/wealthbox`,
-          getUserInfo: async (tokens) => {
-            try {
-              logger.info('Creating Wealthbox user profile from token data')
-
-              const uniqueId = `wealthbox-${Date.now()}`
-              const now = new Date()
-
-              return {
-                id: uniqueId,
-                name: 'Wealthbox User',
-                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@wealthbox.user`,
-                emailVerified: false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error creating Wealthbox user profile:', { error })
-              return null
-            }
-          },
-        },
-
-        // Supabase provider
-        {
-          providerId: 'supabase',
-          authorizationUrl: 'https://api.supabase.com/v1/oauth/authorize',
-          tokenUrl: 'https://api.supabase.com/v1/oauth/token',
-          userInfoUrl: 'https://dummy-not-used.supabase.co',
-          scopes: ['database.read', 'database.write', 'projects.read'],
-          responseType: 'code',
-          pkce: true,
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/supabase`,
-          getUserInfo: async (tokens) => {
-            try {
-              logger.info('Creating Supabase user profile from token data')
-
-              let userId = 'supabase-user'
-              if (tokens.idToken) {
-                try {
-                  const decodedToken = JSON.parse(
-                    Buffer.from(tokens.idToken.split('.')[1], 'base64').toString()
-                  )
-                  if (decodedToken.sub) {
-                    userId = decodedToken.sub
-                  }
-                } catch (e) {
-                  logger.warn('Failed to decode Supabase ID token', {
-                    error: e,
-                  })
-                }
-              }
-
-              const uniqueId = `${userId}-${Date.now()}`
-              const now = new Date()
-
-              return {
-                id: uniqueId,
-                name: 'Supabase User',
-                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@supabase.user`,
-                emailVerified: false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error creating Supabase user profile:', { error })
-              return null
-            }
-          },
-        },
-
-        // X provider
-        {
-          providerId: 'x',
-          authorizationUrl: 'https://x.com/i/oauth2/authorize',
-          tokenUrl: 'https://api.x.com/2/oauth2/token',
-          userInfoUrl: 'https://api.x.com/2/users/me',
-          accessType: 'offline',
-          scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
-          pkce: true,
-          responseType: 'code',
-          prompt: 'consent',
-          authentication: 'basic',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/x`,
-          getUserInfo: async (tokens) => {
-            try {
-              const response = await fetch(
-                'https://api.x.com/2/users/me?user.fields=profile_image_url,username,name,verified',
-                {
-                  headers: {
-                    Authorization: `Bearer ${tokens.accessToken}`,
-                  },
-                }
-              )
-
-              if (!response.ok) {
-                logger.error('Error fetching X user info:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const profile = await response.json()
-
-              if (!profile.data) {
-                logger.error('Invalid X profile response:', profile)
-                return null
-              }
-
-              const now = new Date()
-
-              return {
-                id: profile.data.id,
-                name: profile.data.name || 'X User',
-                email: `${profile.data.username}@x.com`,
-                image: profile.data.profile_image_url,
-                emailVerified: profile.data.verified || false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in X getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-
-        // Confluence provider
-        {
-          providerId: 'confluence',
-          authorizationUrl: 'https://auth.atlassian.com/authorize',
-          tokenUrl: 'https://auth.atlassian.com/oauth/token',
-          userInfoUrl: 'https://api.atlassian.com/me',
-          scopes: ['read:page:confluence', 'write:page:confluence', 'read:me', 'offline_access'],
-          responseType: 'code',
-          pkce: true,
-          accessType: 'offline',
-          authentication: 'basic',
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/confluence`,
-          getUserInfo: async (tokens) => {
-            try {
-              const response = await fetch('https://api.atlassian.com/me', {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                },
-              })
-
-              if (!response.ok) {
-                logger.error('Error fetching Confluence user info:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const profile = await response.json()
-
-              const now = new Date()
-
-              return {
-                id: profile.account_id,
-                name: profile.name || profile.display_name || 'Confluence User',
-                email: profile.email || `${profile.account_id}@atlassian.com`,
-                image: profile.picture || undefined,
-                emailVerified: true,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in Confluence getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-
-        // Discord provider
-        {
-          providerId: 'discord',
-          authorizationUrl: 'https://discord.com/api/oauth2/authorize',
-          tokenUrl: 'https://discord.com/api/oauth2/token',
-          userInfoUrl: 'https://discord.com/api/users/@me',
-          scopes: ['identify', 'bot', 'messages.read', 'guilds', 'guilds.members.read'],
-          responseType: 'code',
-          accessType: 'offline',
-          authentication: 'basic',
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/discord`,
-          getUserInfo: async (tokens) => {
-            try {
-              const response = await fetch('https://discord.com/api/users/@me', {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                },
-              })
-
-              if (!response.ok) {
-                logger.error('Error fetching Discord user info:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const profile = await response.json()
-              const now = new Date()
-
-              return {
-                id: profile.id,
-                name: profile.username || 'Discord User',
-                email: profile.email || `${profile.id}@discord.user`,
-                image: profile.avatar
-                  ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-                  : undefined,
-                emailVerified: profile.verified || false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in Discord getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-
-        // Jira provider
-        {
-          providerId: 'jira',
-          authorizationUrl: 'https://auth.atlassian.com/authorize',
-          tokenUrl: 'https://auth.atlassian.com/oauth/token',
-          userInfoUrl: 'https://api.atlassian.com/me',
-          scopes: [
-            'read:jira-user',
-            'read:jira-work',
-            'write:jira-work',
-            'write:issue:jira',
-            'read:project:jira',
-            'read:issue-type:jira',
-            'read:me',
-            'offline_access',
-            'read:issue-meta:jira',
-            'read:issue-security-level:jira',
-            'read:issue.vote:jira',
-            'read:issue.changelog:jira',
-            'read:avatar:jira',
-            'read:issue:jira',
-            'read:status:jira',
-            'read:user:jira',
-            'read:field-configuration:jira',
-            'read:issue-details:jira',
-          ],
-          responseType: 'code',
-          pkce: true,
-          accessType: 'offline',
-          authentication: 'basic',
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/jira`,
-          getUserInfo: async (tokens) => {
-            try {
-              const response = await fetch('https://api.atlassian.com/me', {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                },
-              })
-
-              if (!response.ok) {
-                logger.error('Error fetching Jira user info:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const profile = await response.json()
-
-              const now = new Date()
-
-              return {
-                id: profile.account_id,
-                name: profile.name || profile.display_name || 'Jira User',
-                email: profile.email || `${profile.account_id}@atlassian.com`,
-                image: profile.picture || undefined,
-                emailVerified: true,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in Jira getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-
-        // Airtable provider
-        {
-          providerId: 'airtable',
-          authorizationUrl: 'https://airtable.com/oauth2/v1/authorize',
-          tokenUrl: 'https://airtable.com/oauth2/v1/token',
-          userInfoUrl: 'https://api.airtable.com/v0/meta/whoami',
-          scopes: ['data.records:read', 'data.records:write', 'user.email:read', 'webhook:manage'],
-          responseType: 'code',
-          pkce: true,
-          accessType: 'offline',
-          authentication: 'basic',
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/airtable`,
-          getUserInfo: async (tokens) => {
-            try {
-              const response = await fetch('https://api.airtable.com/v0/meta/whoami', {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                },
-              })
-
-              if (!response.ok) {
-                logger.error('Error fetching Airtable user info:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const data = await response.json()
-              const now = new Date()
-
-              return {
-                id: data.id,
-                name: data.email ? data.email.split('@')[0] : 'Airtable User',
-                email: data.email || `${data.id}@airtable.user`,
-                emailVerified: !!data.email,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in Airtable getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-
-        // Notion provider
-        {
-          providerId: 'notion',
-          authorizationUrl: 'https://api.notion.com/v1/oauth/authorize',
-          tokenUrl: 'https://api.notion.com/v1/oauth/token',
-          userInfoUrl: 'https://api.notion.com/v1/users/me',
-          scopes: ['workspace.content', 'workspace.name', 'page.read', 'page.write'],
-          responseType: 'code',
-          pkce: false,
-          accessType: 'offline',
-          authentication: 'basic',
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/notion`,
-          getUserInfo: async (tokens) => {
-            try {
-              const response = await fetch('https://api.notion.com/v1/users/me', {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                  'Notion-Version': '2022-06-28',
-                },
-              })
-
-              if (!response.ok) {
-                logger.error('Error fetching Notion user info:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const profile = await response.json()
-              const now = new Date()
-
-              return {
-                id: profile.bot?.owner?.user?.id || profile.id,
-                name: profile.name || profile.bot?.owner?.user?.name || 'Notion User',
-                email: profile.person?.email || `${profile.id}@notion.user`,
-                emailVerified: !!profile.person?.email,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in Notion getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-
-        // Reddit provider
-        {
-          providerId: 'reddit',
-          authorizationUrl: 'https://www.reddit.com/api/v1/authorize?duration=permanent',
-          tokenUrl: 'https://www.reddit.com/api/v1/access_token',
-          userInfoUrl: 'https://oauth.reddit.com/api/v1/me',
-          scopes: ['identity', 'read'],
-          responseType: 'code',
-          pkce: false,
-          accessType: 'offline',
-          authentication: 'basic',
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/reddit`,
-          getUserInfo: async (tokens) => {
-            try {
-              const response = await fetch('https://oauth.reddit.com/api/v1/me', {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                  'User-Agent': 'tradinggoose-studio/1.0',
-                },
-              })
-
-              if (!response.ok) {
-                logger.error('Error fetching Reddit user info:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const data = await response.json()
-              const now = new Date()
-
-              return {
-                id: data.id,
-                name: data.name || 'Reddit User',
-                email: `${data.name}@reddit.user`,
-                image: data.icon_img || undefined,
-                emailVerified: false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in Reddit getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-
-        {
-          providerId: 'linear',
-          authorizationUrl: 'https://linear.app/oauth/authorize',
-          tokenUrl: 'https://api.linear.app/oauth/token',
-          scopes: ['read', 'write'],
-          responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/linear`,
-          pkce: true,
-          prompt: 'consent',
-          accessType: 'offline',
-          getUserInfo: async (tokens) => {
-            try {
-              const response = await fetch('https://api.linear.app/graphql', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                },
-                body: JSON.stringify({
-                  query: `{
-                    viewer {
-                      id
-                      email
-                      name
-                      avatarUrl
-                    }
-                  }`,
-                }),
-              })
-
-              if (!response.ok) {
-                const errorText = await response.text()
-                logger.error('Linear API error:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                  body: errorText,
-                })
-                throw new Error(`Linear API error: ${response.status} ${response.statusText}`)
-              }
-
-              const { data, errors } = await response.json()
-
-              if (errors) {
-                logger.error('GraphQL errors:', errors)
-                throw new Error(`GraphQL errors: ${JSON.stringify(errors)}`)
-              }
-
-              if (!data?.viewer) {
-                logger.error('No viewer data in response:', data)
-                throw new Error('No viewer data in response')
-              }
-
-              const viewer = data.viewer
-
-              return {
-                id: viewer.id,
-                email: viewer.email,
-                name: viewer.name,
-                emailVerified: true,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                image: viewer.avatarUrl || undefined,
-              }
-            } catch (error) {
-              logger.error('Error in getUserInfo:', error)
-              throw error
-            }
-          },
-        },
-
-        // Slack provider
-        {
-          providerId: 'slack',
-          authorizationUrl: 'https://slack.com/oauth/v2/authorize',
-          tokenUrl: 'https://slack.com/api/oauth.v2.access',
-          userInfoUrl: 'https://slack.com/api/users.identity',
-          scopes: [
-            // Bot token scopes only - app acts as a bot user
-            'channels:read',
-            'channels:history',
-            'groups:read',
-            'groups:history',
-            'chat:write',
-            'chat:write.public',
-            'users:read',
-            'files:write',
-            'canvases:write',
-          ],
-          responseType: 'code',
-          accessType: 'offline',
-          prompt: 'consent',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/slack`,
-          getUserInfo: async (tokens) => {
-            try {
-              logger.info('Creating Slack bot profile from token data')
-
-              // Extract user identifier from tokens if possible
-              let userId = 'slack-bot'
-              if (tokens.idToken) {
-                try {
-                  const decodedToken = JSON.parse(
-                    Buffer.from(tokens.idToken.split('.')[1], 'base64').toString()
-                  )
-                  if (decodedToken.sub) {
-                    userId = decodedToken.sub
-                  }
-                } catch (e) {
-                  logger.warn('Failed to decode Slack ID token', { error: e })
-                }
-              }
-
-              const uniqueId = `${userId}-${Date.now()}`
-              const now = new Date()
-
-              return {
-                id: uniqueId,
-                name: 'Slack Bot',
-                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@slack.bot`,
-                emailVerified: false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error creating Slack bot profile:', { error })
-              return null
-            }
-          },
-        },
-
-        // Webflow provider
-        {
-          providerId: 'webflow',
-          authorizationUrl: 'https://webflow.com/oauth/authorize',
-          tokenUrl: 'https://api.webflow.com/oauth/access_token',
-          userInfoUrl: 'https://api.webflow.com/v2/token/introspect',
-          scopes: ['sites:read', 'sites:write', 'cms:read', 'cms:write'],
-          responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/webflow`,
-          getUserInfo: async (tokens) => {
-            try {
-              logger.info('Fetching Webflow user info')
-
-              const response = await fetch('https://api.webflow.com/v2/token/introspect', {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                },
-              })
-
-              if (!response.ok) {
-                logger.error('Error fetching Webflow user info:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const data = await response.json()
-              const now = new Date()
-
-              const userIds = Array.isArray(data.authorization?.authorizedTo?.userIds)
-                ? [
-                    ...new Set(
-                      data.authorization.authorizedTo.userIds
-                        .filter((id: unknown): id is string => typeof id === 'string')
-                        .map((id: string) => id.trim())
-                        .filter(Boolean)
-                    ),
-                  ].sort()
-                : []
-              if (!userIds.length) {
-                logger.error('Webflow token introspection returned no stable user identity')
-                return null
-              }
-              const uniqueId = `webflow-${userIds.join(':')}`
-
-              return {
-                id: uniqueId,
-                name: data.user_name || 'Webflow User',
-                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@webflow.user`,
-                emailVerified: false,
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in Webflow getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-
-        {
-          providerId: 'hubspot',
-          authorizationUrl: 'https://app.hubspot.com/oauth/authorize',
-          tokenUrl: 'https://api.hubspot.com/oauth/v3/token',
-          scopes: HUBSPOT_OAUTH_SCOPES,
-          responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/hubspot`,
-          getUserInfo: async (tokens) => {
-            try {
-              const credentials = getSystemOAuthClientCredentialsForRequest('hubspot')
-              const response = await fetch('https://api.hubspot.com/oauth/v3/token/introspect', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                  client_id: credentials.clientId,
-                  client_secret: credentials.clientSecret,
-                  token_type_hint: 'access_token',
-                  access_token: tokens.accessToken ?? '',
-                }).toString(),
-              })
-
-              if (!response.ok) {
-                logger.error('Error fetching HubSpot token metadata:', {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-                return null
-              }
-
-              const profile = await response.json()
-              const hubId = String(profile.hub_id ?? 'hubspot')
-              const userId = String(profile.user_id ?? profile.user ?? crypto.randomUUID())
-              const email = profile.user || `${userId}@hubspot.user`
-              const now = new Date()
-
-              return {
-                id: `${hubId}-${userId}`,
-                name: profile.user || profile.hub_domain || 'HubSpot User',
-                email,
-                emailVerified: Boolean(profile.user),
-                createdAt: now,
-                updatedAt: now,
-              }
-            } catch (error) {
-              logger.error('Error in HubSpot getUserInfo:', { error })
-              return null
-            }
-          },
-        },
-      ] as SystemManagedGenericOAuthConfig[]),
-    }),
     // Include SSO plugin when enabled
-    ...(env.SSO_ENABLED ? [sso()] : []),
+    ...(env.SSO_ENABLED ? [sso(ssoOptions)] : []),
     // Stripe is deployment-owned and env-backed; update it through deployment secrets.
     stripe({
       stripeClient,
@@ -1737,47 +981,11 @@ export const auth = betterAuth({
             referenceId,
           })
         },
-        getCheckoutSessionParams: async ({ plan, subscription }) => {
-          const [settings, tier] = await Promise.all([
-            getResolvedSystemSettings(),
-            requireBillingTierById(plan.name),
-          ])
-          const allowPromotionCodes = settings.allowPromotionCodes
-
-          if (tier.ownerType === 'organization') {
-            const seatCount = tier.seatCount ?? 1
-            const checkoutQuantity = Math.max(subscription?.seats || seatCount, seatCount, 1)
-
-            return {
-              params: {
-                allow_promotion_codes: allowPromotionCodes,
-                line_items: [
-                  {
-                    price: plan.priceId,
-                    quantity: checkoutQuantity,
-                    ...(tier.seatMode === 'adjustable'
-                      ? {
-                          adjustable_quantity: {
-                            enabled: true,
-                            minimum: seatCount,
-                            ...(typeof tier.seatMaximum === 'number'
-                              ? { maximum: tier.seatMaximum }
-                              : {}),
-                          },
-                        }
-                      : {}),
-                  },
-                ],
-              },
-            }
-          }
-
-          return {
-            params: {
-              allow_promotion_codes: allowPromotionCodes,
-            },
-          }
-        },
+        getCheckoutSessionParams: async () => ({
+          params: {
+            allow_promotion_codes: (await getResolvedSystemSettings()).allowPromotionCodes,
+          },
+        }),
         onSubscriptionComplete: async ({
           stripeSubscription,
           subscription,
@@ -1876,80 +1084,7 @@ export const auth = betterAuth({
         }
       },
     }),
-    organization({
-      allowUserToCreateOrganization: async (user) => {
-        const [{ billingEnabled }, memberships] = await Promise.all([
-          getBillingGateState(),
-          db
-            .select({ id: schema.member.id })
-            .from(schema.member)
-            .where(eq(schema.member.userId, user.id))
-            .limit(1),
-        ])
-
-        return getOrganizationAccessState({
-          billingEnabled,
-          hasOrganization: memberships.length > 0,
-          isOrganizationAdmin: false,
-        }).canCreateOrganization
-      },
-      // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
-      membershipLimit: 50,
-      // Validate seat limits before sending invitations
-      beforeInvite: async ({ organization }: { organization: { id: string } }) => {
-        const seatValidation = await validateSeatAvailability(organization.id)
-
-        if (!seatValidation.canInvite) {
-          throw new Error(seatValidation.reason ?? 'Unable to invite member')
-        }
-      },
-      sendInvitationEmail: async (data: any) => {
-        try {
-          const { invitation, organization, inviter } = data
-
-          const inviterName = inviter.user?.name || 'A team member'
-          const locale = await resolveEmailLocale({ email: invitation.email })
-          const inviteUrl = localizeUrl(getBaseUrl(), locale, `/invite/${invitation.id}`)
-
-          const html = await renderInvitationEmail(
-            inviterName,
-            organization.name,
-            inviteUrl,
-            invitation.email,
-            locale
-          )
-
-          const result = await sendEmail({
-            to: invitation.email,
-            subject: getEmailSubject('invitation', locale, {
-              organizationName: organization.name,
-            }),
-            html,
-            emailType: 'transactional',
-          })
-
-          if (!result.success) {
-            logger.error('Failed to send organization invitation email:', result.message)
-          }
-        } catch (error) {
-          logger.error('Error sending invitation email', { error })
-        }
-      },
-      organizationCreation: {
-        afterCreate: async ({
-          organization,
-          user,
-        }: {
-          organization: { id: string }
-          user: { id: string }
-        }) => {
-          logger.info('[organizationCreation.afterCreate] Organization created', {
-            organizationId: organization.id,
-            creatorId: user.id,
-          })
-        },
-      },
-    }),
+    organizationPlugin(),
     nextCookies(),
   ],
   onAPIError: {
@@ -1962,6 +1097,917 @@ export const auth = betterAuth({
     verify: '/verify',
   },
 })
+
+// The organization plugin creates the organization and its first owner in separate calls.
+export async function createOrganizationWithAuth(request: Request) {
+  const session = await getSession(request.headers)
+  if (!session?.user.id) return Response.json({ message: 'Unauthorized' }, { status: 401 })
+  try {
+    return await withOrganizationAdmission({ userId: session.user.id }, async (tx) => {
+      const scoped = betterAuth({
+        ...auth.options,
+        database: nativeAuthDatabase(tx),
+        plugins: auth.options.plugins.map((plugin) =>
+          plugin.id === 'organization' ? organizationPlugin(tx) : plugin
+        ),
+      })
+      const response = await scoped.handler(request)
+      if (!response.ok) throw response
+      return response
+    })
+  } catch (error) {
+    if (error instanceof Response) return error
+    throw error
+  }
+}
+
+export function createOAuthAuth(
+  providerId: string,
+  credentials: SystemOAuthClientCredentials,
+  explicitLink: boolean
+) {
+  const plugin = genericOAuth({
+    config: (
+      [
+        createRobinhoodOAuthConfig(),
+        createAlpacaOAuthConfig('alpaca-live', 'live'),
+        createAlpacaOAuthConfig('alpaca-paper', 'paper'),
+        createTradierOAuthConfig(),
+        {
+          providerId: 'github-repo',
+          authorizationUrl: 'https://github.com/login/oauth/authorize',
+          accessType: 'offline',
+          prompt: 'consent',
+          tokenUrl: 'https://github.com/login/oauth/access_token',
+          userInfoUrl: 'https://api.github.com/user',
+          scopes: ['user:email', 'repo', 'read:user', 'workflow'],
+
+          getUserInfo: async (tokens) => {
+            try {
+              const profileResponse = await fetch('https://api.github.com/user', {
+                headers: {
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                  'User-Agent': 'tradinggoose-studio',
+                },
+              })
+
+              if (!profileResponse.ok) {
+                logger.error('Failed to fetch GitHub profile', {
+                  status: profileResponse.status,
+                  statusText: profileResponse.statusText,
+                })
+                throw new Error(`Failed to fetch GitHub profile: ${profileResponse.statusText}`)
+              }
+
+              const profile = await profileResponse.json()
+
+              if (!profile.email) {
+                const emailsResponse = await fetch('https://api.github.com/user/emails', {
+                  headers: {
+                    Authorization: `Bearer ${tokens.accessToken}`,
+                    'User-Agent': 'tradinggoose-studio',
+                  },
+                })
+
+                if (emailsResponse.ok) {
+                  const emails = await emailsResponse.json()
+
+                  const primaryEmail =
+                    emails.find(
+                      (email: { primary: boolean; email: string; verified: boolean }) =>
+                        email.primary
+                    ) || emails[0]
+                  if (primaryEmail) {
+                    profile.email = primaryEmail.email
+                    profile.emailVerified = primaryEmail.verified || false
+                  }
+                } else {
+                  logger.warn('Failed to fetch GitHub emails', {
+                    status: emailsResponse.status,
+                    statusText: emailsResponse.statusText,
+                  })
+                }
+              }
+
+              const now = new Date()
+
+              return {
+                id: profile.id.toString(),
+                name: profile.name || profile.login,
+                email: profile.email,
+                image: profile.avatar_url,
+                emailVerified: profile.emailVerified || false,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in GitHub getUserInfo', { error })
+              throw error
+            }
+          },
+        },
+
+        // Google providers
+        {
+          providerId: 'google-email',
+          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
+          accessType: 'offline',
+          scopes: [
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/gmail.send',
+            'https://www.googleapis.com/auth/gmail.modify',
+            'https://www.googleapis.com/auth/gmail.labels',
+          ],
+          prompt: 'consent',
+        },
+        {
+          providerId: 'google-calendar',
+          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
+          accessType: 'offline',
+          scopes: [
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/calendar',
+          ],
+          prompt: 'consent',
+        },
+        {
+          providerId: 'google-drive',
+          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
+          accessType: 'offline',
+          scopes: [
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/drive.readonly',
+            'https://www.googleapis.com/auth/drive.file',
+          ],
+          prompt: 'consent',
+        },
+        {
+          providerId: 'google-docs',
+          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
+          accessType: 'offline',
+          scopes: [
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/drive.readonly',
+            'https://www.googleapis.com/auth/drive.file',
+          ],
+          prompt: 'consent',
+        },
+        {
+          providerId: 'google-sheets',
+          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
+          accessType: 'offline',
+          scopes: [
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/drive.readonly',
+            'https://www.googleapis.com/auth/drive.file',
+          ],
+          prompt: 'consent',
+        },
+
+        {
+          providerId: 'google-forms',
+          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
+          accessType: 'offline',
+          scopes: [
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/forms.responses.readonly',
+          ],
+          prompt: 'consent',
+        },
+
+        {
+          providerId: 'google-vault',
+          discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
+          accessType: 'offline',
+          scopes: [
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/ediscovery',
+            'https://www.googleapis.com/auth/devstorage.read_only',
+          ],
+          prompt: 'consent',
+        },
+
+        ...[...MICROSOFT_PROVIDERS].map(createMicrosoftOAuthProvider),
+
+        {
+          providerId: 'wealthbox',
+          authorizationUrl: 'https://app.crmworkspace.com/oauth/authorize',
+          tokenUrl: 'https://app.crmworkspace.com/oauth/token',
+          userInfoUrl: 'https://dummy-not-used.wealthbox.com', // Dummy URL since no user info endpoint exists
+          scopes: ['login', 'data'],
+          responseType: 'code',
+
+          getUserInfo: async (tokens) => {
+            try {
+              logger.info('Creating Wealthbox user profile from token data')
+
+              const uniqueId = `wealthbox-${Date.now()}`
+              const now = new Date()
+
+              return {
+                id: uniqueId,
+                name: 'Wealthbox User',
+                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@wealthbox.user`,
+                emailVerified: false,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error creating Wealthbox user profile:', { error })
+              return null
+            }
+          },
+        },
+
+        // Supabase provider
+        {
+          providerId: 'supabase',
+          authorizationUrl: 'https://api.supabase.com/v1/oauth/authorize',
+          tokenUrl: 'https://api.supabase.com/v1/oauth/token',
+          userInfoUrl: 'https://dummy-not-used.supabase.co',
+          scopes: ['database.read', 'database.write', 'projects.read'],
+          responseType: 'code',
+          pkce: true,
+
+          getUserInfo: async (tokens) => {
+            try {
+              logger.info('Creating Supabase user profile from token data')
+
+              let userId = 'supabase-user'
+              if (tokens.idToken) {
+                try {
+                  const decodedToken = JSON.parse(
+                    Buffer.from(tokens.idToken.split('.')[1], 'base64').toString()
+                  )
+                  if (decodedToken.sub) {
+                    userId = decodedToken.sub
+                  }
+                } catch (e) {
+                  logger.warn('Failed to decode Supabase ID token', {
+                    error: e,
+                  })
+                }
+              }
+
+              const uniqueId = `${userId}-${Date.now()}`
+              const now = new Date()
+
+              return {
+                id: uniqueId,
+                name: 'Supabase User',
+                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@supabase.user`,
+                emailVerified: false,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error creating Supabase user profile:', { error })
+              return null
+            }
+          },
+        },
+
+        // X provider
+        {
+          providerId: 'x',
+          authorizationUrl: 'https://x.com/i/oauth2/authorize',
+          tokenUrl: 'https://api.x.com/2/oauth2/token',
+          userInfoUrl: 'https://api.x.com/2/users/me',
+          accessType: 'offline',
+          scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
+          pkce: true,
+          responseType: 'code',
+          prompt: 'consent',
+          authentication: 'basic',
+
+          getUserInfo: async (tokens) => {
+            try {
+              const response = await fetch(
+                'https://api.x.com/2/users/me?user.fields=profile_image_url,username,name,verified',
+                {
+                  headers: {
+                    Authorization: `Bearer ${tokens.accessToken}`,
+                  },
+                }
+              )
+
+              if (!response.ok) {
+                logger.error('Error fetching X user info:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const profile = await response.json()
+
+              if (!profile.data) {
+                logger.error('Invalid X profile response:', profile)
+                return null
+              }
+
+              const now = new Date()
+
+              return {
+                id: profile.data.id,
+                name: profile.data.name || 'X User',
+                email: `${profile.data.username}@x.com`,
+                image: profile.data.profile_image_url,
+                emailVerified: profile.data.verified || false,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in X getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        // Confluence provider
+        {
+          providerId: 'confluence',
+          authorizationUrl: 'https://auth.atlassian.com/authorize',
+          tokenUrl: 'https://auth.atlassian.com/oauth/token',
+          userInfoUrl: 'https://api.atlassian.com/me',
+          scopes: ['read:page:confluence', 'write:page:confluence', 'read:me', 'offline_access'],
+          responseType: 'code',
+          pkce: true,
+          accessType: 'offline',
+          authentication: 'basic',
+          prompt: 'consent',
+
+          getUserInfo: async (tokens) => {
+            try {
+              const response = await fetch('https://api.atlassian.com/me', {
+                headers: {
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                },
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching Confluence user info:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const profile = await response.json()
+
+              const now = new Date()
+
+              return {
+                id: profile.account_id,
+                name: profile.name || profile.display_name || 'Confluence User',
+                email: profile.email || `${profile.account_id}@atlassian.com`,
+                image: profile.picture || undefined,
+                emailVerified: true,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in Confluence getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        // Discord provider
+        {
+          providerId: 'discord',
+          authorizationUrl: 'https://discord.com/api/oauth2/authorize',
+          tokenUrl: 'https://discord.com/api/oauth2/token',
+          userInfoUrl: 'https://discord.com/api/users/@me',
+          scopes: ['identify', 'bot', 'messages.read', 'guilds', 'guilds.members.read'],
+          responseType: 'code',
+          accessType: 'offline',
+          authentication: 'basic',
+          prompt: 'consent',
+
+          getUserInfo: async (tokens) => {
+            try {
+              const response = await fetch('https://discord.com/api/users/@me', {
+                headers: {
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                },
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching Discord user info:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const profile = await response.json()
+              const now = new Date()
+
+              return {
+                id: profile.id,
+                name: profile.username || 'Discord User',
+                email: profile.email || `${profile.id}@discord.user`,
+                image: profile.avatar
+                  ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
+                  : undefined,
+                emailVerified: profile.verified || false,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in Discord getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        // Jira provider
+        {
+          providerId: 'jira',
+          authorizationUrl: 'https://auth.atlassian.com/authorize',
+          tokenUrl: 'https://auth.atlassian.com/oauth/token',
+          userInfoUrl: 'https://api.atlassian.com/me',
+          scopes: [
+            'read:jira-user',
+            'read:jira-work',
+            'write:jira-work',
+            'write:issue:jira',
+            'read:project:jira',
+            'read:issue-type:jira',
+            'read:me',
+            'offline_access',
+            'read:issue-meta:jira',
+            'read:issue-security-level:jira',
+            'read:issue.vote:jira',
+            'read:issue.changelog:jira',
+            'read:avatar:jira',
+            'read:issue:jira',
+            'read:status:jira',
+            'read:user:jira',
+            'read:field-configuration:jira',
+            'read:issue-details:jira',
+          ],
+          responseType: 'code',
+          pkce: true,
+          accessType: 'offline',
+          authentication: 'basic',
+          prompt: 'consent',
+
+          getUserInfo: async (tokens) => {
+            try {
+              const response = await fetch('https://api.atlassian.com/me', {
+                headers: {
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                },
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching Jira user info:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const profile = await response.json()
+
+              const now = new Date()
+
+              return {
+                id: profile.account_id,
+                name: profile.name || profile.display_name || 'Jira User',
+                email: profile.email || `${profile.account_id}@atlassian.com`,
+                image: profile.picture || undefined,
+                emailVerified: true,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in Jira getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        // Airtable provider
+        {
+          providerId: 'airtable',
+          authorizationUrl: 'https://airtable.com/oauth2/v1/authorize',
+          tokenUrl: 'https://airtable.com/oauth2/v1/token',
+          userInfoUrl: 'https://api.airtable.com/v0/meta/whoami',
+          scopes: ['data.records:read', 'data.records:write', 'user.email:read', 'webhook:manage'],
+          responseType: 'code',
+          pkce: true,
+          accessType: 'offline',
+          authentication: 'basic',
+          prompt: 'consent',
+
+          getUserInfo: async (tokens) => {
+            try {
+              const response = await fetch('https://api.airtable.com/v0/meta/whoami', {
+                headers: {
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                },
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching Airtable user info:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const data = await response.json()
+              const now = new Date()
+
+              return {
+                id: data.id,
+                name: data.email ? data.email.split('@')[0] : 'Airtable User',
+                email: data.email || `${data.id}@airtable.user`,
+                emailVerified: !!data.email,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in Airtable getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        // Notion provider
+        {
+          providerId: 'notion',
+          authorizationUrl: 'https://api.notion.com/v1/oauth/authorize',
+          tokenUrl: 'https://api.notion.com/v1/oauth/token',
+          userInfoUrl: 'https://api.notion.com/v1/users/me',
+          scopes: ['workspace.content', 'workspace.name', 'page.read', 'page.write'],
+          responseType: 'code',
+          pkce: false,
+          accessType: 'offline',
+          authentication: 'basic',
+          prompt: 'consent',
+
+          getUserInfo: async (tokens) => {
+            try {
+              const response = await fetch('https://api.notion.com/v1/users/me', {
+                headers: {
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                  'Notion-Version': '2022-06-28',
+                },
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching Notion user info:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const profile = await response.json()
+              const now = new Date()
+
+              return {
+                id: profile.bot?.owner?.user?.id || profile.id,
+                name: profile.name || profile.bot?.owner?.user?.name || 'Notion User',
+                email: profile.person?.email || `${profile.id}@notion.user`,
+                emailVerified: !!profile.person?.email,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in Notion getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        // Reddit provider
+        {
+          providerId: 'reddit',
+          authorizationUrl: 'https://www.reddit.com/api/v1/authorize?duration=permanent',
+          tokenUrl: 'https://www.reddit.com/api/v1/access_token',
+          userInfoUrl: 'https://oauth.reddit.com/api/v1/me',
+          scopes: ['identity', 'read'],
+          responseType: 'code',
+          pkce: false,
+          accessType: 'offline',
+          authentication: 'basic',
+          prompt: 'consent',
+
+          getUserInfo: async (tokens) => {
+            try {
+              const response = await fetch('https://oauth.reddit.com/api/v1/me', {
+                headers: {
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                  'User-Agent': 'tradinggoose-studio/1.0',
+                },
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching Reddit user info:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const data = await response.json()
+              const now = new Date()
+
+              return {
+                id: data.id,
+                name: data.name || 'Reddit User',
+                email: `${data.name}@reddit.user`,
+                image: data.icon_img || undefined,
+                emailVerified: false,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in Reddit getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        {
+          providerId: 'linear',
+          authorizationUrl: 'https://linear.app/oauth/authorize',
+          tokenUrl: 'https://api.linear.app/oauth/token',
+          scopes: ['read', 'write'],
+          responseType: 'code',
+
+          pkce: true,
+          prompt: 'consent',
+          accessType: 'offline',
+          getUserInfo: async (tokens) => {
+            try {
+              const response = await fetch('https://api.linear.app/graphql', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                },
+                body: JSON.stringify({
+                  query: `{
+                    viewer {
+                      id
+                      email
+                      name
+                      avatarUrl
+                    }
+                  }`,
+                }),
+              })
+
+              if (!response.ok) {
+                const errorText = await response.text()
+                logger.error('Linear API error:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                  body: errorText,
+                })
+                throw new Error(`Linear API error: ${response.status} ${response.statusText}`)
+              }
+
+              const { data, errors } = await response.json()
+
+              if (errors) {
+                logger.error('GraphQL errors:', errors)
+                throw new Error(`GraphQL errors: ${JSON.stringify(errors)}`)
+              }
+
+              if (!data?.viewer) {
+                logger.error('No viewer data in response:', data)
+                throw new Error('No viewer data in response')
+              }
+
+              const viewer = data.viewer
+
+              return {
+                id: viewer.id,
+                email: viewer.email,
+                name: viewer.name,
+                emailVerified: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                image: viewer.avatarUrl || undefined,
+              }
+            } catch (error) {
+              logger.error('Error in getUserInfo:', error)
+              throw error
+            }
+          },
+        },
+
+        // Slack provider
+        {
+          providerId: 'slack',
+          authorizationUrl: 'https://slack.com/oauth/v2/authorize',
+          tokenUrl: 'https://slack.com/api/oauth.v2.access',
+          userInfoUrl: 'https://slack.com/api/users.identity',
+          scopes: [
+            // Bot token scopes only - app acts as a bot user
+            'channels:read',
+            'channels:history',
+            'groups:read',
+            'groups:history',
+            'chat:write',
+            'chat:write.public',
+            'users:read',
+            'files:write',
+            'canvases:write',
+          ],
+          responseType: 'code',
+          accessType: 'offline',
+          prompt: 'consent',
+
+          getUserInfo: async (tokens) => {
+            try {
+              logger.info('Creating Slack bot profile from token data')
+
+              // Extract user identifier from tokens if possible
+              let userId = 'slack-bot'
+              if (tokens.idToken) {
+                try {
+                  const decodedToken = JSON.parse(
+                    Buffer.from(tokens.idToken.split('.')[1], 'base64').toString()
+                  )
+                  if (decodedToken.sub) {
+                    userId = decodedToken.sub
+                  }
+                } catch (e) {
+                  logger.warn('Failed to decode Slack ID token', { error: e })
+                }
+              }
+
+              const uniqueId = `${userId}-${Date.now()}`
+              const now = new Date()
+
+              return {
+                id: uniqueId,
+                name: 'Slack Bot',
+                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@slack.bot`,
+                emailVerified: false,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error creating Slack bot profile:', { error })
+              return null
+            }
+          },
+        },
+
+        // Webflow provider
+        {
+          providerId: 'webflow',
+          authorizationUrl: 'https://webflow.com/oauth/authorize',
+          tokenUrl: 'https://api.webflow.com/oauth/access_token',
+          userInfoUrl: 'https://api.webflow.com/v2/token/introspect',
+          scopes: ['sites:read', 'sites:write', 'cms:read', 'cms:write'],
+          responseType: 'code',
+
+          getUserInfo: async (tokens) => {
+            try {
+              logger.info('Fetching Webflow user info')
+
+              const response = await fetch('https://api.webflow.com/v2/token/introspect', {
+                headers: {
+                  Authorization: `Bearer ${tokens.accessToken}`,
+                },
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching Webflow user info:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const data = await response.json()
+              const now = new Date()
+
+              const userIds = Array.isArray(data.authorization?.authorizedTo?.userIds)
+                ? [
+                    ...new Set(
+                      data.authorization.authorizedTo.userIds
+                        .filter((id: unknown): id is string => typeof id === 'string')
+                        .map((id: string) => id.trim())
+                        .filter(Boolean)
+                    ),
+                  ].sort()
+                : []
+              if (!userIds.length) {
+                logger.error('Webflow token introspection returned no stable user identity')
+                return null
+              }
+              const uniqueId = `webflow-${userIds.join(':')}`
+
+              return {
+                id: uniqueId,
+                name: data.user_name || 'Webflow User',
+                email: `${uniqueId.replace(/[^a-zA-Z0-9]/g, '')}@webflow.user`,
+                emailVerified: false,
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in Webflow getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+
+        {
+          providerId: 'hubspot',
+          authorizationUrl: 'https://app.hubspot.com/oauth/authorize',
+          tokenUrl: 'https://api.hubspot.com/oauth/v3/token',
+          scopes: HUBSPOT_OAUTH_SCOPES,
+          responseType: 'code',
+
+          getUserInfo: async (tokens) => {
+            try {
+              const credentials = getSystemOAuthClientCredentialsForRequest('hubspot')
+              const response = await fetch('https://api.hubspot.com/oauth/v3/token/introspect', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  client_id: credentials.clientId,
+                  client_secret: credentials.clientSecret,
+                  token_type_hint: 'access_token',
+                  access_token: tokens.accessToken ?? '',
+                }).toString(),
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching HubSpot token metadata:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const profile = await response.json()
+              const hubId = String(profile.hub_id ?? 'hubspot')
+              const userId = String(profile.user_id ?? profile.user ?? crypto.randomUUID())
+              const email = profile.user || `${userId}@hubspot.user`
+              const now = new Date()
+
+              return {
+                id: `${hubId}-${userId}`,
+                name: profile.user || profile.hub_domain || 'HubSpot User',
+                email,
+                emailVerified: Boolean(profile.user),
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in HubSpot getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+      ] satisfies SystemManagedGenericOAuthConfig[]
+    )
+      .filter((config) => config.providerId === providerId)
+      .map((config) => ({
+        ...config,
+        // Robinhood assigns its client ID when the authenticated link state is saved.
+        get clientId() {
+          return credentials.clientId
+        },
+        clientSecret: credentials.clientSecret,
+      })),
+  })
+  return betterAuth({
+    ...auth.options,
+    account: {
+      ...auth.options.account,
+      accountLinking: {
+        ...auth.options.account.accountLinking,
+        trustedProviders: explicitLink
+          ? [...auth.options.account.accountLinking.trustedProviders, providerId]
+          : auth.options.account.accountLinking.trustedProviders,
+      },
+    },
+    plugins: [...auth.options.plugins, plugin],
+  })
+}
 
 export async function getSession(headersOverride?: Headers) {
   const hdrs = headersOverride ?? (await headers())

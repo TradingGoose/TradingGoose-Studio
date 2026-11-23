@@ -221,8 +221,6 @@ function VerificationForm({
               onClick={() => {
                 if (typeof window !== 'undefined') {
                   sessionStorage.removeItem('verificationEmail')
-                  sessionStorage.removeItem('inviteRedirectUrl')
-                  sessionStorage.removeItem('isInviteFlow')
                 }
                 router.push('/signup')
               }}

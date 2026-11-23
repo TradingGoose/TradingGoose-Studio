@@ -174,6 +174,7 @@ describe('proxy auth routing', () => {
     '/es/signup',
     '/es/waitlist',
     '/es/reset-password',
+    '/es/reset-email',
     '/es/verify',
     '/es/sso',
     '/es/error',

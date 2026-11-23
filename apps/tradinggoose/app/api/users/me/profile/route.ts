@@ -18,7 +18,7 @@ const imageSchema = z
 
 const UpdateProfileSchema = z
   .object({
-    name: z.string().min(1, 'Name is required').optional(),
+    name: z.string().min(1, 'Display name is required').optional(),
     image: z.union([imageSchema, z.literal(null)]).optional(),
   })
   .refine((data) => data.name !== undefined || data.image !== undefined, {

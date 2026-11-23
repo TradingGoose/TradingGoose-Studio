@@ -141,11 +141,29 @@ export async function checkPublicApiEndpointRateLimit(
   const limit = PUBLIC_API_ENDPOINT_LIMITS[endpoint] ?? 0
   const scopeId = `public:${endpoint}:${getRequesterKey(request)}`
 
+  return checkFixedEndpointRateLimit(endpoint, limit, scopeId, null)
+}
+
+export function checkFixedUserRateLimit(
+  userId: string,
+  endpoint: 'private-tier-access' | 'email-change-link',
+  limit: number
+) {
+  return checkFixedEndpointRateLimit(endpoint, limit, `${userId}:${endpoint}`, userId)
+}
+
+async function checkFixedEndpointRateLimit(
+  endpoint: string,
+  limit: number,
+  scopeId: string,
+  userId: string | null
+) {
+  const referenceId = userId ?? scopeId
   const result = await rateLimiter.checkRateLimitWithSubscription(
-    scopeId,
+    referenceId,
     {
       referenceType: 'user',
-      referenceId: scopeId,
+      referenceId,
       tier: {
         displayName: endpoint,
         syncRateLimitPerMinute: 0,
@@ -159,7 +177,7 @@ export async function checkPublicApiEndpointRateLimit(
       scopeType: 'user',
       scopeId,
       organizationId: null,
-      userId: null,
+      userId,
     },
     { enforceWithoutBilling: true, failClosedOnError: true }
   )
@@ -167,6 +185,6 @@ export async function checkPublicApiEndpointRateLimit(
   return {
     ...result,
     limit,
-    userId: scopeId,
+    userId: referenceId,
   }
 }

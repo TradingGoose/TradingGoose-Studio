@@ -6,12 +6,21 @@ import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getGeneralSettingsResponsePatch } from '@/hooks/queries/general-settings'
-import { getPublicCopy } from '@/i18n/public-copy'
+import { getClientMessages, getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
 import { AccountSettings } from './account-settings'
 
 const mockUseSession = vi.fn()
+const mockRefetch = vi.fn()
+const auth = vi.hoisted(() => ({
+  isUsernameAvailable: vi.fn(),
+  updateUser: vi.fn(),
+  getSession: vi.fn(),
+  emailOtp: { sendVerificationOtp: vi.fn() },
+  push: vi.fn(),
+}))
+vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), push: auth.push }) }))
 const mockSetTelemetryEnabled = vi.fn()
 const generalState = {
   isLoading: false,
@@ -53,7 +62,9 @@ vi.mock('@/components/ui/tooltip', () => ({
   }) => <>{render ?? children}</>,
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
-vi.mock('@/lib/auth-client', () => ({
+vi.mock('@/lib/auth-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth-client')>()),
+  client: auth,
   useSession: () => mockUseSession(),
 }))
 vi.mock('@/stores/settings/general/store', () => ({
@@ -62,7 +73,7 @@ vi.mock('@/stores/settings/general/store', () => ({
 
 function renderAccountSettings(root: Root, locale: LocaleCode) {
   root.render(
-    <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+    <NextIntlClientProvider locale={locale} messages={getClientMessages(locale, 'workspace')}>
       <AccountSettings />
     </NextIntlClientProvider>
   )
@@ -102,11 +113,14 @@ describe('AccountSettings localization', () => {
   let root: Root
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    vi.clearAllMocks()
     mockSetTelemetryEnabled.mockReset()
     mockUseSession.mockReturnValue({
+      refetch: mockRefetch,
       data: {
         user: {
           id: 'user-1',
+          username: 'ada',
           name: 'Ada Lovelace',
           email: 'ada@example.com',
           image: null,
@@ -165,10 +179,154 @@ describe('AccountSettings localization', () => {
     expect(container.textContent).toContain(copy.profilePicture)
     expect(container.textContent).toContain(copy.profileDetails)
     expect(container.textContent).toContain(copy.profileDetailsDescription)
+    expect(container.querySelector('label[for="displayName"]')).toHaveTextContent('Nombre visible')
     expect(container.textContent).toContain(copy.passwordReset)
     expect(container.textContent).toContain(copy.telemetry.label)
     expect(container.textContent).toContain(copy.telemetry.tooltipBody)
     expect(container.textContent).toContain(copy.telemetry.body)
+  })
+
+  it('selects the username for editing and cancels with the cancel button, Escape or blur', async () => {
+    const copy = getPublicCopy('en').workspace.settingsModal.account.username
+    await act(async () => renderAccountSettings(root, 'en'))
+    expect(container.querySelector('#username')).toBeNull()
+    for (const action of ['cancel', 'escape', 'blur'] as const) {
+      await act(async () => click(findButtonByText(container, copy.edit)))
+      const input = container.querySelector<HTMLInputElement>('#username')!
+      expect(input).toHaveFocus()
+      expect([input.selectionStart, input.selectionEnd]).toEqual([0, 3])
+      await act(async () => setInputValue(input, 'discard'))
+      await act(async () => {
+        if (action === 'cancel') await click(findButtonByText(container, copy.cancel))
+        if (action === 'escape') {
+          const dialogKeyDown = vi.fn()
+          document.addEventListener('keydown', dialogKeyDown)
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+          document.removeEventListener('keydown', dialogKeyDown)
+          expect(dialogKeyDown).not.toHaveBeenCalled()
+        }
+        if (action === 'blur') input.blur()
+      })
+      expect(container.querySelector('#username')).toBeNull()
+      expect(container.textContent).toContain('ada')
+    }
+    expect(auth.isUsernameAvailable).not.toHaveBeenCalled()
+    expect(auth.updateUser).not.toHaveBeenCalled()
+    expect(mockRefetch).not.toHaveBeenCalled()
+  })
+
+  it('skips a normalized unchanged username and handles native availability and update errors', async () => {
+    const copy = getPublicCopy('en').workspace.settingsModal.account.username
+    await act(async () => renderAccountSettings(root, 'en'))
+    await act(async () => click(findButtonByText(container, copy.edit)))
+    let input = container.querySelector<HTMLInputElement>('#username')!
+    await act(async () => setInputValue(input, '  ADA  '))
+    await act(async () => input.form!.requestSubmit())
+    expect(container.querySelector('#username')).toBeNull()
+    expect(auth.isUsernameAvailable).not.toHaveBeenCalled()
+
+    await act(async () => click(findButtonByText(container, copy.edit)))
+    input = container.querySelector<HTMLInputElement>('#username')!
+    auth.isUsernameAvailable.mockResolvedValueOnce({ data: { available: false } })
+    await act(async () => setInputValue(input, 'TAKEN'))
+    await act(async () => input.form!.requestSubmit())
+    expect(auth.updateUser).not.toHaveBeenCalled()
+    expect(container.querySelector('#username-error')).toHaveTextContent(copy.taken)
+
+    auth.isUsernameAvailable.mockResolvedValueOnce({ error: { message: 'Invalid username' } })
+    await act(async () => input.form!.requestSubmit())
+    expect(input).toHaveAccessibleDescription('Invalid username')
+
+    auth.isUsernameAvailable.mockResolvedValue({ data: { available: true } })
+    auth.updateUser.mockResolvedValueOnce({ error: { code: 'USERNAME_IS_ALREADY_TAKEN' } })
+    await act(async () => setInputValue(input, 'Claimed'))
+    await act(async () => click(findButtonByText(container, copy.save)))
+    expect(input).toHaveAccessibleDescription(copy.taken)
+    expect(mockRefetch).not.toHaveBeenCalled()
+
+    let finish!: () => void
+    auth.updateUser.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = () => resolve({})
+      })
+    )
+    await act(async () => setInputValue(input, ' AdaTwo '))
+    await act(async () => click(findButtonByText(container, copy.save)))
+    expect(input).toBeDisabled()
+    expect(findButtonByText(container, copy.save)).toBeDisabled()
+    expect(findButtonByText(container, copy.cancel)).toBeDisabled()
+    expect(auth.isUsernameAvailable).toHaveBeenLastCalledWith({ username: 'AdaTwo' })
+    expect(auth.updateUser).toHaveBeenLastCalledWith({ username: 'AdaTwo' })
+    await act(async () => finish())
+    expect(mockRefetch).toHaveBeenCalledOnce()
+    expect(container.querySelector('#username')).toBeNull()
+    expect(container.textContent).toContain('Ada Lovelace')
+  })
+
+  it('shows independent localized email link status and sends only the account ID', async () => {
+    const copy = getPublicCopy('es').workspace.settingsModal.account
+    await act(async () => renderAccountSettings(root, 'es'))
+    const group = container.querySelector<HTMLElement>(
+      `[role="group"][aria-label="${copy.emailAddress}"]`
+    )!
+    const button = findButtonByText(group, copy.sendLink)
+    expect(group).toHaveTextContent('ada@example.com')
+    expect(group).toHaveTextContent('15 minutos')
+    expect(group.querySelector('input')).toBeNull()
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 403 }))
+    await act(async () => click(button))
+    expect(group.querySelector('[role="status"]')).toHaveTextContent(copy.status.emailResetFailed)
+    let finish!: () => void
+    vi.mocked(fetch).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = () => resolve(new Response(null, { status: 204 }))
+      })
+    )
+    await act(async () => click(button))
+    expect(button).toBeDisabled()
+    expect(button).toHaveTextContent(copy.sending)
+    expect(group.querySelector('[role="status"]')).toBeNull()
+    expect(fetch).toHaveBeenLastCalledWith('/api/auth/request-email-change-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: 'user-1' }),
+    })
+    await act(async () => finish())
+    expect(group.querySelector('[role="status"]')).toHaveTextContent(copy.status.emailResetSent)
+    expect(container.textContent).not.toContain(copy.status.passwordResetSent)
+    expect(mockRefetch).not.toHaveBeenCalled()
+  })
+
+  it('offers signup verification for the matched current mailbox, then opens the existing verification screen', async () => {
+    const copy = getPublicCopy('es').workspace.settingsModal.account
+    const email = 'ada@example.com'
+    await act(async () => renderAccountSettings(root, 'es'))
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({ code: 'EMAIL_NOT_VERIFIED', email }, { status: 412 })
+    )
+    const group = container.querySelector<HTMLElement>(
+      `[role="group"][aria-label="${copy.emailAddress}"]`
+    )!
+    await act(async () => click(findButtonByText(group, copy.sendLink)))
+    expect(container).toHaveTextContent(formatTemplate(copy.verifyCurrentEmail, { email }))
+    expect(container).not.toHaveTextContent(copy.status.emailResetSent)
+    expect(auth.emailOtp.sendVerificationOtp).not.toHaveBeenCalled()
+    const verify = findButtonByText(container, copy.verifyEmailButton)
+
+    auth.getSession.mockResolvedValueOnce({ data: { user: { id: 'other', email } } })
+    await act(async () => click(verify))
+    expect(container).toHaveTextContent(copy.status.verificationSendFailed)
+    expect(auth.emailOtp.sendVerificationOtp).not.toHaveBeenCalled()
+    expect(auth.push).not.toHaveBeenCalled()
+    auth.getSession.mockResolvedValue({ data: { user: { id: 'user-1', email } } })
+    auth.emailOtp.sendVerificationOtp.mockResolvedValueOnce({})
+    await act(async () => click(verify))
+    expect(auth.emailOtp.sendVerificationOtp).toHaveBeenCalledExactlyOnceWith({
+      email,
+      type: 'email-verification',
+    })
+    expect(sessionStorage.setItem).toHaveBeenCalledWith('verificationEmail', email)
+    expect(auth.push).toHaveBeenCalledExactlyOnceWith('/verify')
   })
 
   it('synchronizes each settings response around independent active mutations', async () => {
@@ -203,7 +361,7 @@ describe('AccountSettings localization', () => {
       isBillingUsageNotificationsEnabled: true,
     })
   })
-  it('localizes name validation, profile image validation, and password reset status in zh', async () => {
+  it('localizes display name validation, profile image validation, and password reset status in zh', async () => {
     const copy = getPublicCopy('zh').workspace.settingsModal.account
     await act(async () => {
       renderAccountSettings(root, 'zh')
@@ -212,19 +370,28 @@ describe('AccountSettings localization', () => {
     await act(async () => {
       await click(findButtonByText(container, copy.editName))
     })
-    const nameInput = container.querySelector('#accountName')
-    if (!(nameInput instanceof HTMLInputElement)) {
-      throw new Error('Expected editable name input to render')
+    const displayNameInput = container.querySelector('#displayName')
+    if (!(displayNameInput instanceof HTMLInputElement)) {
+      throw new Error('Expected editable display name input to render')
     }
+    expect(displayNameInput).toHaveAccessibleName(copy.displayName)
 
     await act(async () => {
-      setInputValue(nameInput, '   ')
+      setInputValue(displayNameInput, '   ')
       await flush()
     })
     await act(async () => {
       await click(findButtonByText(container, copy.saveName))
     })
     expect(container.textContent).toContain(copy.status.nameRequiredValidation)
+    await act(async () => setInputValue(displayNameInput, '  Blue Goose  '))
+    await act(async () => click(findButtonByText(container, copy.saveName)))
+    expect(fetch).toHaveBeenLastCalledWith('/api/users/me/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Blue Goose' }),
+    })
+    expect(container).toHaveTextContent('Blue Goose')
     const fileInput = container.querySelector('input[type="file"]')
     if (!(fileInput instanceof HTMLInputElement)) {
       throw new Error('Expected profile picture input to render')
@@ -243,7 +410,10 @@ describe('AccountSettings localization', () => {
       formatTemplate(copy.status.profilePictureFileTooLarge, { name: oversizedFile.name })
     )
     await act(async () => {
-      await click(findButtonByText(container, copy.sendLink))
+      const group = container.querySelector<HTMLElement>(
+        `[role="group"][aria-label="${copy.passwordReset}"]`
+      )!
+      await click(findButtonByText(group, copy.sendLink))
     })
     expect(container.textContent).toContain(copy.status.passwordResetSent)
   })

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
+import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
@@ -27,6 +28,7 @@ import { useWorkspaceSettings } from '@/hooks/queries/workspace'
 import { formatUsd } from '@/i18n/formatters'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { UsageHeader } from '../shared/usage-header'
+import { TeamSeats } from '../team-management/components/team-seats/team-seats'
 import { PlanCard, UsageLimit, type UsageLimitRef, WorkspaceBillingOwnerEditor } from './components'
 import {
   getPersonalPaygUiState,
@@ -287,6 +289,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const isOrgBillingPending =
     isOrgBillingLoading || Boolean(organizationBillingId && isOrgBillingPlaceholder)
 
+  const [seatSelection, setSeatSelection] = useState<{
+    tier: PublicBillingTierDisplay
+    organizationId: string
+  } | null>(null)
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
@@ -444,16 +450,28 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     !isOrganizationPlan && Boolean(billingPayload?.cancelAtPeriodEnd)
 
   const handleUpgradeWithErrorHandling = useCallback(
-    async (targetTier: ReturnType<typeof toUpgradeTarget>) => {
+    async (tier: PublicBillingTierDisplay, seats?: number) => {
+      if (
+        tier.ownerType === 'organization' &&
+        tier.seatMode === 'adjustable' &&
+        seats === undefined
+      ) {
+        setSeatSelection({ tier, organizationId: organizationBillingId })
+        return
+      }
+      setIsPrimaryActionPending(true)
       try {
-        await handleUpgrade(targetTier, {
-          ...(targetTier.ownerType === 'organization' && organizationBillingId
-            ? { organizationId: organizationBillingId }
+        await handleUpgrade(toUpgradeTarget(tier), {
+          ...(tier.ownerType === 'organization' && organizationBillingId
+            ? { organizationId: organizationBillingId, seats }
             : {}),
         })
+        setSeatSelection(null)
       } catch {
-        setUpgradeError(targetTier.billingTierId)
+        setUpgradeError(tier.id)
         alert(copy('errors.unknown'))
+      } finally {
+        setIsPrimaryActionPending(false)
       }
     },
     [copy, handleUpgrade, organizationBillingId]
@@ -518,7 +536,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         (tier) => tier.id !== surfaceState.currentTier?.id
       )
       if (defaultUpgradeTier) {
-        void handleUpgradeWithErrorHandling(toUpgradeTarget(defaultUpgradeTier))
+        void handleUpgradeWithErrorHandling(defaultUpgradeTier)
       }
       return
     }
@@ -718,8 +736,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                             ? copy('titles.upgrade')
                             : copy('actions.changeTo', { name: tier.displayName })
                       }
-                      onButtonClick={() => handleUpgradeWithErrorHandling(toUpgradeTarget(tier))}
-                      buttonDisabled={!canManageSelectedPlan}
+                      onButtonClick={() => handleUpgradeWithErrorHandling(tier)}
+                      buttonDisabled={!canManageSelectedPlan || isPrimaryActionPending}
                       isCurrent={isCurrentTier}
                       isError={!isCurrentTier && upgradeError === tier.id}
                       layout='vertical'
@@ -795,6 +813,18 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
       </div>
+      {seatSelection &&
+        seatSelection.organizationId === organizationBillingId &&
+        surfaceState.canManageOrganizationPlan && (
+          <TeamSeats
+            open
+            tier={seatSelection.tier}
+            usedSeats={organizationBillingPayload?.usedSeats}
+            onOpenChange={() => setSeatSelection(null)}
+            onConfirm={(seats) => handleUpgradeWithErrorHandling(seatSelection.tier, seats)}
+            isLoading={isPrimaryActionPending}
+          />
+        )}
     </div>
   )
 }

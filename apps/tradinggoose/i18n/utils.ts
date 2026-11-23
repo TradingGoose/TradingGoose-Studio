@@ -80,7 +80,7 @@ export function normalizeCallbackUrl(
   href: string | null | undefined,
   currentOrigin?: string
 ): string | null {
-  if (!href) {
+  if (typeof href !== 'string') {
     return null
   }
 
@@ -90,26 +90,18 @@ export function normalizeCallbackUrl(
     return null
   }
 
-  if (trimmedHref.startsWith('/')) {
-    const parsedUrl = new URL(trimmedHref, 'http://tradinggoose.local')
-    if (isLocalizedInternalPathname(parsedUrl.pathname)) {
-      return null
-    }
-    return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
-  }
-
-  if (!currentOrigin) {
-    return null
-  }
+  const baseOrigin = currentOrigin ?? 'http://tradinggoose.local'
+  if (!trimmedHref.startsWith('/') && !currentOrigin) return null
 
   try {
-    const parsedUrl = new URL(trimmedHref)
-
-    if (parsedUrl.origin !== currentOrigin) {
-      return null
-    }
-
-    if (isLocalizedInternalPathname(parsedUrl.pathname)) {
+    const parsedUrl = trimmedHref.startsWith('/')
+      ? new URL(trimmedHref, baseOrigin)
+      : new URL(trimmedHref)
+    if (
+      parsedUrl.origin !== baseOrigin ||
+      parsedUrl.pathname.startsWith('//') ||
+      isLocalizedInternalPathname(parsedUrl.pathname)
+    ) {
       return null
     }
     return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`

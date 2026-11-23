@@ -1,17 +1,17 @@
-import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { invitation, member, organization, user, userStats } from '@tradinggoose/db/schema'
+import { member, organization, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getEmailSubject, renderInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
-import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
+import { reserveOrganizationInvitations } from '@/lib/billing/validation/seat-management'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
+import { withOrganizationAdmission } from '@/lib/organization/admission'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { localizeUrl } from '@/i18n/utils'
 
@@ -207,73 +207,38 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    const existingUser = await db
-      .select({ id: user.id })
-      .from(user)
-      .where(eq(user.email, normalizedEmail))
-      .limit(1)
-
-    if (existingUser.length > 0) {
-      const existingMember = await db
-        .select()
-        .from(member)
-        .where(
-          and(eq(member.organizationId, organizationId), eq(member.userId, existingUser[0].id))
-        )
-        .limit(1)
-
-      if (existingMember.length > 0) {
-        return NextResponse.json(
-          { error: 'User is already a member of this organization' },
-          { status: 400 }
-        )
-      }
-    }
-
-    const existingInvitation = await db
-      .select()
-      .from(invitation)
-      .where(
-        and(
-          eq(invitation.organizationId, organizationId),
-          eq(invitation.email, normalizedEmail),
-          eq(invitation.status, 'pending')
-        )
+    const { validation: seats, invitations } = await withOrganizationAdmission(
+      { organizationId },
+      (tx) =>
+        reserveOrganizationInvitations(tx, {
+          organizationId,
+          inviterId: session.user.id,
+          emails: [normalizedEmail],
+          role,
+        })
+    )
+    if (seats.existingMembers.length) {
+      return NextResponse.json(
+        { error: 'User is already a member of this organization' },
+        { status: 400 }
       )
-      .limit(1)
-
-    if (existingInvitation.length > 0) {
+    }
+    if (seats.pendingInvitations.length) {
       return NextResponse.json(
         { error: 'Pending invitation already exists for this email' },
         { status: 400 }
       )
     }
-
-    const seatValidation = await validateSeatAvailability(organizationId, 1)
-    if (!seatValidation.canInvite) {
+    if (!invitations.length) {
       return NextResponse.json(
         {
-          error: `Cannot invite member. Using ${seatValidation.currentSeats} of ${seatValidation.maxSeats} seats.`,
-          details: seatValidation,
+          error: `Cannot invite member. Using ${seats.validationResult.currentSeats} of ${seats.validationResult.maxSeats} seats.`,
+          details: seats.validationResult,
         },
         { status: 400 }
       )
     }
-
-    const invitationId = randomUUID()
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7)
-
-    await db.insert(invitation).values({
-      id: invitationId,
-      email: normalizedEmail,
-      inviterId: session.user.id,
-      organizationId,
-      role,
-      status: 'pending',
-      expiresAt,
-      createdAt: new Date(),
-    })
+    const [{ id: invitationId, expiresAt }] = invitations
 
     const organizationEntry = await db
       .select({ name: organization.name })

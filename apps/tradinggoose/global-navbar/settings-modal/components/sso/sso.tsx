@@ -4,17 +4,18 @@ import { useEffect, useState } from 'react'
 import { Check, ChevronDown, Copy, Eye, EyeOff } from 'lucide-react'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useSession } from '@/lib/auth-client'
+import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
+import { normalizeSsoDomains } from '@/lib/sso/domains'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 
 const logger = createLogger('SSO')
 
-const TRUSTED_SSO_PROVIDERS = [
+const SSO_PROVIDER_IDS = [
   'okta',
   'okta-saml',
   'okta-prod',
@@ -63,14 +64,33 @@ interface SSOProvider {
   domain: string
   issuer: string
   providerType: 'oidc' | 'saml'
-  hasOidcConfig: boolean
-  hasSamlConfig: boolean
+  domainVerified: boolean
 }
 
 const getSsoCallbackUrl = (providerId: string, providerType: 'oidc' | 'saml') =>
   `${getBaseUrl()}/api/auth/${
     providerType === 'saml' ? 'sso/saml2/sp/acs' : 'sso/callback'
   }/${providerId}`
+
+const initialForm = {
+  providerType: 'oidc' as 'oidc' | 'saml',
+  providerId: '',
+  issuerUrl: '',
+  domain: '',
+  // OIDC fields
+  clientId: '',
+  clientSecret: '',
+  scopes: 'openid,profile,email',
+  // SAML fields
+  entryPoint: '',
+  cert: '',
+  idpEntityId: '',
+  audience: '',
+  wantAssertionsSigned: true,
+  idpMetadata: '', // Optional IDP metadata XML
+  // Advanced options
+  showAdvanced: false,
+}
 
 export function SSO() {
   const { data: session } = useSession()
@@ -84,28 +104,11 @@ export function SSO() {
   const [showClientSecret, setShowClientSecret] = useState(false)
   const [copied, setCopied] = useState(false)
   const [providers, setProviders] = useState<SSOProvider[]>([])
+  const [verificationTokens, setVerificationTokens] = useState<Record<string, string>>({})
   const [isLoadingProviders, setIsLoadingProviders] = useState(true)
   const [showConfigForm, setShowConfigForm] = useState(false)
 
-  const [formData, setFormData] = useState({
-    providerType: 'oidc' as 'oidc' | 'saml',
-    providerId: '',
-    issuerUrl: '',
-    domain: '',
-    // OIDC fields
-    clientId: '',
-    clientSecret: '',
-    scopes: 'openid,profile,email',
-    // SAML fields
-    entryPoint: '',
-    cert: '',
-    callbackUrl: '',
-    audience: '',
-    wantAssertionsSigned: true,
-    idpMetadata: '', // Optional IDP metadata XML
-    // Advanced options
-    showAdvanced: false,
-  })
+  const [formData, setFormData] = useState(initialForm)
 
   const [errors, setErrors] = useState<Record<string, string[]>>({
     providerType: [],
@@ -117,7 +120,7 @@ export function SSO() {
     entryPoint: [],
     cert: [],
     scopes: [],
-    callbackUrl: [],
+    idpEntityId: [],
     audience: [],
   })
   const [showErrors, setShowErrors] = useState(false)
@@ -245,12 +248,7 @@ export function SSO() {
   }
 
   const validateDomain = (value: string): string[] => {
-    const out: string[] = []
-    if (!value || !value.trim()) return ['Domain is required.']
-    if (/^https?:\/\//i.test(value.trim())) out.push('Do not include protocol (https://).')
-    if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(value.trim()))
-      out.push('Enter a valid domain like your-domain.identityprovider.com')
-    return out
+    return normalizeSsoDomains(value) ? [] : ['Enter one or more comma-separated domains.']
   }
 
   const validateRequired = (label: string, value: string): string[] => {
@@ -270,7 +268,7 @@ export function SSO() {
       entryPoint: [],
       cert: [],
       scopes: [],
-      callbackUrl: [],
+      idpEntityId: [],
       audience: [],
     }
 
@@ -285,7 +283,10 @@ export function SSO() {
       if (!newErrors.entryPoint.length && !data.entryPoint) {
         newErrors.entryPoint = ['Entry Point URL is required for SAML providers']
       }
-      newErrors.cert = validateRequired('Certificate', data.cert)
+      if (!data.idpMetadata.trim()) {
+        newErrors.cert = validateRequired('Certificate', data.cert)
+        newErrors.idpEntityId = validateRequired('IdP entity ID', data.idpEntityId)
+      }
     }
 
     setErrors(newErrors)
@@ -311,7 +312,13 @@ export function SSO() {
       )
     }
     if (formData.providerType === 'saml') {
-      return hasRequiredFields && formData.entryPoint.trim() !== '' && formData.cert.trim() !== ''
+      return (
+        hasRequiredFields &&
+        formData.entryPoint.trim() !== '' &&
+        Boolean(
+          formData.idpMetadata.trim() || (formData.idpEntityId.trim() && formData.cert.trim())
+        )
+      )
     }
 
     return false
@@ -336,7 +343,6 @@ export function SSO() {
         domain: formData.domain,
         providerType: formData.providerType,
         mapping: {
-          id: 'sub',
           email: 'email',
           name: 'name',
           image: 'picture',
@@ -349,14 +355,13 @@ export function SSO() {
         requestBody.scopes = formData.scopes.split(',').map((s) => s.trim())
       } else if (formData.providerType === 'saml') {
         requestBody.entryPoint = formData.entryPoint
-        requestBody.cert = formData.cert
+        if (formData.cert.trim()) requestBody.cert = formData.cert.trim()
         requestBody.wantAssertionsSigned = formData.wantAssertionsSigned
-        if (formData.callbackUrl) requestBody.callbackUrl = formData.callbackUrl
+        if (formData.idpEntityId.trim()) requestBody.idpEntityId = formData.idpEntityId.trim()
         if (formData.audience) requestBody.audience = formData.audience
         if (formData.idpMetadata) requestBody.idpMetadata = formData.idpMetadata
 
         requestBody.mapping = {
-          id: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier',
           email: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
           name: 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
         }
@@ -378,22 +383,11 @@ export function SSO() {
       const result = await response.json()
       logger.info('SSO provider configured', { providerId: result.providerId })
 
-      setFormData({
-        providerType: 'oidc',
-        providerId: '',
-        issuerUrl: '',
-        domain: '',
-        clientId: '',
-        clientSecret: '',
-        scopes: 'openid,profile,email',
-        entryPoint: '',
-        cert: '',
-        callbackUrl: '',
-        audience: '',
-        wantAssertionsSigned: true,
-        idpMetadata: '',
-        showAdvanced: false,
-      })
+      setFormData(initialForm)
+      setVerificationTokens((tokens) => ({
+        ...tokens,
+        [result.providerId]: result.domainVerificationToken,
+      }))
 
       const providersResponse = await fetch('/api/auth/sso/providers')
       if (!providersResponse.ok) {
@@ -414,6 +408,33 @@ export function SSO() {
       const message = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(message)
       logger.error('Failed to configure SSO provider', { error: err })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleVerification = async (providerId: string, requestToken: boolean) => {
+    setError(null)
+    setIsLoading(true)
+    try {
+      if (requestToken) {
+        const { data, error } = await client.sso.requestDomainVerification({ providerId })
+        if (error) throw new Error(error.message || 'Unable to request a verification token.')
+        setVerificationTokens((tokens) => ({
+          ...tokens,
+          [providerId]: data.domainVerificationToken,
+        }))
+      } else {
+        const { error } = await client.sso.verifyDomain({ providerId })
+        if (error) throw new Error(error.message || 'Unable to verify the DNS record.')
+        setProviders((current) =>
+          current.map((provider) =>
+            provider.providerId === providerId ? { ...provider, domainVerified: true } : provider
+          )
+        )
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Domain verification failed.')
     } finally {
       setIsLoading(false)
     }
@@ -441,7 +462,7 @@ export function SSO() {
           entryPoint: [],
           cert: [],
           scopes: [],
-          callbackUrl: [],
+          idpEntityId: [],
           audience: [],
         })
       } else {
@@ -503,6 +524,41 @@ export function SSO() {
                     </div>
                   </div>
 
+                  <div className='mt-4 space-y-2 border-border border-t pt-4 text-sm'>
+                    <p>
+                      {provider.domainVerified ? 'Domain verified' : 'Domain verification required'}
+                    </p>
+                    {!provider.domainVerified && (
+                      <>
+                        <p>Publish the same TXT value for each DNS host below.</p>
+                        {provider.domain.split(',').map((domain) => (
+                          <p key={domain} className='break-all font-mono'>
+                            _better-auth-token-{provider.providerId}.{domain.trim()}
+                          </p>
+                        ))}
+                        {verificationTokens[provider.providerId] && (
+                          <p>
+                            TXT value <code>{verificationTokens[provider.providerId]}</code>
+                          </p>
+                        )}
+                        <div className='flex gap-2'>
+                          <Button
+                            disabled={isLoading}
+                            onClick={() => handleVerification(provider.providerId, true)}
+                          >
+                            Get verification token
+                          </Button>
+                          <Button
+                            disabled={isLoading}
+                            onClick={() => handleVerification(provider.providerId, false)}
+                          >
+                            Verify domain
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
                   <div className='mt-4 border-border border-t pt-4'>
                     <div className='grid grid-cols-2 gap-4 text-sm'>
                       <div>
@@ -517,6 +573,14 @@ export function SSO() {
                       </div>
                     </div>
 
+                    {provider.providerType === 'saml' && (
+                      <a
+                        className='mt-3 inline-block text-sm underline'
+                        href={`${getBaseUrl()}/api/auth/sso/saml2/sp/metadata?providerId=${encodeURIComponent(provider.providerId)}`}
+                      >
+                        Service provider metadata
+                      </a>
+                    )}
                     <div className='mt-4'>
                       <span className='font-medium text-muted-foreground text-sm'>
                         Callback URL
@@ -610,7 +674,7 @@ export function SSO() {
                     )}
                   >
                     <option value=''>Select a provider ID</option>
-                    {TRUSTED_SSO_PROVIDERS.map((providerId) => (
+                    {SSO_PROVIDER_IDS.map((providerId) => (
                       <option key={providerId} value={providerId}>
                         {providerId}
                       </option>
@@ -621,13 +685,14 @@ export function SSO() {
                       <p>{errors.providerId.join(' ')}</p>
                     </div>
                   )}
-                  <p className='text-muted-foreground text-xs'>
-                    Select a pre-configured provider ID from the trusted providers list
-                  </p>
                 </div>
 
                 <div className='space-y-1'>
-                  <Label htmlFor='issuer-url'>Issuer URL</Label>
+                  <Label htmlFor='issuer-url'>
+                    {formData.providerType === 'saml'
+                      ? 'Service provider entity ID (URL)'
+                      : 'Issuer URL'}
+                  </Label>
                   <Input
                     id='issuer-url'
                     type='url'
@@ -815,6 +880,18 @@ export function SSO() {
                     </div>
 
                     <div className='space-y-1'>
+                      <Label htmlFor='idp-entity-id'>Identity provider entity ID</Label>
+                      <Input
+                        id='idp-entity-id'
+                        value={formData.idpEntityId}
+                        onChange={(e) => handleInputChange('idpEntityId', e.target.value)}
+                      />
+                      <p className='text-muted-foreground text-xs'>
+                        Enter the IdP entity ID and signing certificate, or supply metadata XML in
+                        advanced options.
+                      </p>
+                    </div>
+                    <div className='space-y-1'>
                       <Label htmlFor='cert'>Identity Provider Certificate</Label>
                       <textarea
                         id='cert'
@@ -877,25 +954,8 @@ export function SSO() {
                               className='rounded-md shadow-sm'
                             />
                             <p className='text-muted-foreground text-xs'>
-                              The SAML audience restriction (optional, defaults to app URL)
-                            </p>
-                          </div>
-
-                          <div className='space-y-1'>
-                            <Label htmlFor='callback-url'>Callback URL Override</Label>
-                            <Input
-                              id='callback-url'
-                              type='url'
-                              placeholder='Enter Callback URL'
-                              value={formData.callbackUrl}
-                              autoComplete='off'
-                              autoCapitalize='none'
-                              spellCheck={false}
-                              onChange={(e) => handleInputChange('callbackUrl', e.target.value)}
-                              className='rounded-md shadow-sm'
-                            />
-                            <p className='text-muted-foreground text-xs'>
-                              Custom SAML callback URL (optional, auto-generated if empty)
+                              The SAML audience restriction (optional, defaults to the service
+                              provider entity ID)
                             </p>
                           </div>
 

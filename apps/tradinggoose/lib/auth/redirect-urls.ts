@@ -1,9 +1,11 @@
-'use client'
-
 import { useLocale } from 'next-intl'
 import { getAuthErrorCallbackPath } from '@/lib/auth/auth-error-copy'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { localizeUrl, normalizeCallbackUrl } from '@/i18n/utils'
+
+export function getUsernameCompletionPath(callbackPath: string) {
+  return `/signup?complete=username&callbackUrl=${encodeURIComponent(callbackPath)}`
+}
 
 export function useAuthRedirectUrls() {
   const locale = useLocale()

@@ -345,7 +345,7 @@ describe('Subscription billing subject', () => {
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
-  it('offers public and granted-private organization tiers to an unsubscribed organization owner', () => {
+  it('offers public and granted-private organization tiers to an unsubscribed organization owner', async () => {
     mocks.workspaceSettings = workspaceBillingOwner({
       type: 'organization',
       organizationId: 'org-billing',
@@ -355,14 +355,21 @@ describe('Subscription billing subject', () => {
       billingEnabled: true,
       subscriptionTier: null,
       subscriptionStatus: null,
+      usedSeats: 3,
       userRole: 'owner',
     }
     mocks.publicTiers = [
       catalogTier('tier-personal-public', 'Personal Public', 'user', 0),
-      catalogTier('tier-org-public', 'Organization Public', 'organization', 1),
+      {
+        ...catalogTier('tier-org-public', 'Organization Public', 'organization', 1),
+        seatMode: 'fixed',
+      },
     ]
     mocks.privateTiers = [
-      catalogTier('tier-org-private', 'Organization Private', 'organization', 2),
+      {
+        ...catalogTier('tier-org-private', 'Organization Private', 'organization', 2),
+        seatMaximum: 8,
+      },
     ]
 
     render()
@@ -376,11 +383,32 @@ describe('Subscription billing subject', () => {
       button.textContent?.includes('Organization Private')
     )
     expect(privatePlan).toHaveAttribute('data-price', '$12.50')
-    act(() => privatePlan?.click())
-
+    await act(async () => privatePlan?.click())
+    expect(mocks.handleUpgrade).not.toHaveBeenCalled()
+    const dialog = document.querySelector('[role="dialog"]')!
+    const seats = dialog.querySelector('input')!
+    expect(seats).toHaveValue(3)
+    expect(seats).toHaveAttribute('max', '8')
+    expect(dialog).toHaveTextContent('Choose between 3 and 8 seats')
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(seats, '7')
+      seats.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const confirm = Array.from(dialog.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Set Up Team Subscription'
+    )
+    await act(async () => confirm?.click())
     expect(mocks.handleUpgrade).toHaveBeenCalledWith(
       expect.objectContaining({ billingTierId: 'tier-org-private', ownerType: 'organization' }),
-      { organizationId: 'org-billing' }
+      { organizationId: 'org-billing', seats: 7 }
+    )
+    const fixedPlan = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Organization Public')
+    )
+    await act(async () => fixedPlan?.click())
+    expect(mocks.handleUpgrade).toHaveBeenLastCalledWith(
+      expect.objectContaining({ billingTierId: 'tier-org-public' }),
+      { organizationId: 'org-billing', seats: undefined }
     )
   })
 
