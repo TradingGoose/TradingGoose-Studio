@@ -356,7 +356,13 @@ describe('SSO domain verification access', () => {
     ).toBe(201)
   })
 
-  it.each(['ineligible', 'full', 'member elsewhere', 'eligible'] as const)(
+  it.each([
+    'ineligible',
+    'full',
+    'member elsewhere',
+    'member elsewhere without billing',
+    'eligible',
+  ] as const)(
     'applies organization provisioning policy on a verified GitHub sign-in (%s)',
     async (scenario) => {
       const userId = 'social-user'
@@ -371,12 +377,12 @@ describe('SSO domain verification access', () => {
         domain: 'example.test',
         domainVerified: true,
       })
-      if (scenario === 'member elsewhere') {
+      if (scenario.startsWith('member elsewhere')) {
         tables.member.push({ id: 'member-b', organizationId: 'org-b', userId, role: 'admin' })
       }
       const previousMembers = [...tables.member]
       vi.mocked(getBillingGateState).mockResolvedValue({
-        billingEnabled: true,
+        billingEnabled: scenario !== 'member elsewhere without billing',
         stripeConfigured: true,
       })
       vi.mocked(getOrganizationBillingData, { partial: true }).mockResolvedValue({

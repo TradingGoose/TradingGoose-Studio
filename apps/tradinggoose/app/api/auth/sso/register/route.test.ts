@@ -11,6 +11,7 @@ import { organization } from 'better-auth/plugins'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ssoOptions } from '@/lib/sso/options'
 
 const {
   mockGetSession,
@@ -18,6 +19,8 @@ const {
   mockIsOrganizationOwnerOrAdmin,
   mockGetOrganizationBillingData,
   mockGetBillingGateState,
+  mockHasOrganizationMembership,
+  mockValidateSeatAvailability,
   mockLogger,
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
@@ -25,6 +28,8 @@ const {
   mockIsOrganizationOwnerOrAdmin: vi.fn(),
   mockGetOrganizationBillingData: vi.fn(),
   mockGetBillingGateState: vi.fn(),
+  mockHasOrganizationMembership: vi.fn(),
+  mockValidateSeatAvailability: vi.fn(),
   mockLogger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -44,6 +49,11 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/billing/core/organization', () => ({
   isOrganizationOwnerOrAdmin: (...args: unknown[]) => mockIsOrganizationOwnerOrAdmin(...args),
   getOrganizationBillingData: (...args: unknown[]) => mockGetOrganizationBillingData(...args),
+  hasOrganizationMembership: mockHasOrganizationMembership,
+}))
+
+vi.mock('@/lib/billing/validation/seat-management', () => ({
+  validateSeatAvailability: mockValidateSeatAvailability,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -532,10 +542,10 @@ describe('SSO register route', () => {
     expect(response.status).toBe(400)
     expect(mockRegisterSSOProvider).not.toHaveBeenCalled()
   })
-  it('verifies DNS and links the signed OIDC subject to the existing password user', async () => {
+  it('verifies DNS and provisions the existing password user on signed OIDC login without billing', async () => {
     const origin = 'http://localhost:3000'
     const issuer = 'https://93.184.216.34'
-    const email = 'owner@example.com'
+    const email = 'member@example.com'
     const callbackURL = '/signup?complete=username&callbackUrl=%2Finvite%2Fteam'
     const auth = betterAuth({
       baseURL: origin,
@@ -547,10 +557,11 @@ describe('SSO register route', () => {
         verification: [],
         organization: [],
         member: [],
+        invitation: [],
         ssoProvider: [],
       }),
       emailAndPassword: { enabled: true },
-      plugins: [organization(), sso({ domainVerification: { enabled: true } })],
+      plugins: [organization(), sso(ssoOptions)],
     })
     const api = (path: string, body?: object, cookie = '') =>
       auth.handler(
@@ -565,25 +576,38 @@ describe('SSO register route', () => {
         .getSetCookie()
         .map((c) => c.split(';')[0])
         .join('; ')
-    const signup = await api('/sign-up/email', {
+    const ownerSignup = await api('/sign-up/email', {
       name: 'Owner',
-      email,
+      email: 'owner@example.com',
       password: 'Account-fixture-123!',
     })
-    const cookie = cookies(signup)
-    const { user } = await signup.json()
+    const cookie = cookies(ownerSignup)
+    const { user: owner } = await ownerSignup.json()
     const { internalAdapter, adapter } = await auth.$context
-    await internalAdapter.updateUser(user.id, { emailVerified: true })
     const org = await (
       await api('/organization/create', { name: 'Org', slug: 'org' }, cookie)
     ).json()
-    mockGetSession.mockResolvedValue({ user, session: { activeOrganizationId: org.id } })
+    const signup = await api('/sign-up/email', {
+      name: 'Member',
+      email,
+      password: 'Account-fixture-123!',
+    })
+    const { user } = await signup.json()
+    await internalAdapter.updateUser(user.id, { emailVerified: true })
+    mockGetSession.mockResolvedValue({ user: owner, session: { activeOrganizationId: org.id } })
     mockRegisterSSOProvider.mockImplementation((options) => auth.api.registerSSOProvider(options))
+    mockGetBillingGateState.mockResolvedValue({ billingEnabled: false })
+    mockGetOrganizationBillingData.mockResolvedValue({ subscriptionTier: null })
+    mockHasOrganizationMembership.mockResolvedValue(false)
+    mockValidateSeatAvailability.mockResolvedValue({
+      canInvite: false,
+      reason: 'No active subscription found',
+    })
 
     const { privateKey, publicKey } = await generateKeyPair('RS256')
     const jwk = await exportJWK(publicKey)
-    const subject = 'idp-owner-1'
-    const claims = { sub: subject, email, name: 'Owner', email_verified: true }
+    const subject = 'idp-member-1'
+    const claims = { sub: subject, email, name: 'Member', email_verified: true }
     const token = await new SignJWT(claims)
       .setProtectedHeader({ alg: 'RS256', kid: 'fixture' })
       .setIssuer(issuer)
@@ -644,6 +668,7 @@ describe('SSO register route', () => {
         undefined,
         cookies(started)
       )
+      expect(callback.status).toBe(302)
       expect(callback.headers.get('location')).toBe(callbackURL)
       const session = await api('/get-session', undefined, cookies(callback))
       expect((await session.json()).user.id).toBe(user.id)
@@ -651,6 +676,14 @@ describe('SSO register route', () => {
     try {
       await verifyDomain()
       await complete()
+      expect(mockHasOrganizationMembership).toHaveBeenCalledWith(user.id)
+      expect(mockValidateSeatAvailability).not.toHaveBeenCalled()
+      expect(
+        await adapter.findOne({ model: 'member', where: [{ field: 'userId', value: user.id }] })
+      ).toMatchObject({
+        organizationId: org.id,
+        role: 'member',
+      })
       const accounts = await internalAdapter.findAccounts(user.id)
       expect(accounts.map((row) => row.providerId).sort()).toEqual(['credential', 'okta'])
       expect(accounts.find((row) => row.providerId === 'okta')?.accountId).toBe(subject)
@@ -684,7 +717,7 @@ describe('SSO register route', () => {
       expect((await adapter.findOne<{ id: string }>({ model: 'ssoProvider', where }))?.id).toBe(
         savedProvider!.id
       )
-      expect(await adapter.count({ model: 'user' })).toBe(1)
+      expect(await adapter.count({ model: 'user' })).toBe(2)
       expect(discovery).toHaveBeenCalledTimes(1)
     } finally {
       txt.mockRestore()

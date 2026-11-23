@@ -78,11 +78,8 @@ import {
   REGISTRATION_DISABLED_REASON,
   REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
-import {
-  assertSsoProviderIdAllowed,
-  requireOrganizationSsoEnabled,
-  requireSsoOrganization,
-} from '@/lib/sso/management'
+import { assertSsoProviderIdAllowed, requireSsoOrganization } from '@/lib/sso/management'
+import { ssoOptions } from '@/lib/sso/options'
 import {
   createStripeClientProxy,
   getStripeServiceConfig,
@@ -838,32 +835,7 @@ export const auth = betterAuth({
       expiresIn: 15 * 60, // 15 minutes in seconds
     }),
     // Include SSO plugin when enabled
-    ...(env.SSO_ENABLED
-      ? [
-          sso({
-            domainVerification: { enabled: true },
-            organizationProvisioning: {
-              getRole: async ({ user, provider }) => {
-                const organizationId = provider.organizationId
-                if (!organizationId)
-                  throw new APIError('BAD_REQUEST', { message: 'Organization required' })
-                await requireOrganizationSsoEnabled(organizationId)
-                if (await hasOrganizationMembership(user.id)) {
-                  throw new APIError('FORBIDDEN', {
-                    message: 'Already a member of an organization',
-                  })
-                }
-                const seats = await validateSeatAvailability(organizationId)
-                if (!seats.canInvite) {
-                  throw new APIError('FORBIDDEN', { message: seats.reason ?? 'No available seats' })
-                }
-                return 'member'
-              },
-            },
-            saml: { allowIdpInitiated: true, idpInitiatedCallbackUrl: '/signup?complete=username' },
-          }),
-        ]
-      : []),
+    ...(env.SSO_ENABLED ? [sso(ssoOptions)] : []),
     // Stripe is deployment-owned and env-backed; update it through deployment secrets.
     stripe({
       stripeClient,

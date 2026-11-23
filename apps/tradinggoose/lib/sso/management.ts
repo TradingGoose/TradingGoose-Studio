@@ -19,15 +19,16 @@ export function assertSsoProviderIdAllowed(providerId: unknown) {
 }
 
 export async function requireOrganizationSsoEnabled(organizationId: string) {
-  const [{ billingEnabled }, billing] = await Promise.all([
+  const [gate, billing] = await Promise.all([
     getBillingGateState(),
     getOrganizationBillingData(organizationId),
   ])
-  if (!isOrganizationSsoEnabled(billingEnabled, billing?.subscriptionTier)) {
+  if (!isOrganizationSsoEnabled(gate.billingEnabled, billing?.subscriptionTier)) {
     throw new APIError('FORBIDDEN', {
       message: 'Single Sign-On is not enabled for this organization',
     })
   }
+  return gate
 }
 
 export async function requireSsoOrganization(
