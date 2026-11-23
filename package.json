@@ -44,7 +44,7 @@
   "overrides": {
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "0.45.2",
     "postgres": "4.1.0",
     "vite": "6.4.3"
   },
@@ -54,7 +54,7 @@
     "@tanstack/react-query": "5.90.8",
     "cronstrue": "3.3.0",
     "diff": "9.0.0",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "0.45.2",
     "lightweight-charts": "5.1.0",
     "mongodb": "6.19.0",
     "parse-diff": "0.12.0",
