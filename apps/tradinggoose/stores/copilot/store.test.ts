@@ -189,6 +189,18 @@ const pendingHistory = (pending: Pending[]) =>
     })),
     pending
   )
+const workflowTerminalHistory = (target: Pending['target']) =>
+  toolHistory([
+    {
+      ...target,
+      state: 'result',
+      result: {
+        executionId: nativeToolCallId(target),
+        message: 'Workflow execution completed',
+        data: { success: true, output: {} },
+      },
+    },
+  ])
 const historyResponse = (pending: Pending[]) => observingStream(pendingHistory(pending)).response
 
 let commands: CopilotRequest[]
@@ -252,12 +264,6 @@ function defaultResponse(request: CopilotRequest) {
     request.action === 'readback' &&
     request.target.toolName === 'run_workflow'
   ) {
-    const executionId = nativeToolCallId(request.target)
-    const result = {
-      executionId,
-      message: 'Workflow execution completed',
-      data: { success: true, output: {} },
-    }
     return acceptObservation(
       eventResponse([
         {
@@ -265,7 +271,7 @@ function defaultResponse(request: CopilotRequest) {
           runId: request.target.runId,
           status: 'success',
           history: {
-            ...toolHistory([{ ...request.target, state: 'result', result }]),
+            ...workflowTerminalHistory(request.target),
             readbackRequestId: request.requestId,
           },
         },
@@ -2562,6 +2568,50 @@ describe('local workflow execution refusals', () => {
     return next
   }
 
+  it.each(['visit another chat', 'create a chat before admission'] as const)(
+    'waits for the original workflow DELETE after returning to its chat (%s)',
+    async (navigation) => {
+      const admission =
+        navigation === 'create a chat before admission' ? defer<Response>() : undefined
+      const acknowledgement = defer<Response>()
+      const { original, id, jobs, execution } = await startInitialWorkflow(
+        () => acknowledgement.promise,
+        admission?.promise
+      )
+      if (admission) {
+        await store().getState().createNewChat(workspaceId)
+        expect(store().getState().currentChat).toBeNull()
+      } else {
+        await vi.waitFor(() => expect(jobs).toEqual(['GET']))
+        const next = await switchWorkflowChat('select')
+        await execution
+        expect(store().getState().currentChat?.threadId).toBe(next.threadId)
+        expect(store().getState().currentRunId).toBe('other-run')
+      }
+      onObserve = () => historyResponse([original])
+      await store().getState().selectChat(chat())
+      expect(store().getState().toolCallsById[id].pending).toEqual(original)
+      const settled = vi.fn()
+      const stopping = store().getState().abortMessage().then(settled)
+      if (admission) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        expect.soft(settled).not.toHaveBeenCalled()
+        expect(jobs).toEqual([])
+        admission.resolve(json({ executionId: id, taskId: id }, 202))
+      }
+      await vi.waitFor(() => expect(jobs).toEqual(admission ? ['DELETE'] : ['GET', 'DELETE']))
+      expect(settled).not.toHaveBeenCalled()
+      expect(store().getState().isAborting).toBe(true)
+      acknowledgement.resolve(json({ status: 'cancelled' }))
+      await Promise.all([stopping, execution])
+      expect(settled).toHaveBeenCalledExactlyOnceWith(true)
+      expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+        { command: 'cancel', workspaceId, threadId, runId },
+      ])
+      expect(workflowRequests).toEqual(['original-workflow/queue'])
+    }
+  )
+
   it.each(['select', 'reset'] as const)(
     'does not carry initial workflow Stop into another chat after %s',
     async (action) => {
@@ -2595,11 +2645,57 @@ describe('local workflow execution refusals', () => {
       expect(await stopping).toBe(false)
       expect(store().getState().currentRunId).toBe('other-run')
       expect(await store().getState().abortMessage()).toBe(true)
+      onObserve = () => observingStream(historyResult([])).response
+      await store().getState().selectChat(chat())
+      expect(store().getState().currentRunId).toBeNull()
+      expect(isCopilotBusy(store().getState())).toBe(false)
+      await store().getState().abortMessage()
       expect(commands.filter((request) => request.command === 'cancel')).toEqual([
         { command: 'cancel', workspaceId, threadId, runId },
         { command: 'cancel', workspaceId, threadId: next.threadId, runId: 'other-run' },
       ])
       expect(jobs).toEqual(['GET', 'DELETE'])
+      expect(workflowRequests).toEqual(['original-workflow/queue'])
+    }
+  )
+
+  it.each(['before history', 'after history'])(
+    'keeps Stop in flight when its chat is reselected and the workflow DELETE settles %s',
+    async (timing) => {
+      const acknowledgement = defer<Response>()
+      const { jobs, execution } = await startInitialWorkflow(() => acknowledgement.promise)
+      await vi.waitFor(() => expect(jobs).toEqual(['GET']))
+      const stopping = store().getState().abortMessage()
+      await vi.waitFor(() => expect(jobs).toEqual(['GET', 'DELETE']))
+      await execution
+      await switchWorkflowChat('select')
+      expect(store().getState()).toMatchObject({ currentRunId: 'other-run', isAborting: false })
+      const delayed = defer<Response>()
+      const observe = vi.fn<typeof onObserve>(() => observingStream().response)
+      if (timing === 'before history') observe.mockImplementationOnce(() => delayed.promise)
+      onObserve = observe
+      const selecting = store().getState().selectChat(chat())
+      await vi.waitFor(() => expect(observe).toHaveBeenCalledOnce())
+      if (timing === 'after history') await selecting
+      expect(store().getState()).toMatchObject({ currentRunId: runId, isAborting: true })
+      expect(isCopilotBusy(store().getState())).toBe(true)
+      expect(await store().getState().abortMessage()).toBe(false)
+      expect(jobs).toEqual(['GET', 'DELETE'])
+      acknowledgement.resolve(json({ status: 'cancelled' }))
+      expect(await stopping).toBe(false)
+      if (timing === 'before history') {
+        await vi.waitFor(() =>
+          expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
+        )
+        delayed.resolve(observingStream(historyResult([history[0]]), runId).response)
+        await selecting
+      }
+      expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
+      expect(store().getState()).toMatchObject({ currentRunId: null, isAborting: false })
+      expect(isCopilotBusy(store().getState())).toBe(false)
+      expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+        { command: 'cancel', workspaceId, threadId, runId },
+      ])
       expect(workflowRequests).toEqual(['original-workflow/queue'])
     }
   )
@@ -2770,7 +2866,7 @@ describe('local workflow execution refusals', () => {
         () => true,
         () => false
       )
-    return { readback, jobs }
+    return { readback, jobs, target: original.target }
   }
 
   it.each(['stop', 'stale-request', 'foreign-target'] as const)(
@@ -2853,6 +2949,59 @@ describe('local workflow execution refusals', () => {
       expect(store().getState().currentChat?.threadId).toBe(next.threadId)
     }
   )
+
+  it('retries the original resumed workflow DELETE after returning to empty native history', async () => {
+    const acknowledgement = defer<Response>()
+    const remove = vi
+      .fn()
+      .mockResolvedValueOnce(json({ error: 'Temporary outage' }, 503))
+      .mockReturnValueOnce(acknowledgement.promise)
+    const { jobs, readback } = await startResumedReadback('stop', remove)
+    await vi.waitFor(() => expect(jobs).toEqual(['GET']))
+    expect(await store().getState().abortMessage()).toBe(false)
+    expect(await readback).toBe(false)
+    expect(store().getState().error).toBe('Temporary outage')
+    const next = await switchWorkflowChat('select')
+    expect(store().getState().currentChat?.threadId).toBe(next.threadId)
+    expect(store().getState().currentRunId).toBe('other-run')
+    onObserve = () => observingStream(historyResult([])).response
+    await store().getState().selectChat(chat())
+    expect.soft(isCopilotBusy(store().getState())).toBe(true)
+    expect.soft(store().getState().currentRunId).toBe(runId)
+    const settled = vi.fn()
+    const retry = store().getState().abortMessage().then(settled)
+    await vi.waitFor(() => expect(jobs).toEqual(['GET', 'DELETE', 'DELETE']))
+    expect(settled).not.toHaveBeenCalled()
+    acknowledgement.resolve(json({ status: 'cancelled' }))
+    await retry
+    expect(settled).toHaveBeenCalledExactlyOnceWith(true)
+    expect(store().getState().currentRunId).toBeNull()
+    expect(isCopilotBusy(store().getState())).toBe(false)
+    expect(workflowRequests).toEqual([])
+    expect(commands.filter((request) => request.command === 'cancel')).toEqual([
+      { command: 'cancel', workspaceId, threadId, runId },
+      { command: 'cancel', workspaceId, threadId, runId },
+    ])
+  })
+
+  it('retires a failed resumed workflow Stop after returning to its verified terminal readback', async () => {
+    const { jobs, readback, target } = await startResumedReadback('stop', () =>
+      json({ error: 'Temporary outage' }, 503)
+    )
+    await vi.waitFor(() => expect(jobs).toEqual(['GET']))
+    expect(await store().getState().abortMessage()).toBe(false)
+    expect(await readback).toBe(false)
+    await switchWorkflowChat('select')
+    onObserve = () => observingStream(workflowTerminalHistory(target)).response
+    await store().getState().selectChat(chat())
+    const id = nativeToolCallId(target)
+    expect(store().getState().toolCallsById[id].result).toMatchObject({ executionId: id })
+    expect(store().getState().currentRunId).toBeNull()
+    expect(isCopilotBusy(store().getState())).toBe(false)
+    await store().getState().abortMessage()
+    expect(jobs).toEqual(['GET', 'DELETE'])
+    expect(commands.filter((request) => request.command === 'cancel')).toHaveLength(1)
+  })
 
   it('allows explicit retry after rejected queue admission, then resumes and accepts a new message', async () => {
     const target = await install()

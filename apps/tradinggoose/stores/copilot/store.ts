@@ -148,23 +148,28 @@ function createCopilotStoreInstance(channelId: string) {
     threadId?: string
   } | null = null
   let titleAbort: AbortController | null = null
-  let workflow:
-    | {
-        workspaceId: string | null
-        target: Target
-        admission: Promise<QueuedWorkflowExecutionHandle>
-        stopping: boolean
-      }
-    | undefined
+  type TrackedWorkflow = {
+    key: string
+    target: Target
+    admission: Promise<QueuedWorkflowExecutionHandle>
+    stop?: 'pending' | 'retry'
+  }
+  const workflows = new Map<string, TrackedWorkflow>()
+  const workflowKey = (chat: CopilotChat) => JSON.stringify([chat.workspaceId, chat.threadId])
+  const workflowFor = (chat: CopilotChat | null) =>
+    chat ? workflows.get(workflowKey(chat)) : undefined
+  const retireWorkflow = (entry: TrackedWorkflow) => {
+    if (workflows.get(entry.key) === entry) workflows.delete(entry.key)
+  }
   const trackWorkflow = (
-    workspaceId: string | null,
+    chat: CopilotChat,
     target: Target,
     admission: Promise<QueuedWorkflowExecutionHandle>
   ) => {
-    const entry = { workspaceId, target, admission, stopping: false }
-    workflow = entry
+    const entry: TrackedWorkflow = { key: workflowKey(chat), target, admission }
+    workflows.set(entry.key, entry)
     const completed = () => {
-      if (workflow === entry && !entry.stopping) workflow = undefined
+      if (entry.stop !== 'pending') retireWorkflow(entry)
     }
     void admission.catch((error) => {
       if (error instanceof WorkflowQueueAdmissionError) completed()
@@ -309,16 +314,21 @@ function createCopilotStoreInstance(channelId: string) {
             )
           )
         )
+        let workflow = workflowFor(get().currentChat)
+        let isAborting = get().isAborting
         if (workflow) {
           const id = nativeToolCallId(workflow.target)
           const card = toolCallsById[id]
           if (
             (currentRunId && workflow.target.runId !== currentRunId) ||
-            (!workflow.stopping &&
+            (workflow.stop !== 'pending' &&
               card &&
               workflowReadback(card.name, card.result)?.executionId === id)
-          )
+          ) {
+            retireWorkflow(workflow)
             workflow = undefined
+          }
+          isAborting = workflow?.stop === 'pending'
         }
         let projected = { ...get(), messages, toolCallsById }
         for (const item of pending) {
@@ -352,9 +362,10 @@ function createCopilotStoreInstance(channelId: string) {
         set({
           messages: projected.messages,
           toolCallsById: projected.toolCallsById,
-          isAwaitingContinuation: pending.length > 0,
+          isAborting,
+          isAwaitingContinuation: pending.length > 0 || (!activeRunId && !!workflow),
           isSendingMessage: !!activeRunId && pending.length === 0,
-          currentRunId,
+          currentRunId: currentRunId ?? workflow?.target.runId ?? null,
         })
         for (const call of Object.values(projected.toolCallsById)) void refreshToolResult(call)
       }
@@ -404,7 +415,8 @@ function createCopilotStoreInstance(channelId: string) {
             handle.taskId !== handle.executionId
           )
             return staleReadback()
-          const completed = trackWorkflow(chat.workspaceId, target, Promise.resolve(handle))
+          if (workflowFor(chat)?.stop) return false
+          const completed = trackWorkflow(chat, target, Promise.resolve(handle))
           set({ isSendingMessage: true })
           updateTool(call.id, ClientToolCallState.executing)
           try {
@@ -480,7 +492,7 @@ function createCopilotStoreInstance(channelId: string) {
                   if (event.status === 'suspended' && event.history.workflowObservation)
                     return await followWorkflow(event.history)
                   set({
-                    isAborting: false,
+                    isAborting: workflowFor(chat)?.stop === 'pending',
                     error:
                       event.error?.message ??
                       get().error ??
@@ -835,7 +847,7 @@ function createCopilotStoreInstance(channelId: string) {
               workspaceId: call.provenance?.workspaceId,
               onWorkflowAdmission:
                 call.name === 'run_workflow'
-                  ? (admission) => trackWorkflow(chat!.workspaceId, pending.target, admission)
+                  ? (admission) => trackWorkflow(chat!, pending.target, admission)
                   : undefined,
             })
             const businessAbort = new AbortController()
@@ -1013,7 +1025,12 @@ function createCopilotStoreInstance(channelId: string) {
               (get().currentChat || get().isSendingMessage || get().isAwaitingContinuation)
             ) {
               const currentChat = get().currentChat
-              if (currentChat && !get().abortController && !observation && !workflow?.stopping)
+              if (
+                currentChat &&
+                !get().abortController &&
+                !observation &&
+                !workflowFor(currentChat)?.stop
+              )
                 await restoreChat(currentChat)
               return
             }
@@ -1028,27 +1045,25 @@ function createCopilotStoreInstance(channelId: string) {
           }
         },
         selectChat: async (chat) => {
-          const sameChat = ownsChat(chat, epoch)
-          if (sameChat && workflow?.stopping) return
-          if (!sameChat) workflow = undefined
+          const workflow = workflowFor(chat)
+          if (ownsChat(chat, epoch) && workflow?.stop) return
           get().detachStream()
           ++epoch
           set({
             currentChat: chat,
             conversationWorkspaceId: chat.workspaceId,
-            currentRunId: null,
+            currentRunId: workflow?.target.runId ?? null,
             messages: [],
             toolCallsById: {},
             error: null,
-            isAwaitingContinuation: false,
-            isAborting: false,
+            isAwaitingContinuation: !!workflow,
+            isAborting: workflow?.stop === 'pending',
             isSendingMessage: false,
           })
           rememberCopilotWorkspaceSelection(channelId, chat.workspaceId, chat.threadId)
           await restoreChat(chat) // Restored history never autoexecutes a tool.
         },
         createNewChat: async (workspaceId) => {
-          workflow = undefined
           get().detachStream()
           ++epoch
           const scope = workspaceId === undefined ? get().conversationWorkspaceId : workspaceId
@@ -1069,6 +1084,7 @@ function createCopilotStoreInstance(channelId: string) {
         deleteChat: async (threadId) => {
           const chat = get().chats.find((item) => item.threadId === threadId)
           if (!chat) throw new Error('Native thread ownership is unavailable')
+          const workflow = workflowFor(chat)
           const result = await readNativeCommand({
             command: 'thread.delete',
             workspaceId: chat.workspaceId,
@@ -1080,8 +1096,9 @@ function createCopilotStoreInstance(channelId: string) {
             result.threadId !== threadId
           )
             throw new Error('Native thread deletion was not verified')
+          if (workflow) retireWorkflow(workflow)
           set((state) => ({ chats: state.chats.filter((item) => item.threadId !== threadId) }))
-          if (get().currentChat?.threadId === threadId) await get().createNewChat(chat.workspaceId)
+          if (ownsChat(chat, epoch)) await get().createNewChat(chat.workspaceId)
         },
         sendMessage: async (message, options = {}) => {
           if ((!message.trim() && !options.images?.length) || isCopilotBusy(get())) return false
@@ -1105,7 +1122,7 @@ function createCopilotStoreInstance(channelId: string) {
             return false
           }
           const workspaceId = chat ? chat.workspaceId : get().conversationWorkspaceId
-          workflow = undefined
+          if (chat) workflows.delete(workflowKey(chat))
           get().detachStream()
           const id = ++epoch
           titleAbort?.abort()
@@ -1174,13 +1191,12 @@ function createCopilotStoreInstance(channelId: string) {
           if (dialog)
             get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool selection changed')
           const current = get()
+          const workflow = workflowFor(current.currentChat)
           const ownedWorkflow =
-            workflow &&
-            current.currentChat?.workspaceId === workflow.workspaceId &&
-            current.currentChat.threadId === workflow.target.threadId &&
-            (!current.currentRunId || current.currentRunId === workflow.target.runId)
+            workflow && (!current.currentRunId || current.currentRunId === workflow.target.runId)
               ? workflow
               : undefined
+          if (ownedWorkflow?.stop === 'pending') return false
           const currentRunId = current.currentRunId ?? ownedWorkflow?.target.runId
           let cancellationEpoch = epoch
           let target =
@@ -1208,7 +1224,7 @@ function createCopilotStoreInstance(channelId: string) {
             }
             if (cancellationEpoch === epoch) {
               cancellationEpoch = ++epoch
-              if (ownedWorkflow) ownedWorkflow.stopping = true
+              if (ownedWorkflow) ownedWorkflow.stop = 'pending'
               get().detachStream()
               set((state) => ({
                 ...settleDisplayOnlyTools(state),
@@ -1231,16 +1247,31 @@ function createCopilotStoreInstance(channelId: string) {
                 }
               ),
             ])
-            if (cancellationEpoch !== epoch) return false
+            const originalSelection = cancellationEpoch === epoch
+            const returnedChat =
+              ownedWorkflow &&
+              workflowFor(get().currentChat) === ownedWorkflow &&
+              get().currentRunId === ownedWorkflow.target.runId
+                ? get().currentChat
+                : null
+            if (ownedWorkflow) {
+              if (cancelledWorkflow.status === 'fulfilled') retireWorkflow(ownedWorkflow)
+              else ownedWorkflow.stop = 'retry'
+            }
+            if (!originalSelection) {
+              if (!returnedChat) return false
+              cancellationEpoch = epoch
+              // The reopened view may still be reading history from before Stop settled.
+              if (observation) void restoreChat(returnedChat)
+            }
             if (cancelledWorkflow.status === 'rejected') throw cancelledWorkflow.reason
-            if (workflow === ownedWorkflow) workflow = undefined
             if (!target) return !current.isSendingMessage
             if (native.status === 'rejected') throw native.reason
             const result = native.value
             if (result?.status !== 'cancel_requested' || result.runId !== target.runId)
               throw new Error('Native cancellation was not verified')
             set((state) => applyNativeCancellation(state, result))
-            return true
+            return originalSelection
           } catch (error) {
             if (cancellationEpoch === epoch) {
               set({ isAborting: false, isSendingMessage: false })
@@ -1267,7 +1298,7 @@ function createCopilotStoreInstance(channelId: string) {
           set({ abortController: null, isLoadingChats: false })
         },
         reset: () => {
-          workflow = undefined
+          workflows.clear()
           ++epoch
           owner.abort()
           owner = new AbortController()
