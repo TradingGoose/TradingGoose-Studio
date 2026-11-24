@@ -4,11 +4,11 @@ import { workflowExecutionLogs, workflowLogWebhookDelivery } from '@tradinggoose
 import { tasks } from '@trigger.dev/sdk'
 import { and, eq, isNull, lte, or, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { publicTraceSpans } from '@/lib/logs/public'
 import type { WorkflowExecutionLog } from '@/lib/logs/types'
 import { decryptSecret } from '@/lib/utils-server'
+import type { UserLimits } from '@/app/api/v1/logs/meta'
 import type { logsWebhookDelivery } from './tasks/logs-webhook-delivery'
 
 const logger = createLogger('LogsWebhookDelivery')
@@ -44,24 +44,8 @@ interface WebhookPayload {
     finalOutput?: any
     errorMessage?: string
     traceSpans?: any[]
-    rateLimits?: {
-      sync: {
-        limit: number
-        remaining: number
-        resetAt: string
-      }
-      async: {
-        limit: number
-        remaining: number
-        resetAt: string
-      }
-    }
-    usage?: {
-      currentPeriodCost: number
-      limit: number
-      tier: BillingTierSummary
-      isExceeded: boolean
-    }
+    rateLimits?: UserLimits['executionRateLimit']
+    usage?: UserLimits['usage']
   }
   links: {
     log: string
@@ -91,6 +75,10 @@ export async function executeLogsWebhookDelivery(
 ) {
   signal?.throwIfAborted()
   const { deliveryId } = params
+  const inProgressDelivery = and(
+    eq(workflowLogWebhookDelivery.id, deliveryId),
+    eq(workflowLogWebhookDelivery.status, 'in_progress')
+  )
 
   try {
     const [delivery] = await db
@@ -132,12 +120,7 @@ export async function executeLogsWebhookDelivery(
           failureReason: 'Webhook delivery is missing subscription snapshot',
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(workflowLogWebhookDelivery.id, deliveryId),
-            eq(workflowLogWebhookDelivery.status, 'in_progress')
-          )
-        )
+        .where(inProgressDelivery)
 
       logger.error(
         `Webhook delivery ${deliveryId} failed because subscription snapshot is missing`,
@@ -170,12 +153,7 @@ export async function executeLogsWebhookDelivery(
           failureReason: 'Workflow execution log not found',
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(workflowLogWebhookDelivery.id, deliveryId),
-            eq(workflowLogWebhookDelivery.status, 'in_progress')
-          )
-        )
+        .where(inProgressDelivery)
 
       logger.error(`Webhook delivery ${deliveryId} failed because log row was missing`, {
         executionId: delivery.executionId,
@@ -323,12 +301,7 @@ export async function executeLogsWebhookDelivery(
             failureReason: null,
             updatedAt: new Date(),
           })
-          .where(
-            and(
-              eq(workflowLogWebhookDelivery.id, deliveryId),
-              eq(workflowLogWebhookDelivery.status, 'in_progress')
-            )
-          )
+          .where(inProgressDelivery)
 
         logger.info(`Webhook delivery ${deliveryId} succeeded`, {
           status: response.status,
@@ -352,12 +325,7 @@ export async function executeLogsWebhookDelivery(
             failureReason: `HTTP ${response.status}`,
             updatedAt: new Date(),
           })
-          .where(
-            and(
-              eq(workflowLogWebhookDelivery.id, deliveryId),
-              eq(workflowLogWebhookDelivery.status, 'in_progress')
-            )
-          )
+          .where(inProgressDelivery)
 
         logger.warn(`Webhook delivery ${deliveryId} failed permanently`, {
           status: response.status,
@@ -384,12 +352,7 @@ export async function executeLogsWebhookDelivery(
           failureReason: `HTTP ${response.status} - will retry`,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(workflowLogWebhookDelivery.id, deliveryId),
-            eq(workflowLogWebhookDelivery.status, 'in_progress')
-          )
-        )
+        .where(inProgressDelivery)
 
       await tasks.trigger<typeof logsWebhookDelivery>(
         'logs-webhook-delivery',
@@ -425,12 +388,7 @@ export async function executeLogsWebhookDelivery(
           failureReason: message,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(workflowLogWebhookDelivery.id, deliveryId),
-            eq(workflowLogWebhookDelivery.status, 'in_progress')
-          )
-        )
+        .where(inProgressDelivery)
 
       if (attempts >= MAX_ATTEMPTS) {
         logger.error(`Webhook delivery ${deliveryId} failed after ${attempts} attempts`, {
@@ -461,12 +419,7 @@ export async function executeLogsWebhookDelivery(
         failureReason: `Unexpected error: ${error.message}`,
         updatedAt: new Date(),
       })
-      .where(
-        and(
-          eq(workflowLogWebhookDelivery.id, deliveryId),
-          eq(workflowLogWebhookDelivery.status, 'in_progress')
-        )
-      )
+      .where(inProgressDelivery)
 
     return { success: false, error: error.message }
   }
