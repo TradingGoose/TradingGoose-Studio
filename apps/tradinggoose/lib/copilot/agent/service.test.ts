@@ -1925,6 +1925,63 @@ describe('Copilot background execution and native history', () => {
     expect(await pending(initial.threadId)).toEqual([])
   })
 
+  it('cancels the attested queue task while Studio drains a resumed workflow readback', async () => {
+    const workflowId = workflowCall.args.entityId
+    const workspaceId = 'business-workspace'
+    const toolContext = { contextEntityKind: 'workflow', contextEntityId: workflowId, workspaceId }
+    setModel(workflowCall)
+    const { threadId, runId, pending } = suspended(
+      (await message({ accessLevel: 'full', toolContext })).result
+    )
+    const { target } = pending[0]
+    const executionId = nativeToolCallId(target)
+    await db.transaction((tx) =>
+      claimCopilotWorkflowAdmission({ scope, threadId, runId }, target.toolCallId, tx)
+    )
+    const entered = deferred()
+    const finish = deferred()
+    m.executionLog.mockImplementationOnce(async () => {
+      entered.resolve()
+      await finish.promise
+      throw new ObserveResumedWorkflow({ executionId, taskId: executionId, workflowId })
+    })
+    m.cancelWorkflow.mockResolvedValue({ status: 'cancelling' })
+    const workflows = (await m.storage.getStore('workflows'))!
+    const reading = command({ command: 'tool.execute', action: 'readback', target })
+    await entered.promise
+    const owner = await readCopilotThreadOwnership(scope, threadId)
+    const settled = vi.fn()
+    const stopping = command({ command: 'cancel', threadId, runId }).finally(settled)
+    try {
+      await vi.waitFor(async () => {
+        expect(await isCopilotRunCancelled(runId)).toBe(true)
+        expect(m.cancelWorkflow).toHaveBeenCalledExactlyOnceWith({
+          pendingExecutionId: executionId,
+          userId: scope.actorUserId,
+          workflowId,
+          workspaceId,
+        })
+      })
+      expect((await message({ threadId })).result.status).toBe('refused')
+      expect(await readCopilotThreadOwnership(scope, threadId)).toMatchObject({
+        ownerId: runId,
+        generation: owner!.generation,
+        live: true,
+      })
+      expect(await workflows.getWorkflowRunById({ runId })).not.toBeNull()
+      expect(settled).not.toHaveBeenCalled()
+    } finally {
+      finish.resolve()
+      await Promise.all([reading, stopping])
+    }
+    expect((await stopping).result).toEqual({ status: 'cancel_requested', runId })
+    expect((await reading).result.status).toBe('aborted')
+    expect(await workflows.getWorkflowRunById({ runId })).toBeNull()
+    expect(await readCopilotThreadRun(scope, threadId)).toBeUndefined()
+    expect(m.cancelWorkflow).toHaveBeenCalledOnce()
+    expect(m.contacts).toHaveLength(1)
+  })
+
   it.each(['cancelling', 'finished'])(
     'recovers a committed workflow on another Studio instance and waits for %s',
     async (status) => {
