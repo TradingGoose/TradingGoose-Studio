@@ -46,13 +46,9 @@ vi.mock('@/lib/knowledge/documents/document-processor', () => ({
       },
     ],
     metadata: {
-      filename: 'dummy',
-      fileSize: 10,
-      mimeType: 'text/plain',
       characterCount: 9,
       tokenCount: 3,
       chunkCount: 2,
-      processingMethod: 'file-parser',
     },
   }),
 }))

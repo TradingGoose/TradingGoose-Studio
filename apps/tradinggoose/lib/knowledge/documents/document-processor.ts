@@ -2,7 +2,7 @@ import { JsonYamlChunker } from '@/lib/chunkers/json-yaml-chunker'
 import { StructuredDataChunker } from '@/lib/chunkers/structured-data-chunker'
 import { TextChunker } from '@/lib/chunkers/text-chunker'
 import type { Chunk } from '@/lib/chunkers/types'
-import { parseBuffer, parseFile } from '@/lib/file-parsers'
+import { type FileParseResult, parseBuffer, parseFile } from '@/lib/file-parsers'
 import { retryWithExponentialBackoff } from '@/lib/knowledge/documents/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -68,28 +68,25 @@ export async function processDocument(
 ): Promise<{
   chunks: Chunk[]
   metadata: {
-    filename: string
-    fileSize: number
-    mimeType: string
     chunkCount: number
     tokenCount: number
     characterCount: number
-    processingMethod: 'file-parser' | 'mistral-ocr'
-    cloudUrl?: string
   }
 }> {
   signal?.throwIfAborted()
   logger.info(`Processing document: ${filename}`)
 
   try {
-    const parseResult = await parseDocument(fileUrl, filename, mimeType, actorUserId, signal)
+    const { content, metadata = {} } = await parseDocument(
+      fileUrl,
+      filename,
+      mimeType,
+      actorUserId,
+      signal
+    )
     signal?.throwIfAborted()
-    const { content, processingMethod } = parseResult
-    const cloudUrl = 'cloudUrl' in parseResult ? parseResult.cloudUrl : undefined
 
     let chunks: Chunk[]
-    const metadata = 'metadata' in parseResult ? parseResult.metadata : {}
-
     const isJsonYaml =
       metadata.type === 'json' ||
       metadata.type === 'yaml' ||
@@ -115,7 +112,6 @@ export async function processDocument(
     }
 
     signal?.throwIfAborted()
-    const characterCount = content.length
     const tokenCount = chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0)
 
     logger.info(`Document processed: ${chunks.length} chunks, ${tokenCount} tokens`)
@@ -123,14 +119,9 @@ export async function processDocument(
     return {
       chunks,
       metadata: {
-        filename,
-        fileSize: characterCount,
-        mimeType,
         chunkCount: chunks.length,
         tokenCount,
-        characterCount,
-        processingMethod,
-        cloudUrl,
+        characterCount: content.length,
       },
     }
   } catch (error) {
@@ -145,12 +136,7 @@ async function parseDocument(
   mimeType: string,
   actorUserId: string,
   signal?: AbortSignal
-): Promise<{
-  content: string
-  processingMethod: 'file-parser' | 'mistral-ocr'
-  cloudUrl?: string
-  metadata?: any
-}> {
+): Promise<FileParseResult> {
   signal?.throwIfAborted()
   if (mimeType !== 'application/pdf')
     return parseWithFileParser(fileUrl, filename, mimeType, actorUserId, signal)
@@ -188,7 +174,7 @@ async function handleFileForOCR(
   const isExternalHttps = fileUrl.startsWith('https://') && !fileUrl.includes('/api/files/serve/')
 
   if (isExternalHttps) {
-    return { httpsUrl: fileUrl }
+    return fileUrl
   }
 
   logger.info(`Uploading "${filename}" to cloud storage for OCR`)
@@ -213,7 +199,7 @@ async function handleFileForOCR(
 
     signal?.throwIfAborted()
     logger.info(`Successfully uploaded for OCR: ${cloudResult.key}`)
-    return { httpsUrl, cloudUrl: httpsUrl }
+    return httpsUrl
   } catch (uploadError) {
     const message = uploadError instanceof Error ? uploadError.message : 'Unknown error'
     throw new Error(`Cloud upload failed: ${message}. Cloud upload is required for OCR.`)
@@ -401,7 +387,7 @@ async function parseWithAzureMistralOCR(
     }
 
     logger.info(`Azure Mistral OCR completed: ${filename}`)
-    return { content, processingMethod: 'mistral-ocr' as const, cloudUrl: undefined }
+    return { content }
   } catch (error) {
     signal?.throwIfAborted()
     logger.error(`Azure Mistral OCR failed for ${filename}:`, {
@@ -434,13 +420,7 @@ async function parseWithMistralOCR(
     throw new Error('Mistral parser tool not configured')
   }
 
-  const { httpsUrl, cloudUrl } = await handleFileForOCR(
-    fileUrl,
-    filename,
-    mimeType,
-    actorUserId,
-    signal
-  )
+  const httpsUrl = await handleFileForOCR(fileUrl, filename, mimeType, actorUserId, signal)
   const params = { filePath: httpsUrl, apiKey: mistralApiKey, resultType: 'text' as const }
 
   try {
@@ -477,9 +457,7 @@ async function parseWithMistralOCR(
 
     const result = (await mistralParserTool.transformResponse!(response, params)) as OCRResult
     signal?.throwIfAborted()
-    const content = processOCRContent(result, filename)
-
-    return { content, processingMethod: 'mistral-ocr' as const, cloudUrl }
+    return { content: processOCRContent(result, filename) }
   } catch (error) {
     signal?.throwIfAborted()
     logger.error(`Mistral OCR failed for ${filename}:`, {
@@ -519,7 +497,7 @@ async function parseWithFileParser(
       throw new Error('File parser returned empty content')
     }
 
-    return { content, processingMethod: 'file-parser' as const, cloudUrl: undefined, metadata }
+    return { content, metadata }
   } catch (error) {
     logger.error(`File parser failed for ${filename}:`, error)
     throw error
@@ -549,7 +527,7 @@ async function parseHttpFile(
   filename: string,
   actorUserId: string,
   signal?: AbortSignal
-): Promise<{ content: string; metadata?: any }> {
+): Promise<FileParseResult> {
   const buffer = await downloadFileWithTimeout(fileUrl, actorUserId, signal)
 
   const extension = filename.split('.').pop()?.toLowerCase()
@@ -557,6 +535,5 @@ async function parseHttpFile(
     throw new Error(`Could not determine file extension: ${filename}`)
   }
 
-  const result = await parseBuffer(buffer, extension)
-  return result
+  return parseBuffer(buffer, extension)
 }

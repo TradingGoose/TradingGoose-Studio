@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { verifyInternalTokenDetailed } from '@/lib/auth/internal-token'
+import { parseFile } from '@/lib/file-parsers'
 import { GET } from '@/app/api/files/serve/[...path]/route'
 import { processDocument } from './document-processor'
 import { retryWithExponentialBackoff } from './utils'
@@ -77,8 +78,10 @@ beforeEach(() => {
       const claims = await verifyInternalTokenDetailed(token!)
       state.actors.push(claims.userId)
       expect(claims.valid).toBe(true)
-      if (url.pathname === '/api/tools/mistral/parse')
+      if (url.pathname === '/api/tools/mistral/parse') {
+        expect(JSON.parse(String(init.body)).filePath).toBe('https://storage.example/owned.pdf')
         return Response.json({ pages: [{ markdown: 'OCR text' }] })
+      }
       expect(init.redirect).toBe('error')
       return GET(new NextRequest(input, { headers: init.headers }), {
         params: Promise.resolve({ path: ['s3', ...state.file.key.split('/')] }),
@@ -101,7 +104,13 @@ it.each(['parser', 'azure', 'mistral'])(
       mode === 'parser' ? 'text/plain' : 'application/pdf',
       'actor'
     )
-    expect(result.chunks[0].text).toBe(mode === 'parser' ? 'Authorized workspace text' : 'OCR text')
+    const text = mode === 'parser' ? 'Authorized workspace text' : 'OCR text'
+    expect(result.chunks[0].text).toBe(text)
+    expect(result.metadata).toEqual({
+      chunkCount: 1,
+      tokenCount: result.chunks[0].tokenCount,
+      characterCount: text.length,
+    })
     expect(state.actors).toEqual(mode === 'mistral' ? ['actor', 'actor'] : ['actor'])
     if (mode === 'parser') expect(state.ocrConfigCalls).toBe(0)
   }
@@ -112,6 +121,21 @@ it('retains workspace authorization when the queued actor loses access', async (
     'Failed to download file'
   )
   expect(state.actors).toEqual(['revoked'])
+})
+
+it('chooses the structured chunker from parser metadata for an untyped file', async () => {
+  const value = { symbol: 'GOOG' }
+  vi.mocked(parseFile).mockResolvedValueOnce({
+    content: JSON.stringify(value),
+    metadata: { type: 'json' },
+  })
+  const result = await processDocument(
+    'data.json',
+    'data.json',
+    'application/octet-stream',
+    'actor'
+  )
+  expect(result.chunks[0].text).toBe(JSON.stringify(value, null, 2))
 })
 
 it('does not attach internal credentials to an external URL with a serve pathname', async () => {
