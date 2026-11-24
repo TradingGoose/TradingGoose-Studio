@@ -149,7 +149,7 @@ export async function executeLogsWebhookDelivery(
       return { success: false }
     }
 
-    const [logRow] = await db
+    const [log] = await db
       .select()
       .from(workflowExecutionLogs)
       .where(
@@ -160,7 +160,7 @@ export async function executeLogsWebhookDelivery(
       )
       .limit(1)
 
-    if (!logRow) {
+    if (!log) {
       await db
         .update(workflowLogWebhookDelivery)
         .set({
@@ -184,72 +184,36 @@ export async function executeLogsWebhookDelivery(
       return { success: false }
     }
 
-    if (!logRow.endedAt)
-      throw new Error('Completion publication requires a terminal workflow outcome')
-    if (
-      (logRow.workflowId ?? (logRow.workflowSummary as { id?: string })?.id) !== workflowSummary.id
-    )
+    if (!log.endedAt) throw new Error('Completion publication requires a terminal workflow outcome')
+    if ((log.workflowId ?? (log.workflowSummary as { id?: string })?.id) !== workflowSummary.id)
       throw new Error('Completion publication workflow scope differs')
-    const executionData = logRow.executionData as Record<string, any>
-    const webhookExecutionData: Record<string, any> = {}
-    if (subscriptionSnapshot.includeFinalOutput && executionData.finalOutput !== undefined) {
-      webhookExecutionData.finalOutput = executionData.finalOutput
-    }
-    if (subscriptionSnapshot.includeTraceSpans && executionData.traceSpans) {
-      webhookExecutionData.traceSpans = publicTraceSpans(executionData.traceSpans)
-    }
-    if (subscriptionSnapshot.includeRateLimits) {
-      webhookExecutionData.includeRateLimits = true
-    }
-    if (subscriptionSnapshot.includeUsageData) {
-      webhookExecutionData.includeUsageData = true
-    }
-
-    const log: WorkflowExecutionLog = {
-      id: logRow.id,
-      workflowId: logRow.workflowId,
-      workspaceId: logRow.workspaceId,
-      executionId: logRow.executionId,
-      stateSnapshotId: logRow.stateSnapshotId,
-      workflowSummary,
-      level: logRow.level as WorkflowExecutionLog['level'],
-      trigger: logRow.trigger as WorkflowExecutionLog['trigger'],
-      startedAt: logRow.startedAt.toISOString(),
-      endedAt: logRow.endedAt?.toISOString() ?? logRow.startedAt.toISOString(),
-      totalDurationMs: logRow.totalDurationMs ?? 0,
-      executionData: webhookExecutionData as WorkflowExecutionLog['executionData'],
-      cost: logRow.cost as WorkflowExecutionLog['cost'],
-      files: (logRow.files ?? undefined) as WorkflowExecutionLog['files'],
-      createdAt: logRow.createdAt.toISOString(),
-    }
+    const executionData = log.executionData as WorkflowExecutionLog['executionData']
     const timestamp = Date.now()
-    const eventId = `evt_${uuidv4()}`
-    const workflowId = log.workflowId ?? workflowSummary.id
 
     const payload: WebhookPayload = {
-      id: eventId,
+      id: `evt_${uuidv4()}`,
       type: 'workflow.execution.completed',
       timestamp,
       data: {
-        workflowId,
+        workflowId: log.workflowId ?? workflowSummary.id,
         executionId: log.executionId,
         status: log.level === 'error' ? 'error' : 'success',
         level: log.level,
         trigger: log.trigger,
-        startedAt: log.startedAt,
-        endedAt: log.endedAt || log.startedAt,
-        totalDurationMs: log.totalDurationMs,
+        startedAt: log.startedAt.toISOString(),
+        endedAt: log.endedAt.toISOString(),
+        totalDurationMs: log.totalDurationMs ?? 0,
         cost: log.cost,
-        files: (log as any).files,
+        files: log.files ?? undefined,
         ...((subscriptionSnapshot.includeFinalOutput || subscriptionSnapshot.includeTraceSpans) &&
         typeof executionData.errorMessage === 'string'
           ? { errorMessage: executionData.errorMessage }
           : {}),
-        ...(webhookExecutionData.finalOutput !== undefined
-          ? { finalOutput: webhookExecutionData.finalOutput }
+        ...(subscriptionSnapshot.includeFinalOutput && executionData.finalOutput !== undefined
+          ? { finalOutput: executionData.finalOutput }
           : {}),
-        ...(subscriptionSnapshot.includeTraceSpans && webhookExecutionData.traceSpans
-          ? { traceSpans: webhookExecutionData.traceSpans }
+        ...(subscriptionSnapshot.includeTraceSpans && executionData.traceSpans
+          ? { traceSpans: publicTraceSpans(executionData.traceSpans) }
           : {}),
       },
       links: {
@@ -258,24 +222,21 @@ export async function executeLogsWebhookDelivery(
       },
     }
 
-    if (subscriptionSnapshot.includeRateLimits || subscriptionSnapshot.includeUsageData) {
-      const needsRateLimits =
-        subscriptionSnapshot.includeRateLimits && webhookExecutionData.includeRateLimits
-      const needsUsage =
-        subscriptionSnapshot.includeUsageData && webhookExecutionData.includeUsageData
-      if ((needsRateLimits || needsUsage) && workflowSummary.userId) {
-        const { getUserLimits } = await import('@/app/api/v1/logs/meta')
-        try {
-          const limits = await getUserLimits(workflowSummary.userId)
-          if (needsRateLimits) {
-            payload.data.rateLimits = limits.executionRateLimit
-          }
-          if (needsUsage) {
-            payload.data.usage = limits.usage
-          }
-        } catch (error) {
-          logger.warn('Failed to fetch limits/usage for webhook', { error })
+    if (
+      (subscriptionSnapshot.includeRateLimits || subscriptionSnapshot.includeUsageData) &&
+      workflowSummary.userId
+    ) {
+      const { getUserLimits } = await import('@/app/api/v1/logs/meta')
+      try {
+        const limits = await getUserLimits(workflowSummary.userId)
+        if (subscriptionSnapshot.includeRateLimits) {
+          payload.data.rateLimits = limits.executionRateLimit
         }
+        if (subscriptionSnapshot.includeUsageData) {
+          payload.data.usage = limits.usage
+        }
+      } catch (error) {
+        logger.warn('Failed to fetch limits/usage for webhook', { error })
       }
     }
 

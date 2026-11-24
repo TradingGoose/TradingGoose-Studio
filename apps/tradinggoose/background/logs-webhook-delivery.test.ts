@@ -3,6 +3,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
+import { getUserLimits } from '@/app/api/v1/logs/meta'
 
 const {
   mockFetch,
@@ -98,6 +100,8 @@ vi.mock('@/lib/logs/console/logger', () => ({
 vi.mock('@/lib/utils-server', () => ({
   decryptSecret: vi.fn(),
 }))
+
+vi.mock('@/app/api/v1/logs/meta', () => ({ getUserLimits: vi.fn() }))
 
 const workflowSummary = {
   id: 'deleted-workflow-1',
@@ -301,6 +305,7 @@ describe('logsWebhookDelivery task', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           executionId: 'execution-1',
+          endedAt: '2026-04-23T00:01:00.000Z',
           finalOutput: { orderId: 'order-1' },
           workflowId: 'deleted-workflow-1',
         }),
@@ -317,6 +322,39 @@ describe('logsWebhookDelivery task', () => {
     expect(request.headers).toMatchObject({ 'Idempotency-Key': 'delivery-1' })
     expect(mockTaskTrigger).not.toHaveBeenCalled()
   })
+
+  it.each([
+    [true, false],
+    [false, true],
+    [true, true],
+    [false, false],
+  ])(
+    'honors the rate limits=%s and usage=%s snapshot flags',
+    async (includeRateLimits, includeUsageData) => {
+      const [delivery] = await mockUpdateReturning()
+      Object.assign(delivery.subscriptionSnapshot, { includeRateLimits, includeUsageData })
+      const resetAt = '2026-04-23T00:02:00.000Z'
+      const executionRateLimit = {
+        sync: { limit: 10, remaining: 9, resetAt },
+        async: { limit: 20, remaining: 18, resetAt },
+      }
+      const usage = {
+        currentPeriodCost: 5,
+        limit: 25,
+        tier: EMPTY_BILLING_TIER_SUMMARY,
+        isExceeded: false,
+      }
+      vi.mocked(getUserLimits).mockResolvedValue({ executionRateLimit, usage })
+      const { executeLogsWebhookDelivery } = await import('./logs-webhook-delivery')
+      await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
+      const { data } = JSON.parse(String(mockFetch.mock.calls[0][1].body))
+      expect(data.rateLimits).toEqual(includeRateLimits ? executionRateLimit : undefined)
+      expect(data.usage).toEqual(includeUsageData ? usage : undefined)
+      if (includeRateLimits || includeUsageData)
+        expect(getUserLimits).toHaveBeenCalledExactlyOnceWith(workflowSummary.userId)
+      else expect(getUserLimits).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     ['false', false],
