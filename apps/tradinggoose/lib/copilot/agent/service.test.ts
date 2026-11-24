@@ -2888,6 +2888,82 @@ describe('Copilot background execution and native history', () => {
     })
     expect(m.route).not.toHaveBeenCalled()
   })
+  it.each(['private dispatch', 'following approval'] as const)(
+    'recovers a real %s after its first discovery read fails',
+    async (failure) => {
+      const approval = failure === 'following approval'
+      const tool = approval ? 'rename_workflow' : 'list_workflows'
+      setModel(
+        { tool: 'list_workflows', args: { workspaceId: scope.workspaceId } },
+        ...(approval ? [{ tool, args: { entityId: 'workflow', name: 'Changed' } }] : []),
+        { text: 'Continued' }
+      )
+      m.route.mockResolvedValueOnce({ entityKind: 'workflow', entities: [], count: 0 })
+      const list = m.agent.listSuspendedRuns.bind(m.agent)
+      const discovered = vi.fn()
+      const spy = vi.spyOn(m.agent, 'listSuspendedRuns').mockImplementation(async (options) => {
+        const result = await list(options)
+        const call = result.runs
+          .flatMap((run) => run.toolCalls)
+          .find((call) => call.toolName === tool)
+        if (call && !discovered.mock.calls.length) {
+          discovered(call)
+          throw new Error('Storage unavailable')
+        }
+        return result
+      })
+      try {
+        const { result } = await message({ accessLevel: approval ? 'limited' : 'full' })
+        expect(discovered).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining(
+            approval
+              ? { requiresApproval: true }
+              : { suspendPayload: expect.objectContaining({ studioDispatch: true }) }
+          )
+        )
+        expect(result).toMatchObject({ status: 'failed' })
+        if (result.status !== 'failed' || !('pending' in result))
+          throw new Error(JSON.stringify(result))
+        const { threadId, runId } = result
+        const workflows = (await m.storage.getStore('workflows'))!
+        if (approval) {
+          expect(result.pending).toMatchObject([
+            { stage: 'approval', target: { toolName: tool, runId } },
+          ])
+          expect(await readCopilotThreadRun(scope, threadId)).toBe(runId)
+          expect(
+            (
+              await command({
+                command: 'tool.decline',
+                target: result.pending[0].target,
+                reason: 'Keep the name',
+              })
+            ).result
+          ).toMatchObject({ status: 'success', text: 'Continued' })
+          expect(m.route.mock.calls.map(([name]) => name)).toEqual(['list_workflows'])
+        } else {
+          expect(result.pending).toEqual([])
+          expect((await list({ threadId })).runs).toEqual([])
+          expect(await workflows.getWorkflowRunById({ runId })).toBeNull()
+          expect(await readCopilotThreadRun(scope, threadId)).toBeUndefined()
+          expect(await threadClaims()).toHaveLength(0)
+          expect((await message({ threadId })).result).toMatchObject({
+            status: 'success',
+            text: 'Continued',
+          })
+          expect((await command({ command: 'thread.delete', threadId })).result).toMatchObject({
+            status: 'updated',
+            operation: 'thread.delete',
+            threadId,
+          })
+          expect(await m.memory.getThreadById({ threadId })).toBeNull()
+          expect(m.route).not.toHaveBeenCalled()
+        }
+      } finally {
+        spy.mockRestore()
+      }
+    }
+  )
   it('preserves a known native suspension when pending discovery fails', async () => {
     setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
     const list = m.agent.listSuspendedRuns.bind(m.agent)

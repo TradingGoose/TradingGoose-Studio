@@ -30,6 +30,10 @@ import {
   type CopilotWorkerToolResult,
 } from './worker-contract'
 
+function isStudioDispatch(suspendPayload: unknown) {
+  return CopilotSuspendSchema.parse(suspendPayload).studioDispatch === true
+}
+
 export async function finalizeCopilotExecution(
   value: PendingExecutionPayload,
   message: string,
@@ -290,6 +294,10 @@ export async function executeCopilotJob(
       let streamError: unknown
       for await (const part of output.fullStream) {
         if (part.type === 'error') streamError = part.payload.error
+        // A native pause can persist even if the following discovery read fails.
+        if (part.type === 'tool-call-approval') privatePending = false
+        if (part.type === 'tool-call-suspended')
+          privatePending = isStudioDispatch(part.payload.suspendPayload)
       }
       const error = streamError ?? (await output.error)
       if (error) throw error
@@ -307,8 +315,7 @@ export async function executeCopilotJob(
         break
       }
       const call = suspended.toolCalls.find(
-        (item) =>
-          !item.requiresApproval && CopilotSuspendSchema.parse(item.suspendPayload).studioDispatch
+        (item) => !item.requiresApproval && isStudioDispatch(item.suspendPayload)
       )
       if (!call) {
         privatePending = false
