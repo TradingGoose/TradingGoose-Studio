@@ -1,7 +1,14 @@
 import { AgentIcon } from '@/components/icons/icons'
-import type { BlockConfig } from '@/blocks/types'
+import { efforts } from '@/lib/mastra/reasoning'
+import { containsWorkflowReference } from '@/lib/workflows/references'
+import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getModelOptions, modelApiKeyField, modelField } from '@/stores/model-registry'
+import {
+  getModelOptions,
+  getRegistryModel,
+  modelApiKeyField,
+  modelField,
+} from '@/stores/model-registry'
 import type { ToolResponse } from '@/tools/types'
 
 interface AgentResponse extends ToolResponse {
@@ -17,6 +24,18 @@ interface AgentResponse extends ToolResponse {
   }
 }
 
+const reasoningModes = {
+  effort: 'Effort',
+  budget_tokens: 'Thinking-token budget',
+  toggle: 'On / Off',
+} as const
+const reasoningControl = (kind: keyof typeof reasoningModes) =>
+  ({
+    field: 'model',
+    operator: 'modelCapability',
+    value: kind,
+    and: { field: 'reasoningMode', value: kind },
+  }) satisfies SubBlockConfig['condition']
 export const AgentBlock: BlockConfig<AgentResponse> = {
   type: 'agent',
   name: 'Agent',
@@ -126,16 +145,65 @@ Create a system prompt appropriately detailed for the request, using clear langu
       condition: { field: 'model', operator: 'modelCapability', value: 'temperature' },
     },
     {
-      id: 'providerOptions',
-      title: 'Thinking / Reasoning (Native Provider Options)',
-      type: 'code',
-      language: 'json',
-      layout: 'full',
-      placeholder: 'Enter native provider options JSON...',
-      description:
-        'Native provider options as JSON, grouped by provider namespace. Studio controls connections and tool execution. Leave unset to use provider defaults.',
+      id: 'reasoningMode',
+      title: 'Thinking / Reasoning',
+      type: 'combobox',
+      layout: 'half',
       additional: true,
+      placeholder: 'Provider default',
+      autoSelectFirstOption: false,
       condition: { field: 'model', operator: 'modelCapability', value: 'reasoning' },
+      options: (params) => {
+        const model = params?.model?.id ?? params?.model ?? ''
+        const modes = containsWorkflowReference(model)
+          ? (Object.keys(reasoningModes) as (keyof typeof reasoningModes)[])
+          : (getRegistryModel(model)?.reasoningOptions ?? []).map((o) => o.type)
+        return [
+          { id: 'auto', label: 'Provider default' },
+          ...modes.map((id) => ({ id, label: reasoningModes[id] })),
+        ]
+      },
+    },
+    {
+      id: 'reasoningEffort',
+      title: 'Reasoning Effort',
+      type: 'combobox',
+      layout: 'half',
+      additional: true,
+      autoSelectFirstOption: false,
+      condition: reasoningControl('effort'),
+      options: (params) => {
+        const model = params?.model?.id ?? params?.model ?? ''
+        const values = containsWorkflowReference(model)
+          ? efforts
+          : (getRegistryModel(model)?.reasoningOptions?.find((option) => option.type === 'effort')
+              ?.values ?? [])
+        return values.map((id) => ({ id, label: id }))
+      },
+    },
+    {
+      id: 'reasoningBudget',
+      title: 'Thinking-token Budget',
+      type: 'short-input',
+      inputType: 'number',
+      layout: 'half',
+      additional: true,
+      integer: true,
+      min: 0,
+      condition: reasoningControl('budget_tokens'),
+    },
+    {
+      id: 'reasoningToggle',
+      title: 'Enable Thinking',
+      type: 'combobox',
+      layout: 'half',
+      additional: true,
+      autoSelectFirstOption: false,
+      options: [
+        { id: 'true', label: 'On' },
+        { id: 'false', label: 'Off' },
+      ],
+      condition: reasoningControl('toggle'),
     },
     {
       id: 'maxTokens',
@@ -280,10 +348,13 @@ Example 3 (Array Input):
     memories: { type: 'json', description: 'Agent memory data' },
     model: { type: 'string', description: 'AI model to use' },
     apiKey: { type: 'string', description: 'Provider API key' },
-    providerOptions: {
-      type: 'json',
-      description: 'Native provider options grouped by provider namespace',
+    reasoningMode: {
+      type: 'string',
+      description: 'Provider default (auto), effort, budget_tokens or toggle',
     },
+    reasoningEffort: { type: 'string', description: 'Selected model reasoning effort' },
+    reasoningBudget: { type: 'number', description: 'Selected model thinking-token budget' },
+    reasoningToggle: { type: 'boolean', description: 'Enable or disable thinking' },
     responseFormat: {
       type: 'json',
       description: 'JSON object containing a JSON Schema in its schema field',

@@ -1,5 +1,6 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
-import { parseProviderOptions, trustedModelSettings } from './options'
+import type { NativeReasoningSettings } from './native-reasoning'
+import { trustedModelSettings } from './options'
 import { assertNativeCompletion } from './result'
 import { resultAccounting } from './usage'
 import {
@@ -10,17 +11,30 @@ import {
 
 /** Native request execution is independent of Studio's connection and accounting transport. */
 export async function prepareNativeModelRequest<TModel>(
-  scope: NativeUsageScope & { workspaceId?: string | null },
+  scope: NativeUsageScope & { model: string; workspaceId?: string | null },
   settings: {
     model: TModel
     accounting: NativeUsageAccounting
     maxSteps?: number
     modelSettings?: unknown
-    providerOptions?: unknown
+    reasoning?: NativeReasoningSettings
   }
 ) {
   const modelSettings = trustedModelSettings(settings.modelSettings)
-  const providerOptions = parseProviderOptions(settings.providerOptions)
+  const native = settings.reasoning
+  if (native) {
+    const router = settings.model
+    if (
+      !router ||
+      typeof router !== 'object' ||
+      !('resolveApiProviderId' in router) ||
+      typeof router.resolveApiProviderId !== 'function' ||
+      (await router.resolveApiProviderId()) !== native.api
+    )
+      throw new Error(
+        `Selected reasoning control is unsupported by the current route for ${scope.model}`
+      )
+  }
   const maxSteps = settings.maxSteps ?? 5
   const usage = await usageProcessors(scope, settings.accounting)
   const options = {
@@ -29,8 +43,8 @@ export async function prepareNativeModelRequest<TModel>(
     abortSignal: scope.signal,
     inputProcessors: usage.inputProcessors,
     outputProcessors: usage.outputProcessors,
-    modelSettings,
-    providerOptions,
+    modelSettings: { ...modelSettings, ...native?.modelSettings },
+    providerOptions: native?.providerOptions,
     maxSteps,
     prepareStep: ({ stepNumber, systemMessages }) =>
       stepNumber >= maxSteps - 1

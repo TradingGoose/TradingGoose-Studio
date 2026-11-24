@@ -62,13 +62,44 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "description": "Available in Additional Fields. Shown when model supports temperature."
         },
         {
-            "id": "providerOptions",
-            "type": "code",
-            "title": "Thinking / Reasoning (Native Provider Options)",
-            "layout": "full",
-            "placeholder": "Enter native provider options JSON...",
-            "description": "Native provider options as JSON, grouped by provider namespace. Studio controls connections and tool execution. Leave unset to use provider defaults. Available in Additional Fields. Shown when model supports reasoning.",
-            "language": "json"
+            "id": "reasoningMode",
+            "type": "combobox",
+            "title": "Thinking / Reasoning",
+            "layout": "half",
+            "placeholder": "Provider default",
+            "description": "Available in Additional Fields. Shown when model supports reasoning."
+        },
+        {
+            "id": "reasoningEffort",
+            "type": "combobox",
+            "title": "Reasoning Effort",
+            "layout": "half",
+            "description": "Available in Additional Fields. Shown when model supports effort and reasoningMode is 'effort'."
+        },
+        {
+            "id": "reasoningBudget",
+            "type": "short-input",
+            "title": "Thinking-token Budget",
+            "layout": "half",
+            "min": 0,
+            "description": "Available in Additional Fields. Shown when model supports budget_tokens and reasoningMode is 'budget_tokens'."
+        },
+        {
+            "id": "reasoningToggle",
+            "type": "combobox",
+            "title": "Enable Thinking",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "On"
+                },
+                {
+                    "id": "false",
+                    "label": "Off"
+                }
+            ],
+            "description": "Available in Additional Fields. Shown when model supports toggle and reasoningMode is 'toggle'."
         },
         {
             "id": "maxTokens",
@@ -156,7 +187,10 @@ Send a chat completion request to any supported LLM provider
 | `memories` | json | No | Agent memory data |
 | `model` | string | Yes | AI model to use |
 | `apiKey` | string | No | Provider API key |
-| `providerOptions` | json | No | Native provider options grouped by provider namespace. Shown when model supports reasoning. |
+| `reasoningMode` | string | No | Provider default \(auto\), effort, budget_tokens or toggle. Shown when model supports reasoning. |
+| `reasoningEffort` | string | No | Selected model reasoning effort. Shown when model supports effort and reasoningMode is 'effort'. |
+| `reasoningBudget` | number | No | Selected model thinking-token budget. Shown when model supports budget_tokens and reasoningMode is 'budget_tokens'. |
+| `reasoningToggle` | boolean | No | Enable or disable thinking. Shown when model supports toggle and reasoningMode is 'toggle'. |
 | `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field. Shown when model supports structured output. |
 | `temperature` | number | No | Response randomness level. Shown when model supports temperature. |
 | `maxTokens` | number | No | Maximum output tokens |

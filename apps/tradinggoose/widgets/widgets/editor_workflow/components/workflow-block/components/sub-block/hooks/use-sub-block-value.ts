@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { isEqual } from 'lodash'
+import { supportsReasoning, workflowReasoning } from '@/lib/mastra/reasoning'
+import { containsWorkflowReference } from '@/lib/workflows/references'
 import { useBlock, useSubBlockValue as useYjsSubBlockValue } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { getModelProvider, useModelRegistry } from '@/stores/model-registry'
+import { getModelProvider, getRegistryModel, useModelRegistry } from '@/stores/model-registry'
 
 export function useSubBlockValue<T = any>(
   blockId: string,
   subBlockId: string
 ): readonly [T | null, (value: T) => void] {
   const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
-  const blockType = useBlock(blockId)?.type
+  const block = useBlock(blockId)
+  const blockType = block?.type
   const currentValue = useYjsSubBlockValue(blockId, subBlockId) as T | null
   const currentApiKeyValue = useYjsSubBlockValue(blockId, 'apiKey') as string | null
   const valueRef = useRef(currentValue)
@@ -34,6 +37,35 @@ export function useSubBlockValue<T = any>(
         if (currentApiKeyValue) collaborativeSetSubblockValue(blockId, 'apiKey', '')
         return
       }
+      if (block?.type === 'agent' && !containsWorkflowReference(newValue)) {
+        const inputs = Object.fromEntries(
+          Object.entries(block.subBlocks ?? {}).map(([id, field]) => [id, field.value])
+        )
+        const mode = inputs.reasoningMode
+        const options = getRegistryModel(newValue)?.reasoningOptions
+        if (mode && mode !== 'auto' && !containsWorkflowReference(mode)) {
+          const selected =
+            mode === 'effort'
+              ? inputs.reasoningEffort
+              : mode === 'budget_tokens'
+                ? inputs.reasoningBudget
+                : inputs.reasoningToggle
+          let supported = options?.some((option) => option.type === mode)
+          if (
+            supported &&
+            selected != null &&
+            selected !== '' &&
+            !containsWorkflowReference(selected)
+          ) {
+            try {
+              supported = supportsReasoning(options, workflowReasoning(inputs)!)
+            } catch {
+              supported = false
+            }
+          }
+          if (!supported) collaborativeSetSubblockValue(blockId, 'reasoningMode', '')
+        }
+      }
       const newProvider = getModelProvider(newValue)
       if (!newProvider) return
       if (currentApiKeyValue && lastProviderRef.current !== newProvider) {
@@ -45,6 +77,7 @@ export function useSubBlockValue<T = any>(
       blockId,
       subBlockId,
       isProviderModel,
+      block,
       collaborativeSetSubblockValue,
       currentApiKeyValue,
       providers,

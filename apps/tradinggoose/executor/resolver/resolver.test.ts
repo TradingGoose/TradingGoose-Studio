@@ -2250,6 +2250,52 @@ describe('InputResolver', () => {
       useModelRegistry.setState({ providers: [] })
     })
 
+    it.each(['<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
+      'validates the selected reasoning mode after resolving %s',
+      (model) => {
+        mockGetBlock.mockReturnValue(AgentBlock)
+        const run = (id: string, fields: Record<string, unknown>) => {
+          mockWorkflowVars.stringVar.value = id
+          mockEnvironmentVars.MODEL = id
+          mockContext.blockStates.get('trigger-block').output.model = id
+          return resolver.resolveInputs(
+            {
+              ...sampleWorkflow.blocks[1],
+              metadata: { id: BlockType.AGENT },
+              config: { tool: BlockType.AGENT, params: { ...fields, model } },
+            },
+            mockContext,
+            getNativeModel
+          )
+        }
+        const id = 'google/gemini-2.5-flash'
+        expect(
+          run(id, {
+            reasoningEffort: '<disabled-block.result>',
+            reasoningMode: 'budget_tokens',
+            reasoningBudget: 0,
+          })
+        ).toEqual({ reasoningMode: 'budget_tokens', model: id, reasoningBudget: 0 })
+        expect(
+          run(id, {
+            reasoningBudget: '<disabled-block.result>',
+            reasoningMode: 'toggle',
+            reasoningToggle: false,
+          })
+        ).toEqual({ reasoningMode: 'toggle', model: id, reasoningToggle: false })
+        expect(() =>
+          run('openai/gpt-4.1', { reasoningMode: 'effort', reasoningEffort: 'low' })
+        ).toThrow(/unsupported/)
+        expect(() =>
+          run('openai/gpt-5', { reasoningMode: 'effort', reasoningEffort: 'max' })
+        ).toThrow(/unsupported/)
+        expect(() => run(id, { reasoningMode: 'budget_tokens', reasoningBudget: 25000 })).toThrow(
+          /unsupported/
+        )
+        expect(run('unknown/model', { reasoningMode: 'auto' })).toEqual({ model: 'unknown/model' })
+      }
+    )
+
     it.each(['openai/gpt-5', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
       'resolves model reference %s before applying native capability metadata',
       async (model) => {

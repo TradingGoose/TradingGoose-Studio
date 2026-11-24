@@ -5,7 +5,9 @@ import {
   recordModelUsage,
 } from '@/lib/billing/model-usage'
 import { createConfiguredLanguageModel } from './connections'
+import { nativeReasoningSettings } from './native-reasoning'
 import { prepareNativeModelRequest } from './native-request'
+import { trustedModelSettings } from './options'
 import { calculateNativeCost } from './pricing'
 import { getMastra } from './runtime'
 import { sumNativeUsage } from './usage'
@@ -30,7 +32,8 @@ export async function prepareModelRequest(
     apiKey?: string
     maxSteps?: number
     modelSettings?: unknown
-    providerOptions?: unknown
+    reasoning?: import('./reasoning').Reasoning
+    forceTool?: boolean
   } = {}
 ) {
   if (!scope.actorUserId) throw new Error('An authenticated model actor is required')
@@ -45,6 +48,14 @@ export async function prepareModelRequest(
   const prepared = await prepareNativeModelRequest(actorScope, {
     ...settings,
     model,
+    reasoning:
+      settings.reasoning &&
+      nativeReasoningSettings(
+        scope.model,
+        settings.reasoning,
+        trustedModelSettings(settings.modelSettings)?.maxOutputTokens,
+        settings.forceTool
+      ),
     accounting: createModelUsageAccounting(actorScope),
   })
   return { ...prepared, mastra }

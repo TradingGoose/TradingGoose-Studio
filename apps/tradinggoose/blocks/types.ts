@@ -85,7 +85,16 @@ export type SubBlockCondition = {
   and?: SubBlockCondition | SubBlockCondition[]
 } & (
   | { operator?: never; value: string | number | boolean | Array<string | number | boolean> }
-  | { operator: 'modelCapability'; value: 'temperature' | 'structuredOutput' | 'reasoning' }
+  | {
+      operator: 'modelCapability'
+      value:
+        | 'temperature'
+        | 'structuredOutput'
+        | 'reasoning'
+        | 'effort'
+        | 'budget_tokens'
+        | 'toggle'
+    }
 )
 
 export type ExtractToolOutput<T> = T extends ToolResponse ? T['output'] : never

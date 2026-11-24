@@ -1,5 +1,6 @@
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { supportsReasoning, workflowReasoning } from '@/lib/mastra/reasoning'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import {
   extractEnvironmentReferences,
@@ -12,6 +13,7 @@ import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
 import { getBlock } from '@/blocks/index'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import { getRegistryModel } from '@/stores/model-registry'
 import type { VariableType } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 
@@ -110,7 +112,33 @@ export class InputResolver {
       }
     }
 
+    if (block.metadata?.id === 'agent' && inputs.reasoningMode != null) {
+      const model = resolveField('model')
+      const mode = this.resolveInputValue('reasoningMode', inputs.reasoningMode, block, context)
+      const options =
+        typeof model === 'string'
+          ? (getModel ?? getRegistryModel)(model)?.reasoningOptions
+          : undefined
+      if (
+        mode != null &&
+        mode !== '' &&
+        mode !== 'auto' &&
+        !options?.some((option) => option.type === mode)
+      )
+        throw new Error(`Reasoning mode "${mode}" is unsupported for ${model}`)
+    }
     Object.keys(inputs).forEach(resolveField)
+    if (block.metadata?.id === 'agent' && result.reasoningMode) {
+      const selection = workflowReasoning(result)
+      if (
+        selection &&
+        !supportsReasoning(
+          (getModel ?? getRegistryModel)(result.model)?.reasoningOptions,
+          selection
+        )
+      )
+        throw new Error(`Selected reasoning value is unsupported for ${result.model}`)
+    }
     return result
   }
 

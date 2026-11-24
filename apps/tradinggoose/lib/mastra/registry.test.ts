@@ -29,11 +29,16 @@ vi.mock('@mastra/core/llm', () => ({
   modelSupportsTemperature: (id: string) => (id.endsWith('/listed') ? false : undefined),
   modelSupportsStructuredOutput: () => true,
   getModelReasoningOptions: (id: string) =>
-    id.endsWith('/listed')
-      ? [{ type: 'effort', values: ['low', 'high'] }]
-      : id.endsWith('/no-reasoning')
-        ? []
-        : undefined,
+    id === 'alibaba/bounded'
+      ? [
+          { type: 'effort', values: ['low', 'medium', 'high'] },
+          { type: 'budget_tokens', min: 2000, max: 6000 },
+        ]
+      : id.endsWith('/listed')
+        ? [{ type: 'effort', values: ['low', 'high'] }]
+        : id.endsWith('/no-reasoning')
+          ? []
+          : undefined,
 }))
 
 import {
@@ -87,7 +92,6 @@ describe('public Mastra registry transport', () => {
               id: 'configured/listed',
               temperature: false,
               structuredOutput: true,
-              reasoning: true,
               reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }],
             },
             { id: 'configured/other', structuredOutput: true },
@@ -129,14 +133,11 @@ describe('public Mastra registry transport', () => {
 
 it('distinguishes native reasoning controls, known absence, and missing metadata', () => {
   expect(getNativeModel('configured/listed')).toMatchObject({
-    reasoning: true,
     reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }],
   })
   expect(getNativeModel('configured/no-reasoning')).toMatchObject({
-    reasoning: false,
     reasoningOptions: [],
   })
-  expect(getNativeModel('configured/unknown').reasoning).toBeUndefined()
   expect(getNativeModel('configured/unknown').reasoningOptions).toBeUndefined()
 })
 
@@ -167,4 +168,11 @@ it('rejects embedding models removed from the native registry', async () => {
   await expect(assertListedEmbeddingModel('configured/embedding')).rejects.toThrow(
     'Select a listed provider/model'
   )
+})
+
+it('offers only Alibaba efforts whose adapter budgets fit the selected model bounds', () => {
+  expect(getNativeModel('alibaba/bounded').reasoningOptions).toEqual([
+    { type: 'effort', values: ['medium'] },
+    { type: 'budget_tokens', min: 2000, max: 6000 },
+  ])
 })

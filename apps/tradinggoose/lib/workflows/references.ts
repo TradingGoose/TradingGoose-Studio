@@ -12,6 +12,13 @@ export function extractEnvironmentReferences(value: string): string[] {
   return value.match(/\{\{([^}]+)\}\}/g) ?? []
 }
 
+export function containsWorkflowReference(value: unknown): boolean {
+  return (
+    typeof value === 'string' &&
+    (extractEnvironmentReferences(value).length > 0 || extractReferencePrefixes(value).length > 0)
+  )
+}
+
 export function getLoopContextId(
   blockId: string,
   loops: Record<string, { loopType?: Loop['loopType'] }>,

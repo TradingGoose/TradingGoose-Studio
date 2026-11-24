@@ -57,7 +57,7 @@ describe('getBlocksMetadataServerTool', () => {
     for (const [id, capability] of [
       ['temperature', 'temperature'],
       ['responseFormat', 'structuredOutput'],
-      ['providerOptions', 'reasoning'],
+      ['reasoningMode', 'reasoning'],
     ]) {
       expect(agent?.subBlocks?.find((field) => field.id === id)?.condition).toEqual({
         field: 'model',
@@ -79,15 +79,17 @@ describe('getBlocksMetadataServerTool', () => {
       min: 1,
       integer: true,
     })
-    expect(agent?.subBlocks?.find((field) => field.id === 'providerOptions')).toMatchObject({
-      type: 'code',
-      language: 'json',
-    })
-    expect(
-      agent?.subBlocks?.some((field) =>
-        ['reasoningEffort', 'reasoningOptions', 'verbosity', 'thinkingLevel'].includes(field.id)
-      )
-    ).toBe(false)
+    for (const [id, type] of [
+      ['reasoningEffort', 'effort'],
+      ['reasoningBudget', 'budget_tokens'],
+      ['reasoningToggle', 'toggle'],
+    ])
+      expect(agent?.subBlocks?.find((field) => field.id === id)?.condition).toMatchObject({
+        field: 'model',
+        operator: 'modelCapability',
+        value: type,
+        and: { field: 'reasoningMode', value: type },
+      })
   })
 
   it('keeps Agent, Router and Evaluator metadata within a bounded context', async () => {

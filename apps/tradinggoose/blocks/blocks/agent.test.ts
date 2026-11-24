@@ -21,14 +21,14 @@ const providers = [
         temperature: true,
         structuredOutput: true,
         toolCall: true,
-        reasoning: true,
+        reasoningOptions: [{ type: 'effort' as const, values: ['low', 'high'] }],
       },
       {
         id: 'example/plain',
         temperature: false,
         structuredOutput: false,
         toolCall: false,
-        reasoning: false,
+        reasoningOptions: [],
       },
       { id: 'example/unknown' },
     ],
@@ -100,7 +100,7 @@ describe('registry-backed model interaction', () => {
       'memories',
       'responseFormat',
       'temperature',
-      'providerOptions',
+      'reasoningMode',
       'maxTokens',
       'maxSteps',
     ]) {
@@ -113,19 +113,18 @@ describe('registry-backed model interaction', () => {
     expect(temperature.type).toBe('short-input')
     expect(temperature.min).toBeUndefined()
     expect(temperature.max).toBeUndefined()
-    expect(available.find(({ id }) => id === 'providerOptions')).toMatchObject({
-      type: 'code',
-      language: 'json',
+    expect(available.find(({ id }) => id === 'reasoningMode')).toMatchObject({
+      type: 'combobox',
       condition: { field: 'model', operator: 'modelCapability', value: 'reasoning' },
     })
     expect(
       AgentBlock.subBlocks.some(({ id }) =>
-        ['reasoningOptions', 'reasoningEffort', 'verbosity', 'thinkingLevel'].includes(id)
+        ['reasoningOptions', 'providerOptions', 'verbosity', 'thinkingLevel'].includes(id)
       )
     ).toBe(false)
   })
 
-  it.each(['temperature', 'responseFormat', 'providerOptions'])(
+  it.each(['temperature', 'responseFormat'])(
     'gates %s only on explicit native non-support',
     (id) => {
       useModelRegistry.setState({ providers })
@@ -137,6 +136,31 @@ describe('registry-backed model interaction', () => {
     }
   )
 
+  it.each(['example/unknown', 'example/unlisted', 'example/plain', ''])(
+    'hides reasoning with no requestable settings for %s',
+    (model) => {
+      useModelRegistry.setState({ providers })
+      expect(fields(model).map((field) => field.id)).not.toContain('reasoningMode')
+    }
+  )
+  it('uses only the selected model’s native options and mode', () => {
+    useModelRegistry.setState({ providers })
+    const field = AgentBlock.subBlocks.find((f) => f.id === 'reasoningEffort')!
+    expect(
+      typeof field.options === 'function' && field.options({ model: 'example/capable' })
+    ).toEqual([
+      { id: 'low', label: 'low' },
+      { id: 'high', label: 'high' },
+    ])
+    for (const mode of ['effort', 'budget_tokens', 'toggle'])
+      expect(
+        evaluateSubBlockConditionValues(field.condition, {
+          model: { id: 'example/capable' },
+          reasoningMode: mode,
+        })
+      ).toBe(mode === 'effort')
+  })
+
   it.each(['<variable.model>', '{{MODEL}}', '<upstream.model>', 'example/{{MODEL}}'])(
     'keeps unresolved %s editable',
     (model) => {
@@ -145,7 +169,7 @@ describe('registry-backed model interaction', () => {
         expect.arrayContaining([
           'responseFormat',
           'temperature',
-          'providerOptions',
+          'reasoningMode',
           'maxTokens',
           'maxSteps',
         ])

@@ -56,13 +56,44 @@ Selecciona un identificador `proveedor/modelo` de la lista de modelos disponible
             "description": "Available in Additional Fields. Shown when model supports temperature."
         },
         {
-            "id": "providerOptions",
-            "type": "code",
-            "title": "Thinking / Reasoning (Native Provider Options)",
-            "layout": "full",
-            "placeholder": "Enter native provider options JSON...",
-            "description": "Native provider options as JSON, grouped by provider namespace. Studio controls connections and tool execution. Leave unset to use provider defaults. Available in Additional Fields. Shown when model supports reasoning.",
-            "language": "json"
+            "id": "reasoningMode",
+            "type": "combobox",
+            "title": "Thinking / Reasoning",
+            "layout": "half",
+            "placeholder": "Provider default",
+            "description": "Available in Additional Fields. Shown when model supports reasoning."
+        },
+        {
+            "id": "reasoningEffort",
+            "type": "combobox",
+            "title": "Reasoning Effort",
+            "layout": "half",
+            "description": "Available in Additional Fields. Shown when model supports effort and reasoningMode is 'effort'."
+        },
+        {
+            "id": "reasoningBudget",
+            "type": "short-input",
+            "title": "Thinking-token Budget",
+            "layout": "half",
+            "min": 0,
+            "description": "Available in Additional Fields. Shown when model supports budget_tokens and reasoningMode is 'budget_tokens'."
+        },
+        {
+            "id": "reasoningToggle",
+            "type": "combobox",
+            "title": "Enable Thinking",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "On"
+                },
+                {
+                    "id": "false",
+                    "label": "Off"
+                }
+            ],
+            "description": "Available in Additional Fields. Shown when model supports toggle and reasoningMode is 'toggle'."
         },
         {
             "id": "maxTokens",
@@ -111,7 +142,7 @@ Selecciona un identificador `proveedor/modelo` de la lista de modelos disponible
 
 Configura los mensajes del sistema y del usuario, las herramientas, las habilidades y el historial. En Campos adicionales puedes configurar el formato de respuesta, el máximo de tokens de salida y los ajustes nativos disponibles. Dejar un ajuste vacío conserva el valor predeterminado del proveedor. Los metadatos publicados del modelo se muestran como orientación.
 
-Los modelos compatibles muestran **Thinking / Reasoning (Native Provider Options)** en Campos adicionales. El campo acepta opciones nativas en JSON agrupadas por el espacio de nombres del proveedor. Studio conserva la autorización de las conexiones y la ejecución de herramientas.
+En Campos adicionales, **Thinking / Reasoning** permite elegir el esfuerzo, el presupuesto de tokens o la activación del razonamiento según el modelo. Dejar el campo vacío utiliza el valor predeterminado del proveedor.
 
 Auto permite que el modelo elija una herramienta; Force exige cada herramienta marcada en el orden configurado y después vuelve a Auto; None excluye la herramienta. Una combinación no admitida o una secuencia forzada incompleta produce un error. Se conservan los argumentos fijos y el contexto autorizado del flujo.
 

@@ -13,7 +13,12 @@ const mocks = vi.hoisted(() => ({
   write: vi.fn(),
 }))
 vi.mock('@/lib/yjs/use-workflow-doc', () => ({
-  useBlock: () => ({ type: 'agent' }),
+  useBlock: () => ({
+    type: 'agent',
+    subBlocks: Object.fromEntries(
+      Object.entries(mocks.values).map(([id, value]) => [id, { value }])
+    ),
+  }),
   useSubBlockValue: (_blockId: string, field: string) => mocks.values[field],
 }))
 vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
@@ -145,3 +150,27 @@ it.each(['anthropic/claude-sonnet-5-5', 'openai/gpt-5.6-sol', '<upstream.model>'
     expect(mocks.write.mock.calls.filter((call) => call[1] === 'apiKey')).toHaveLength(1)
   }
 )
+
+it('preserves compatible reasoning and reference values, and clears an incompatible literal', () => {
+  useModelRegistry.setState({
+    providers: [
+      {
+        id: 'openai',
+        name: 'OpenAI',
+        models: [
+          { id: 'openai/first', reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }] },
+          { id: 'openai/other', reasoningOptions: [{ type: 'effort', values: ['low'] }] },
+        ],
+      },
+    ],
+  })
+  mocks.values.reasoningMode = 'effort'
+  mocks.values.reasoningEffort = 'high'
+  render('openai/first')
+  type('<variable.model>')
+  expect(mocks.values.reasoningMode).toBe('effort')
+  type('openai/first')
+  expect(mocks.values.reasoningMode).toBe('effort')
+  type('openai/other')
+  expect(mocks.values.reasoningMode).toBe('')
+})

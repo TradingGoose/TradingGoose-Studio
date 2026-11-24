@@ -1,6 +1,5 @@
 import {
   EMBEDDING_MODELS,
-  getModelReasoningOptions,
   type ModelReasoningOption,
   modelSupportsStructuredOutput,
   modelSupportsTemperature,
@@ -9,13 +8,13 @@ import {
 import { providers as modelCatalog } from '@opencode-ai/models/snapshot'
 import { getModelProviders } from '@/lib/mastra/providers'
 import { listSystemServices } from '@/lib/system-services/service'
+import { requestableReasoningOptions } from './native-reasoning'
 
 export interface RegistryModel {
   id: string
   temperature?: boolean
   structuredOutput?: boolean
   toolCall?: boolean
-  reasoning?: boolean
   reasoningOptions?: ModelReasoningOption[]
 }
 
@@ -88,13 +87,12 @@ export async function getModelRegistry(): Promise<{
 /** Native capabilities with function-tool support from the published model catalog. */
 export function getNativeModel(model: string): RegistryModel {
   const { provider, modelId } = parseModelString(model)
-  const reasoningOptions = getModelReasoningOptions(model)
+  const reasoningOptions = requestableReasoningOptions(model)
   return {
     id: model,
     temperature: modelSupportsTemperature(model),
     structuredOutput: modelSupportsStructuredOutput(model),
     toolCall: provider ? modelCatalog[provider]?.models?.[modelId]?.tool_call : undefined,
-    reasoning: reasoningOptions === undefined ? undefined : reasoningOptions.length > 0,
     reasoningOptions,
   }
 }
