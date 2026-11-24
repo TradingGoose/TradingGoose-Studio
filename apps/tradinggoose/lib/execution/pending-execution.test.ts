@@ -24,6 +24,7 @@ const {
   terminalizeWorkflowExecutionMock,
   cancelPendingExecutionDescendantsMock,
   authorizeWorkflowScopeMock,
+  checkWorkspaceAccessMock,
   sqlMock,
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
@@ -46,6 +47,7 @@ const {
   terminalizeWorkflowExecutionMock: vi.fn(),
   cancelPendingExecutionDescendantsMock: vi.fn(),
   authorizeWorkflowScopeMock: vi.fn(),
+  checkWorkspaceAccessMock: vi.fn(),
   sqlMock: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
     strings: [...strings],
     values,
@@ -124,6 +126,8 @@ vi.mock('@tradinggoose/db/schema', () => ({
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
     executionId: 'workflowExecutionLogs.executionId',
+    workflowId: 'workflowExecutionLogs.workflowId',
+    workflowSummary: 'workflowExecutionLogs.workflowSummary',
     workspaceId: 'workflowExecutionLogs.workspaceId',
     executionData: 'workflowExecutionLogs.executionData',
   },
@@ -184,6 +188,7 @@ vi.mock('@/background/pending-execution-worker', () => ({
   cancelPendingExecutionDescendants: cancelPendingExecutionDescendantsMock,
 }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: authorizeWorkflowScopeMock }))
+vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: checkWorkspaceAccessMock }))
 
 import { ApiError } from '@trigger.dev/sdk'
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
@@ -964,7 +969,35 @@ describe('enqueuePendingExecution', () => {
     expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
   })
 
+  it.each([directExecutionState, triggerEnabledState])(
+    'rolls back the $mode admission when its receipt fails after insertion',
+    async (triggerState) => {
+      getTriggerExecutionStateMock.mockResolvedValue(triggerState)
+      const afterInsert = vi.fn(async () => {
+        expect(txInsertValuesMock).toHaveBeenCalledOnce()
+        throw new Error('Receipt rejected')
+      })
+      await expect(
+        enqueuePendingExecution({
+          executionType: 'workflow',
+          pendingExecutionId: 'native-execution',
+          userId: 'user-1',
+          source: 'workflow_queue',
+          payload: {},
+          afterInsert,
+        })
+      ).rejects.toThrow('Receipt rejected')
+      expect(afterInsert).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ execute: txExecuteMock })
+      )
+      expect(transactionMock.mock.settledResults[0]?.type).toBe('rejected')
+      expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
+      expect(triggerMock).not.toHaveBeenCalled()
+    }
+  )
+
   it('starts one streamed local execution from a direct ownership marker', async () => {
+    const afterInsert = vi.fn()
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-local-1',
@@ -972,6 +1005,7 @@ describe('enqueuePendingExecution', () => {
       workspaceId: 'workspace-1',
       userId: 'user-1',
       source: 'workflow_api',
+      afterInsert,
       payload: {
         executionId: 'pending-local-1',
         stream: true,
@@ -992,6 +1026,7 @@ describe('enqueuePendingExecution', () => {
       )
     )
     expect(transactionMock).toHaveBeenCalledOnce()
+    expect(afterInsert).toHaveBeenCalledOnce()
     expect(txExecuteMock).toHaveBeenCalledOnce()
     expect(txInsertValuesMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1012,6 +1047,7 @@ describe('enqueuePendingExecution', () => {
   ])('does not relaunch a %s local workflow', async (_state, existingLogs) => {
     txSelectLimitMock.mockResolvedValueOnce(existingLogs)
     if (!existingLogs.length) txInsertReturningMock.mockResolvedValueOnce([])
+    const afterInsert = vi.fn()
 
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
@@ -1021,9 +1057,11 @@ describe('enqueuePendingExecution', () => {
       userId: 'user-1',
       source: 'workflow_api',
       payload: { executionId: 'pending-local-1' },
+      afterInsert,
     })
 
     expect(result).toEqual({ pendingExecutionId: 'pending-local-1', inserted: false })
+    expect(afterInsert).not.toHaveBeenCalled()
     expect(dispatchBackgroundExecutionMock).not.toHaveBeenCalled()
     expect(txInsertValuesMock).toHaveBeenCalledTimes(existingLogs.length ? 0 : 1)
     expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
@@ -1081,6 +1119,7 @@ describe('enqueuePendingExecution', () => {
   })
 
   it('stores the resolved billing scope when billing is enabled', async () => {
+    const afterInsert = vi.fn()
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     const { resolveServerExecutionBillingContext } = await import(
       '@/lib/execution/execution-concurrency-limit'
@@ -1102,6 +1141,7 @@ describe('enqueuePendingExecution', () => {
       workspaceId: 'workspace-1',
       userId: 'user-1',
       source: 'workflow_api',
+      afterInsert,
       payload: {
         executionId: 'pending-org-1',
       },
@@ -1111,6 +1151,7 @@ describe('enqueuePendingExecution', () => {
       pendingExecutionId: 'pending-org-1',
       inserted: true,
     })
+    expect(afterInsert).toHaveBeenCalledOnce()
     expect(txInsertValuesMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'pending-org-1',
@@ -1122,6 +1163,7 @@ describe('enqueuePendingExecution', () => {
   })
 
   it('wakes a duplicate pending execution through the normal scope drain', async () => {
+    const afterInsert = vi.fn()
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     const processing = createPendingRow({ id: 'pending-local-1', status: 'processing' })
     txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-local-1' }])
@@ -1135,6 +1177,7 @@ describe('enqueuePendingExecution', () => {
       workspaceId: 'workspace-1',
       userId: 'scope-1',
       source: 'workflow_api',
+      afterInsert,
       payload: {
         executionId: 'pending-local-1',
       },
@@ -1149,9 +1192,11 @@ describe('enqueuePendingExecution', () => {
       createSupervisorPayload(processing, TIMEOUT_NONE),
       expect.anything()
     )
+    expect(afterInsert).not.toHaveBeenCalled()
   })
 
   it('returns duplicate workflow execution ids that already have a durable log', async () => {
+    const afterInsert = vi.fn()
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'log-1' }])
 
@@ -1162,6 +1207,7 @@ describe('enqueuePendingExecution', () => {
       workspaceId: 'workspace-1',
       userId: 'user-1',
       source: 'workflow_api',
+      afterInsert,
       payload: {
         executionId: 'execution-1',
       },
@@ -1172,6 +1218,7 @@ describe('enqueuePendingExecution', () => {
       inserted: false,
     })
     expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(afterInsert).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
@@ -1882,15 +1929,84 @@ describe('cancelPendingWorkflowExecution', () => {
     }
   )
 
-  it('binds checkpoint and pending lookups to a supplied workspace', async () => {
+  it('binds pending rows and retained logs to the supplied actor, workspace and workflow', async () => {
     await cancelPendingWorkflowExecution({
       pendingExecutionId: 'paused-1',
       userId: 'user-1',
       workspaceId: 'workspace-bound',
+      workflowId: 'original-workflow',
     })
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.userId', 'user-1')
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.workspaceId', 'workspace-bound')
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.workflowId', 'original-workflow')
     expect(eqMock).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-bound')
+    expect(eqMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        values: ['workflowExecutionLogs.workflowId', 'workflowExecutionLogs.workflowSummary'],
+      }),
+      'original-workflow'
+    )
   })
+
+  it.each([{ ok: false }, { ok: true, workspaceId: 'moved' }])(
+    'cannot cancel an attested pending workflow outside its writable scope (%j)',
+    async (access) => {
+      const row = createPendingRow()
+      selectLimitMock.mockResolvedValueOnce([row])
+      authorizeWorkflowScopeMock.mockResolvedValueOnce(access)
+      expect(
+        await cancelPendingWorkflowExecution({
+          pendingExecutionId: row.id,
+          userId: 'user-1',
+          workflowId: 'workflow-1',
+        })
+      ).toEqual({ status: 'not_found' })
+      expect(authorizeWorkflowScopeMock).toHaveBeenCalledWith(
+        { success: true, userId: 'user-1' },
+        'workflow-1',
+        'write'
+      )
+      expect(updateChain.set).not.toHaveBeenCalled()
+      expect(terminalizeWorkflowExecutionMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([null, { ...checkpoint(), executionData: {} }])(
+    'does not acknowledge an active execution whose checkpoint disappeared before locking',
+    async (locked) => {
+      selectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([checkpoint()])
+      txSelectLimitMock.mockResolvedValueOnce(locked ? [locked] : [])
+      expect(
+        await cancelPendingWorkflowExecution({
+          pendingExecutionId: 'paused-1',
+          userId: 'user-1',
+          workflowId: 'workflow-1',
+        })
+      ).toEqual({ status: 'not_found' })
+      expect(terminalizeWorkflowExecutionMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([true, false])(
+    'verifies the retained terminal scope after workflow deletion (access %s)',
+    async (hasAccess) => {
+      const log = { ...checkpoint(), workflowId: null, endedAt: new Date() }
+      selectLimitMock
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([log])
+        .mockResolvedValueOnce([log])
+      checkWorkspaceAccessMock.mockResolvedValueOnce({ hasAccess })
+      expect(
+        await cancelPendingWorkflowExecution({
+          pendingExecutionId: log.executionId,
+          userId: 'user-1',
+          workflowId: 'workflow-1',
+        })
+      ).toEqual({ status: hasAccess ? 'finished' : 'not_found' })
+      expect(checkWorkspaceAccessMock).toHaveBeenCalledWith(log.workspaceId, 'user-1')
+      expect(terminalizeWorkflowExecutionMock).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     { resuming: false, direct: true },

@@ -20,7 +20,11 @@ import type {
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { getNativeMemoryStore, getNativeWorkflowsStore } from '@/lib/mastra/runtime'
+import {
+  getCopilotAgent,
+  getNativeMemoryStore,
+  getNativeWorkflowsStore,
+} from '@/lib/mastra/runtime'
 
 export interface CopilotRun {
   runId: string
@@ -50,6 +54,24 @@ export async function readCopilotJob(scope: Scope, threadId: string) {
     resourceId: nativeConversationIdentity(scope).resourceId,
   })
   return thread?.metadata?.copilotJob as CopilotJobState | undefined
+}
+
+/** A failed readback does not settle the independent workflow that Stop may still need to cancel. */
+export async function hasPendingWorkflowReadback(
+  scope: Scope,
+  threadId: string,
+  job: CopilotJobState | undefined
+) {
+  if (!job?.readbackRequestId) return false
+  const { runs } = await (await getCopilotAgent()).listSuspendedRuns({
+    threadId,
+    resourceId: nativeConversationIdentity(scope).resourceId,
+  })
+  return runs.some(
+    (run) =>
+      run.runId === job.runId &&
+      run.toolCalls.some((call) => call.toolName === 'run_workflow' && !call.requiresApproval)
+  )
 }
 
 export async function isCopilotJobActive(job: CopilotJobState) {

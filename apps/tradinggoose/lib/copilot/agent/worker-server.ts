@@ -26,6 +26,7 @@ import {
   type CopilotRun,
   claimCopilotThread,
   deleteCopilotRunSnapshot,
+  hasPendingWorkflowReadback,
   readCopilotJob,
   readCopilotThreadOwnership,
   saveCopilotJob,
@@ -89,6 +90,7 @@ async function validateJob(context: WorkerContext) {
   const current = await readCopilotJob(scope, identity.threadId)
   if (!current || current.id !== identity.jobId || current.runId !== identity.runId)
     throw new NativeTargetError('This Copilot turn has changed', 409)
+  return current
 }
 
 async function validateFence(context: WorkerContext, value: unknown) {
@@ -367,9 +369,14 @@ async function ownStudioTool(
     // A disconnected caller cannot acknowledge the effect. Settle only after the operation drained.
     if (!owner.signal.aborted)
       await owner.run(async () => {
-        if ((await readCopilotJob(scope, identity.threadId))?.status) return
+        const job = await readCopilotJob(scope, identity.threadId)
+        if (job?.status) return
         const cancelled = await isCopilotRunCancelled(identity.runId)
-        if (cancelled || signal.aborted || input.stage === 'studio') {
+        if (
+          cancelled ||
+          ((signal.aborted || input.stage === 'studio') &&
+            !(await hasPendingWorkflowReadback(scope, identity.threadId, job)))
+        ) {
           await cancelCopilotRun({ scope, runId: identity.runId, threadId: identity.threadId })
           await deleteCopilotRunSnapshot(identity.runId)
         }
@@ -426,14 +433,16 @@ export async function handleCopilotWorkerOperation(
       attemptId
     )
   }
-  await validateJob(context)
+  const job = await validateJob(context)
   if (operation === 'finalize') {
     if (!('request' in context)) throw new NativeTargetError('The original job is required', 422)
     await (await import('./service')).finalizeCopilotJob(context, z.string().parse(fields.message))
     return
   }
-  if (operation === 'cancel')
+  if (operation === 'cancel') {
+    if (await hasPendingWorkflowReadback(scope, identity.threadId, job)) return
     return cancelCopilotRun({ scope, threadId: identity.threadId, runId: identity.runId })
+  }
   await validateFence(context, fields.fence)
   await assertCopilotRunActive(identity.runId)
   if (operation === 'prepare') {

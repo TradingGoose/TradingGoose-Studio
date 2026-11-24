@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { CopilotRequest } from '@/lib/copilot/native/contract'
 import { CopilotRunCancelled, NativeTargetError } from '@/lib/copilot/native/errors'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -35,8 +35,11 @@ async function insertReceipt(
 }
 
 type ScopedRun = Pick<CopilotRun, 'runId' | 'threadId' | 'scope'>
+type EffectPhase = 'execute' | 'review' | 'browser'
 
 const runOwner = (run: ScopedRun) => copilotThreadOwnerId(run.scope, run.threadId)
+const effectReceiptId = (run: ScopedRun, toolCallId: string, phase: EffectPhase) =>
+  receiptId('effect', [run.runId, toolCallId, phase])
 
 export async function readCopilotAdmission(
   run: ScopedRun,
@@ -67,16 +70,16 @@ export async function claimCopilotAdmission(
     throw new NativeTargetError('This Copilot request was already admitted', 409)
 }
 
-export async function cancelCopilotRun(run: ScopedRun) {
-  await insertReceipt(receiptId('cancel', run.runId), runOwner(run))
+export async function cancelCopilotRun(run: ScopedRun, store: Pick<typeof db, 'insert'> = db) {
+  await insertReceipt(receiptId('cancel', run.runId), runOwner(run), 'true', store)
 }
 
-export async function assertCopilotRunActive(runId: string) {
-  if (await isCopilotRunCancelled(runId)) throw new CopilotRunCancelled()
+export async function assertCopilotRunActive(runId: string, store: Pick<typeof db, 'select'> = db) {
+  if (await isCopilotRunCancelled(runId, store)) throw new CopilotRunCancelled()
 }
 
-export async function isCopilotRunCancelled(runId: string) {
-  const [row] = await db
+export async function isCopilotRunCancelled(runId: string, store: Pick<typeof db, 'select'> = db) {
+  const [row] = await store
     .select({ id: verification.id })
     .from(verification)
     .where(eq(verification.id, receiptId('cancel', runId)))
@@ -88,20 +91,53 @@ export async function isCopilotRunCancelled(runId: string) {
 export async function claimCopilotEffect(
   run: ScopedRun,
   toolCallId: string,
-  phase: 'execute' | 'review' | 'browser',
-  store: Pick<typeof db, 'insert'> = db
+  phase: EffectPhase,
+  store: Pick<typeof db, 'insert' | 'select'> = db,
+  value = 'true'
 ) {
-  if (
-    !(await insertReceipt(
-      receiptId('effect', [run.runId, toolCallId, phase]),
-      runOwner(run),
-      'true',
-      store
-    ))
-  )
+  if (!(await insertReceipt(effectReceiptId(run, toolCallId, phase), runOwner(run), value, store)))
     throw new NativeTargetError(
       'This Copilot action was already dispatched; verify its result before continuing',
       409
     )
-  await assertCopilotRunActive(run.runId)
+  await assertCopilotRunActive(run.runId, store)
+}
+
+const WORKFLOW_ADMISSION_LOCK_NAMESPACE = 29_404
+function lockWorkflowAdmissions(runId: string, tx: Pick<typeof db, 'execute'>) {
+  return tx.execute(
+    sql`select pg_advisory_xact_lock(${WORKFLOW_ADMISSION_LOCK_NAMESPACE}, hashtext(${runId}))`
+  )
+}
+
+export async function claimCopilotWorkflowAdmission(
+  run: ScopedRun,
+  toolCallId: string,
+  tx: Pick<typeof db, 'execute' | 'insert' | 'select'>
+) {
+  await lockWorkflowAdmissions(run.runId, tx)
+  await claimCopilotEffect(run, toolCallId, 'browser', tx, run.runId)
+}
+
+/** Check native suspensions outside the queue transaction, then fence any newly admitted calls. */
+export async function cancelCopilotRunAfterWorkflows(
+  run: ScopedRun,
+  settle: (isAdmitted: (toolCallId: string) => boolean) => Promise<void>
+) {
+  const checked = new Set<string>()
+  for (;;) {
+    const remaining = await db.transaction(async (tx) => {
+      await lockWorkflowAdmissions(run.runId, tx)
+      const receipts = await tx
+        .select({ id: verification.id })
+        .from(verification)
+        .where(and(eq(verification.identifier, runOwner(run)), eq(verification.value, run.runId)))
+      const ids = new Set(receipts.map(({ id }) => id).filter((id) => !checked.has(id)))
+      if (!ids.size) await cancelCopilotRun(run, tx)
+      return ids
+    })
+    if (!remaining.size) return
+    await settle((callId) => remaining.has(effectReceiptId(run, callId, 'browser')))
+    for (const id of remaining) checked.add(id)
+  }
 }

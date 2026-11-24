@@ -107,13 +107,13 @@ vi.mock('@/lib/copilot/settings.server', () => ({
 }))
 vi.mock('@/lib/copilot/agent/receipts', () => ({
   assertCopilotRunActive: async () => undefined,
-  claimCopilotEffect: async (
+  claimCopilotEffect: m.forbiddenEffect,
+  claimCopilotWorkflowAdmission: async (
     run: { runId: string },
     callId: string,
-    phase: string,
     transaction: Set<string>
   ) => {
-    const key = JSON.stringify([run.runId, callId, phase])
+    const key = JSON.stringify([run.runId, callId, 'browser'])
     if (transaction.has(key)) throw new NativeTargetError('Already dispatched', 409)
     transaction.add(key)
   },
@@ -288,12 +288,14 @@ beforeEach(() => {
   })
   m.enqueue.mockReset().mockImplementation(async (input) => {
     const transaction = new Set(m.claims)
-    await input.beforeEnqueue?.(transaction)
     if (m.state.enqueueFailure === 'backlog')
       throw new PendingExecutionLimitError({ pendingCount: 1, maxPendingCount: 1 })
     if (m.state.enqueueFailure === 'insert') throw new Error('Queue insert failed')
-    const inserted = !m.state.pendingRows.some((row) => row.id === input.pendingExecutionId)
-    if (inserted)
+    const inserted =
+      !m.state.pendingRows.some((row) => row.id === input.pendingExecutionId) &&
+      !m.state.logRows.some((row) => row.executionId === input.pendingExecutionId)
+    if (inserted) {
+      await input.afterInsert?.(transaction)
       m.state.pendingRows.push({
         id: input.pendingExecutionId,
         workflowId: input.workflowId,
@@ -301,6 +303,7 @@ beforeEach(() => {
         userId: input.userId,
         executionType: input.executionType,
       })
+    }
     m.claims = transaction
     if (m.state.enqueueFailure === 'dispatch') throw new Error('Dispatch failed after commit')
     return {
@@ -384,6 +387,14 @@ describe('local workflow execution and authoritative readback', () => {
       expect(m.claims.size).toBe(1)
     }
   )
+  it('returns a duplicate without claiming a row admitted outside Copilot', async () => {
+    m.state.pendingRows.push({ id: EXECUTION })
+    const response = await queue()
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'Workflow execution already exists' })
+    expect(m.claims.size).toBe(0)
+    expect(m.state.pendingRows).toEqual([{ id: EXECUTION }])
+  })
   it('retains the effect claim when dispatch fails after admission commits', async () => {
     m.state.enqueueFailure = 'dispatch'
     expect((await queue()).status).toBe(500)

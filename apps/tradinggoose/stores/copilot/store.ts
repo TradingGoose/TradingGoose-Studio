@@ -43,7 +43,6 @@ import { readSseData, waitToReconnect } from '@/lib/events/stream'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { reasoningSchema } from '@/lib/mastra/reasoning'
 import {
-  cancelQueuedWorkflowExecution,
   observeQueuedWorkflowExecution,
   type QueuedWorkflowExecutionHandle,
   WorkflowQueueAdmissionError,
@@ -1234,19 +1233,13 @@ function createCopilotStoreInstance(channelId: string) {
                 isAwaitingContinuation: Boolean(target),
               }))
             }
-            const [native, cancelledWorkflow] = await Promise.allSettled([
+            // Studio owns queue cancellation. Keep Stop pending until the original POST also settles.
+            const [native, queued] = await Promise.allSettled([
               target && readNativeCommand({ command: 'cancel', ...target }, ownerSignal),
-              ownedWorkflow?.admission.then(
-                (handle) => {
-                  ownerSignal.throwIfAborted()
-                  return cancelQueuedWorkflowExecution(handle.taskId)
-                },
-                (error) => {
-                  // An explicit queue refusal guarantees there is no workflow to cancel.
-                  if (!(error instanceof WorkflowQueueAdmissionError)) throw error
-                }
-              ),
+              ownedWorkflow?.admission,
             ])
+            const result = native.status === 'fulfilled' ? native.value : undefined
+            const verified = result?.status === 'cancel_requested' && result.runId === target?.runId
             const originalSelection = cancellationEpoch === epoch
             const returnedChat =
               ownedWorkflow &&
@@ -1255,7 +1248,12 @@ function createCopilotStoreInstance(channelId: string) {
                 ? get().currentChat
                 : null
             if (ownedWorkflow) {
-              if (cancelledWorkflow.status === 'fulfilled') retireWorkflow(ownedWorkflow)
+              if (
+                verified ||
+                (queued.status === 'rejected' &&
+                  queued.reason instanceof WorkflowQueueAdmissionError)
+              )
+                retireWorkflow(ownedWorkflow)
               else ownedWorkflow.stop = 'retry'
             }
             if (!originalSelection) {
@@ -1264,12 +1262,9 @@ function createCopilotStoreInstance(channelId: string) {
               // The reopened view may still be reading history from before Stop settled.
               if (observation) void restoreChat(returnedChat)
             }
-            if (cancelledWorkflow.status === 'rejected') throw cancelledWorkflow.reason
             if (!target) return !current.isSendingMessage
             if (native.status === 'rejected') throw native.reason
-            const result = native.value
-            if (result?.status !== 'cancel_requested' || result.runId !== target.runId)
-              throw new Error('Native cancellation was not verified')
+            if (!verified) throw new Error('Native cancellation was not verified')
             set((state) => applyNativeCancellation(state, result))
             return originalSelection
           } catch (error) {

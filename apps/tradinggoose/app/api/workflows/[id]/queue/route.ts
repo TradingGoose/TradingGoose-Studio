@@ -161,12 +161,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 403 }
       )
     }
-    let beforeEnqueue: Parameters<typeof enqueuePendingExecution>[0]['beforeEnqueue']
+    let afterInsert: Parameters<typeof enqueuePendingExecution>[0]['afterInsert']
     if (body.native !== undefined) {
       const { authorizeNativeWorkflowQueueEffect } = await import(
         '@/lib/copilot/native/workflow-effects'
       )
-      beforeEnqueue = await authorizeNativeWorkflowQueueEffect(
+      afterInsert = await authorizeNativeWorkflowQueueEffect(
         auth.userId,
         workflowId,
         body,
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       userId: auth.userId,
       source,
       requestId,
-      beforeEnqueue,
+      afterInsert,
       payload: {
         executionId: pendingExecutionId,
         workflowId,

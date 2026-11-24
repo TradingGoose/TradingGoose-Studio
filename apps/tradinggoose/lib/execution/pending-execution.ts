@@ -41,6 +41,7 @@ type PendingExecutionInsert = {
   payload: PendingExecutionPayload
   requestId?: string
   beforeEnqueue?: (tx: PendingExecutionTransaction) => Promise<boolean>
+  afterInsert?: (tx: PendingExecutionTransaction) => Promise<void>
   /** Reserved for a validated checkpoint transition, never copied from request payloads. */
   continuation?: boolean
 }
@@ -429,6 +430,7 @@ export async function enqueuePendingExecution(
         .returning({ id: pendingExecution.id })
       if (params.executionType === 'document' && params.beforeEnqueue && !inserted)
         throw new Error('Document retry admission collided')
+      if (inserted) await params.afterInsert?.(tx)
       return { mode: 'local' as const, inserted: Boolean(inserted) }
     }
 
@@ -523,6 +525,7 @@ export async function enqueuePendingExecution(
       billingScopeId,
       billingScopeType,
     })
+    await params.afterInsert?.(tx)
     return queueResult(true)
   })
   const queueResult = await admission.catch((error) => {
@@ -853,7 +856,7 @@ export async function settlePendingExecutionOwner(
   await db
     .update(pendingExecution)
     .set({
-      payload: sql`${pendingExecution.payload} || jsonb_build_object('ownerCompletedAt', ${ownerCompletedAt})`,
+      payload: sql`${pendingExecution.payload} || jsonb_build_object('ownerCompletedAt', ${ownerCompletedAt}::text)`,
       updatedAt: new Date(),
     })
     .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))

@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   access: vi.fn(),
   active: vi.fn(),
   claim: vi.fn(),
+  claimAdmission: vi.fn(),
   run: vi.fn(),
   model: vi.fn(),
 }))
@@ -17,6 +18,7 @@ vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.model }
 vi.mock('@/lib/copilot/agent/receipts', () => ({
   assertCopilotRunActive: m.active,
   claimCopilotEffect: m.claim,
+  claimCopilotWorkflowAdmission: m.claimAdmission,
 }))
 vi.mock('./target', () => ({
   authorizeNativeConversationScope: m.scope,
@@ -76,6 +78,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   m.active.mockReset().mockResolvedValue(undefined)
   m.claim.mockReset().mockResolvedValue(undefined)
+  m.claimAdmission.mockReset().mockResolvedValue(undefined)
   m.scope.mockResolvedValue(scope)
   m.pending.mockImplementation(async () => pending())
   m.run.mockReset().mockResolvedValue(run)
@@ -91,17 +94,17 @@ describe('native business effect admission', () => {
     expect(m.model).not.toHaveBeenCalled()
   })
   it('checks actual actor, original target/financial result stage and canonical trigger before enqueue', async () => {
-    const beforeEnqueue = await authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
+    const afterInsert = await authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
     expect(m.scope).toHaveBeenCalledWith('member', null)
     expect(m.pending).toHaveBeenCalledWith(scope, target, 'result', undefined)
     expect(m.access).toHaveBeenCalledWith(scope, pending())
     expect(m.active).toHaveBeenCalledWith(target.runId)
     expect(m.run).toHaveBeenCalledWith(scope, target.threadId, target.runId)
     expect(m.model).toHaveBeenCalledWith(run.model)
-    expect(m.claim).not.toHaveBeenCalled()
+    expect(m.claimAdmission).not.toHaveBeenCalled()
     const transaction = {} as PendingExecutionTransaction
-    await expect(beforeEnqueue(transaction)).resolves.toBe(true)
-    expect(m.claim).toHaveBeenCalledExactlyOnceWith(run, target.toolCallId, 'browser', transaction)
+    await afterInsert(transaction)
+    expect(m.claimAdmission).toHaveBeenCalledExactlyOnceWith(run, target.toolCallId, transaction)
   })
   it.each([
     { executionId: 'other' },
@@ -196,21 +199,23 @@ describe('native business effect admission', () => {
     await expect(
       authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
     ).rejects.toMatchObject({ status: 409 })
-    expect(m.claim).not.toHaveBeenCalled()
+    expect(m.claimAdmission).not.toHaveBeenCalled()
   })
   it('rejects cancelled runs and duplicate browser dispatch', async () => {
     m.active.mockRejectedValueOnce(Object.assign(new Error('Cancelled run'), { status: 409 }))
     await expect(
       authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
     ).rejects.toMatchObject({ status: 409 })
-    expect(m.claim).not.toHaveBeenCalled()
-    m.claim.mockRejectedValueOnce(Object.assign(new Error('Already dispatched'), { status: 409 }))
-    const beforeEnqueue = await authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
-    expect(m.claim).not.toHaveBeenCalled()
-    await expect(beforeEnqueue({} as PendingExecutionTransaction)).rejects.toMatchObject({
+    expect(m.claimAdmission).not.toHaveBeenCalled()
+    m.claimAdmission.mockRejectedValueOnce(
+      Object.assign(new Error('Already dispatched'), { status: 409 })
+    )
+    const afterInsert = await authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
+    expect(m.claimAdmission).not.toHaveBeenCalled()
+    await expect(afterInsert({} as PendingExecutionTransaction)).rejects.toMatchObject({
       status: 409,
     })
-    expect(m.claim).toHaveBeenCalledOnce()
+    expect(m.claimAdmission).toHaveBeenCalledOnce()
   })
   it.each([409, 422])(
     'rejects revoked model/key configuration (%i) before queue or deployment claims',
@@ -234,6 +239,7 @@ describe('native business effect admission', () => {
         )
       ).rejects.toMatchObject({ status })
       expect(m.claim).not.toHaveBeenCalled()
+      expect(m.claimAdmission).not.toHaveBeenCalled()
     }
   )
 })

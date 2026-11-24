@@ -5,6 +5,7 @@ import { deleteNativeThread, getCopilotAgent } from '@/lib/mastra/runtime'
 import {
   claimCopilotThread,
   deleteCopilotRunSnapshot,
+  hasPendingWorkflowReadback,
   isCopilotJobActive,
   readCopilotJob,
   readCopilotThreadOwnership,
@@ -29,7 +30,13 @@ export async function readCopilotThreadRun(scope: Scope, threadId: string) {
 export async function assertCopilotThreadReady(scope: Scope, threadId: string) {
   const job = await readCopilotJob(scope, threadId)
   const owner = await readCopilotThreadOwnership(scope, threadId)
-  if (job && !job.status && job.runId !== owner?.ownerId && !(await isCopilotJobActive(job)))
+  if (
+    job &&
+    !job.status &&
+    job.runId !== owner?.ownerId &&
+    !(await isCopilotJobActive(job)) &&
+    !(await hasPendingWorkflowReadback(scope, threadId, job))
+  )
     await cancelCopilotRun({ runId: job.runId, threadId, scope })
   const { runs } = await (await getCopilotAgent()).listSuspendedRuns({
     threadId,

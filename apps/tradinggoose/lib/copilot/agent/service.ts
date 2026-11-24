@@ -22,7 +22,11 @@ import {
   readNativeThread,
   readNativeThreadHistory,
 } from '@/lib/copilot/native/history'
-import { nativeAdmissionId, nativeConversationIdentity } from '@/lib/copilot/native/identity'
+import {
+  nativeAdmissionId,
+  nativeConversationIdentity,
+  nativeToolCallId,
+} from '@/lib/copilot/native/identity'
 import {
   authorizeNativeConversationScope,
   resolveNativePendingTarget,
@@ -51,6 +55,7 @@ import {
   type CopilotRun,
   claimCopilotThread,
   deleteCopilotRunSnapshot,
+  hasPendingWorkflowReadback,
   isCopilotJobActive,
   readCopilotJob,
   readCopilotThreadOwnership,
@@ -60,6 +65,7 @@ import {
 import {
   assertCopilotRunActive,
   cancelCopilotRun,
+  cancelCopilotRunAfterWorkflows,
   claimCopilotAdmission,
   isCopilotRunCancelled,
   readCopilotAdmission,
@@ -350,11 +356,6 @@ async function readCommand(
       const currentRunId = await readCopilotThreadRun(scope, request.threadId)
       if (currentRunId && currentRunId !== request.runId)
         throw new NativeTargetError('Copilot cancellation target differs', 403)
-      if (currentRunId) {
-        const run = { runId: currentRunId, threadId: request.threadId, scope }
-        await cancelCopilotRun(run)
-        await publishAbortRequest((await getMastra()).pubsub, run.runId)
-      }
       const waiting = AbortSignal.any(
         [signal, AbortSignal.timeout(CANCELLATION_TIMEOUT)].filter(
           (item): item is AbortSignal => !!item
@@ -362,13 +363,64 @@ async function readCommand(
       )
       let ownership: Awaited<ReturnType<typeof claimCopilotThread>> | undefined
       try {
-        const queued = await readCopilotJob(scope, request.threadId)
-        const admission = await readCopilotThreadOwnership(scope, request.threadId)
-        const expectedGeneration =
-          queued?.runId === request.runId && queued.admissionGeneration === admission?.generation
-            ? queued.admissionGeneration
+        const admissionGeneration = async (job?: CopilotJobState) => {
+          const owner = await readCopilotThreadOwnership(scope, request.threadId)
+          return job?.runId === request.runId && job.admissionGeneration === owner?.generation
+            ? job.admissionGeneration
             : undefined
-        if (expectedGeneration === undefined)
+        }
+        if (currentRunId) {
+          const run = { runId: currentRunId, threadId: request.threadId, scope }
+          await cancelCopilotRunAfterWorkflows(run, async (isAdmitted) => {
+            waiting.throwIfAborted()
+            const pending = async () =>
+              (await listCopilotPending(scope, request.threadId, waiting)).filter(
+                ({ target, stage }) =>
+                  target.runId === run.runId &&
+                  target.toolName === 'run_workflow' &&
+                  stage === 'result' &&
+                  isAdmitted(target.toolCallId)
+              )
+            if (!ownership) {
+              if (!(await pending()).length) return
+              const job = await readCopilotJob(scope, request.threadId)
+              if (job && job.runId !== run.runId)
+                throw new NativeTargetError('Copilot cancellation target changed')
+              ownership = await claimCopilotThread(
+                scope,
+                request.threadId,
+                run.runId,
+                job?.id,
+                await admissionGeneration(job)
+              )
+            }
+            const { cancelPendingWorkflowExecution } = await import(
+              '@/lib/workflows/queued-execution-cancellation'
+            )
+            // Keep the suspension available to Stop until every admitted workflow is accounted for.
+            await ownership.run(async () => {
+              for (const call of await pending()) {
+                const { entityId } = ToolArgSchemas.run_workflow.parse(call.originalArgs)
+                const result = await cancelPendingWorkflowExecution({
+                  pendingExecutionId: nativeToolCallId(call.target),
+                  userId: scope.actorUserId,
+                  workflowId: entityId,
+                  ...(call.context?.contextEntityKind === 'workflow' &&
+                    call.context.contextEntityId === entityId &&
+                    call.context.workspaceId && { workspaceId: call.context.workspaceId }),
+                })
+                if (result.status === 'not_found')
+                  throw new NativeTargetError('Workflow cancellation could not be verified', 503)
+              }
+            })
+            waiting.throwIfAborted()
+            await ownership.renew()
+          })
+          await publishAbortRequest((await getMastra()).pubsub, run.runId)
+        }
+        const queued = await readCopilotJob(scope, request.threadId)
+        const expectedGeneration = await admissionGeneration(queued)
+        if (!ownership && expectedGeneration === undefined)
           await waitForCopilotRunRelease(scope, request.threadId, request.runId, waiting)
         waiting.throwIfAborted()
         if (currentRunId) {
@@ -381,7 +433,7 @@ async function readCommand(
             await deleteCopilotRunSnapshot(request.runId)
             return { status: 'cancel_requested', runId: request.runId }
           }
-          ownership = await claimCopilotThread(
+          ownership ??= await claimCopilotThread(
             scope,
             request.threadId,
             request.runId,
@@ -630,8 +682,10 @@ async function interruptCopilotJob(
       const current = await readCopilotJob(scope, threadId)
       if (current?.status) return
       const cancelled = await isCopilotRunCancelled(job.runId)
-      await cancelCopilotRun({ runId: job.runId, threadId, scope })
-      await deleteCopilotRunSnapshot(job.runId)
+      if (cancelled || !(await hasPendingWorkflowReadback(scope, threadId, current))) {
+        await cancelCopilotRun({ runId: job.runId, threadId, scope })
+        await deleteCopilotRunSnapshot(job.runId)
+      }
       await saveCopilotJob(
         scope,
         threadId,
