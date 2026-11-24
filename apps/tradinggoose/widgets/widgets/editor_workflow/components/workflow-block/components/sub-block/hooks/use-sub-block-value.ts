@@ -42,8 +42,9 @@ export function useSubBlockValue<T = any>(
           Object.entries(block.subBlocks ?? {}).map(([id, field]) => [id, field.value])
         )
         const mode = inputs.reasoningMode
-        const options = getRegistryModel(newValue)?.reasoningOptions
-        if (mode && mode !== 'auto' && !containsWorkflowReference(mode)) {
+        const model = getRegistryModel(newValue)
+        if (model && mode && mode !== 'auto' && !containsWorkflowReference(mode)) {
+          const options = model.reasoningOptions
           const selected =
             mode === 'effort'
               ? inputs.reasoningEffort

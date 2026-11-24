@@ -3,6 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { requestableReasoningOptions } from '@/lib/mastra/native-reasoning'
 import { useModelRegistry } from '@/stores/model-registry'
 import { useSubBlockValue } from './use-sub-block-value'
 
@@ -151,26 +152,52 @@ it.each(['anthropic/claude-sonnet-5-5', 'openai/gpt-5.6-sol', '<upstream.model>'
   }
 )
 
-it('preserves compatible reasoning and reference values, and clears an incompatible literal', () => {
+function renderReasoning(mode = 'effort', effort = 'high') {
   useModelRegistry.setState({
     providers: [
       {
         id: 'openai',
         name: 'OpenAI',
-        models: [
-          { id: 'openai/first', reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }] },
-          { id: 'openai/other', reasoningOptions: [{ type: 'effort', values: ['low'] }] },
-        ],
+        models: ['openai/gpt-5', 'openai/gpt-5.1', 'openai/gpt-4.1'].map((id) => ({
+          id,
+          reasoningOptions: requestableReasoningOptions(id),
+        })),
       },
     ],
   })
-  mocks.values.reasoningMode = 'effort'
-  mocks.values.reasoningEffort = 'high'
-  render('openai/first')
-  type('<variable.model>')
-  expect(mocks.values.reasoningMode).toBe('effort')
-  type('openai/first')
-  expect(mocks.values.reasoningMode).toBe('effort')
-  type('openai/other')
-  expect(mocks.values.reasoningMode).toBe('')
+  mocks.values.reasoningMode = mode
+  mocks.values.reasoningEffort = effort
+  render('openai/gpt-5')
+}
+
+it('keeps effort/high while typing a compatible model one character at a time', () => {
+  renderReasoning()
+  type('openai/gpt-5.')
+  type('openai/gpt-5.1')
+  expect(mocks.values).toMatchObject({
+    model: 'openai/gpt-5.1',
+    reasoningMode: 'effort',
+    reasoningEffort: 'high',
+  })
+  expect(mocks.write.mock.calls).toEqual([
+    ['agent', 'model', 'openai/gpt-5.'],
+    ['agent', 'model', 'openai/gpt-5.1'],
+  ])
 })
+
+it.each([
+  ['', 'effort', 'high', 'effort'],
+  ['openai/unlisted-model', 'effort', 'high', 'effort'],
+  ['<variable.model>', 'effort', 'high', 'effort'],
+  ['openai/gpt-5.1', 'effort', '<variable.effort>', 'effort'],
+  ['openai/gpt-4.1', '<variable.mode>', 'high', '<variable.mode>'],
+  ['openai/gpt-5.1', 'effort', 'minimal', ''],
+  ['openai/gpt-4.1', 'effort', 'high', ''],
+])(
+  'changing the model to "%s" with %s/%s leaves reasoning mode "%s"',
+  (model, mode, effort, expected) => {
+    renderReasoning(mode, effort)
+    type(model)
+    expect(mocks.values).toMatchObject({ model, reasoningMode: expected, reasoningEffort: effort })
+  }
+)
