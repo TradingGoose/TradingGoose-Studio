@@ -4,7 +4,6 @@ import { eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
-import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
@@ -265,10 +264,7 @@ export async function POST() {
       ? new Date(stripeSubscription.trial_end * 1000)
       : null
 
-    let persistedStripeSubscriptionId = stripeSubscription.id
-    let didPersistActivation = false
-
-    await db.transaction(async (tx) => {
+    const persistedStripeSubscriptionId = await db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(${PAYG_ACTIVATION_LOCK_NAMESPACE}, hashtext(${session.user.id}))`
       )
@@ -276,8 +272,7 @@ export async function POST() {
       const currentSubscription = await ensureDefaultUserSubscription(session.user.id, tx)
 
       if (currentSubscription.stripeSubscriptionId) {
-        persistedStripeSubscriptionId = currentSubscription.stripeSubscriptionId
-        return
+        return currentSubscription.stripeSubscriptionId
       }
 
       await handleSubscriptionCreated(
@@ -309,19 +304,8 @@ export async function POST() {
           metadata: withoutPaygActivationAttemptId(currentSubscription.metadata),
         })
         .where(eq(subscription.id, currentSubscription.id))
-      didPersistActivation = true
+      return stripeSubscription.id
     })
-
-    if (didPersistActivation) {
-      await syncSubscriptionUsageLimits({
-        id: activationState.currentSubscription.id,
-        referenceType: activationState.currentSubscription.referenceType,
-        referenceId: activationState.currentSubscription.referenceId,
-        seats: activationState.currentSubscription.seats,
-        tier: activationState.currentSubscription.tier,
-        status: stripeSubscription.status,
-      })
-    }
 
     logger.info('Activated personal pay-as-you-go subscription', {
       userId: session.user.id,

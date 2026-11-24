@@ -32,7 +32,6 @@ import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { hasOrganizationMembership } from '@/lib/billing/core/organization'
 import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
-import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
@@ -137,27 +136,18 @@ async function getHydratedSubscriptionById(subscriptionId: string) {
   return hydratedSubscriptions[0] ?? null
 }
 
-async function syncBillingTierAndRequireSubscription(input: {
+async function handleCompletedSubscription(input: {
   subscriptionId: string
   stripeSubscription: Stripe.Subscription
 }) {
   await syncSubscriptionBillingTierFromStripeSubscription(input)
 
-  const hydratedSubscription = await getHydratedSubscriptionById(input.subscriptionId)
-  if (!hydratedSubscription) {
+  const subscription = await getHydratedSubscriptionById(input.subscriptionId)
+  if (!subscription) {
     throw new Error(`Subscription ${input.subscriptionId} could not be hydrated`)
   }
 
-  return hydratedSubscription
-}
-
-async function handleCompletedSubscription(input: {
-  subscriptionId: string
-  stripeSubscription: Stripe.Subscription
-}) {
-  const subscription = await syncBillingTierAndRequireSubscription(input)
   await handleSubscriptionCreated(subscription)
-  await syncSubscriptionUsageLimits(subscription)
   await sendBillingTierWelcomeEmail(subscription)
 }
 
@@ -1017,21 +1007,10 @@ export const auth = betterAuth({
             status: subscription.status,
           })
 
-          const resolvedSubscription = await syncBillingTierAndRequireSubscription({
+          await syncSubscriptionBillingTierFromStripeSubscription({
             subscriptionId: subscription.id,
             stripeSubscription: event.data.object as Stripe.Subscription,
           })
-
-          try {
-            await syncSubscriptionUsageLimits(resolvedSubscription)
-          } catch (error) {
-            logger.error('[onSubscriptionUpdate] Failed to sync usage limits', {
-              subscriptionId: subscription.id,
-              referenceType: resolvedSubscription.referenceType,
-              referenceId: resolvedSubscription.referenceId,
-              error,
-            })
-          }
         },
       },
       onEvent: async (event: Stripe.Event) => {
