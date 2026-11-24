@@ -10,7 +10,7 @@ import {
   readCopilotJob,
   readCopilotThreadOwnership,
 } from './ownership'
-import { cancelCopilotRun, isCopilotRunCancelled } from './receipts'
+import { cancelCopilotRun, readCopilotCancellation } from './receipts'
 
 export async function readCopilotThreadRun(scope: Scope, threadId: string) {
   const owner = await readCopilotThreadOwnership(scope, threadId)
@@ -22,7 +22,7 @@ export async function readCopilotThreadRun(scope: Scope, threadId: string) {
     resourceId: nativeConversationIdentity(scope).resourceId,
   })
   for (const run of runs) {
-    if (!(await isCopilotRunCancelled(run.runId))) return run.runId
+    if ((await readCopilotCancellation(run.runId)) !== 'settled') return run.runId
   }
 }
 
@@ -43,7 +43,7 @@ export async function assertCopilotThreadReady(scope: Scope, threadId: string) {
     resourceId: nativeConversationIdentity(scope).resourceId,
   })
   for (const run of runs) {
-    if (!(await isCopilotRunCancelled(run.runId)))
+    if ((await readCopilotCancellation(run.runId)) !== 'settled')
       throw new NativeTargetError('Resolve the pending tool or stop this response first', 409)
     await deleteCopilotRunSnapshot(run.runId)
   }

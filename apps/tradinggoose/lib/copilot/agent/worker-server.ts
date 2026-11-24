@@ -35,8 +35,8 @@ import {
   assertCopilotRunActive,
   cancelCopilotRun,
   claimCopilotEffect,
-  isCopilotRunCancelled,
   readCopilotAdmission,
+  readCopilotCancellation,
 } from './receipts'
 import {
   COPILOT_CANCELLATION_POLL_INTERVAL,
@@ -371,10 +371,11 @@ async function ownStudioTool(
       await owner.run(async () => {
         const job = await readCopilotJob(scope, identity.threadId)
         if (job?.status) return
-        const cancelled = await isCopilotRunCancelled(identity.runId)
+        const cancellation = await readCopilotCancellation(identity.runId)
         if (
-          cancelled ||
-          ((signal.aborted || input.stage === 'studio') &&
+          cancellation === 'settled' ||
+          (!cancellation &&
+            (signal.aborted || input.stage === 'studio') &&
             !(await hasPendingWorkflowReadback(scope, identity.threadId, job)))
         ) {
           await cancelCopilotRun({ scope, runId: identity.runId, threadId: identity.threadId })
@@ -384,7 +385,7 @@ async function ownStudioTool(
           scope,
           identity.threadId,
           identity.jobId,
-          cancelled
+          cancellation
             ? { status: 'aborted' }
             : { status: 'failed', error: copilotFailure(error).error }
         )

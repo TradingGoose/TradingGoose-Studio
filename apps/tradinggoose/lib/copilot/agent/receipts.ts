@@ -70,21 +70,46 @@ export async function claimCopilotAdmission(
     throw new NativeTargetError('This Copilot request was already admitted', 409)
 }
 
-export async function cancelCopilotRun(run: ScopedRun, store: Pick<typeof db, 'insert'> = db) {
-  await insertReceipt(receiptId('cancel', run.runId), runOwner(run), 'true', store)
+export async function cancelCopilotRun(
+  run: ScopedRun,
+  store: Pick<typeof db, 'insert'> = db,
+  value: 'true' | 'draining' = 'true'
+) {
+  await insertReceipt(receiptId('cancel', run.runId), runOwner(run), value, store)
 }
 
 export async function assertCopilotRunActive(runId: string, store: Pick<typeof db, 'select'> = db) {
   if (await isCopilotRunCancelled(runId, store)) throw new CopilotRunCancelled()
 }
 
-export async function isCopilotRunCancelled(runId: string, store: Pick<typeof db, 'select'> = db) {
+export async function readCopilotCancellation(
+  runId: string,
+  store: Pick<typeof db, 'select'> = db
+) {
   const [row] = await store
-    .select({ id: verification.id })
+    .select({ value: verification.value })
     .from(verification)
     .where(eq(verification.id, receiptId('cancel', runId)))
     .limit(1)
-  return Boolean(row)
+  if (!row) return
+  return row.value === 'draining' ? 'draining' : 'settled'
+}
+
+export async function isCopilotRunCancelled(runId: string, store: Pick<typeof db, 'select'> = db) {
+  return Boolean(await readCopilotCancellation(runId, store))
+}
+
+export async function finishCopilotWorkflowCancellation(run: ScopedRun) {
+  await db
+    .update(verification)
+    .set({ value: 'true', updatedAt: new Date() })
+    .where(
+      and(
+        eq(verification.id, receiptId('cancel', run.runId)),
+        eq(verification.identifier, runOwner(run)),
+        eq(verification.value, 'draining')
+      )
+    )
 }
 
 /** Mastra stores outcomes. This claim prevents repeating an effect after an uncertain interruption. */
@@ -122,9 +147,10 @@ export async function claimCopilotWorkflowAdmission(
 /** Check native suspensions outside the queue transaction, then fence any newly admitted calls. */
 export async function cancelCopilotRunAfterWorkflows(
   run: ScopedRun,
-  settle: (isAdmitted: (toolCallId: string) => boolean) => Promise<void>
+  signalWorkflows: (isAdmitted: (toolCallId: string) => boolean) => Promise<boolean | undefined>
 ) {
   const checked = new Set<string>()
+  let draining = false
   for (;;) {
     const remaining = await db.transaction(async (tx) => {
       await lockWorkflowAdmissions(run.runId, tx)
@@ -133,11 +159,12 @@ export async function cancelCopilotRunAfterWorkflows(
         .from(verification)
         .where(and(eq(verification.identifier, runOwner(run)), eq(verification.value, run.runId)))
       const ids = new Set(receipts.map(({ id }) => id).filter((id) => !checked.has(id)))
-      if (!ids.size) await cancelCopilotRun(run, tx)
+      if (!ids.size) await cancelCopilotRun(run, tx, draining ? 'draining' : 'true')
       return ids
     })
     if (!remaining.size) return
-    await settle((callId) => remaining.has(effectReceiptId(run, callId, 'browser')))
+    if (await signalWorkflows((callId) => remaining.has(effectReceiptId(run, callId, 'browser'))))
+      draining = true
     for (const id of remaining) checked.add(id)
   }
 }

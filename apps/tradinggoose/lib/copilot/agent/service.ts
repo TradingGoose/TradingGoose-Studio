@@ -67,8 +67,9 @@ import {
   cancelCopilotRun,
   cancelCopilotRunAfterWorkflows,
   claimCopilotAdmission,
-  isCopilotRunCancelled,
+  finishCopilotWorkflowCancellation,
   readCopilotAdmission,
+  readCopilotCancellation,
 } from './receipts'
 import { assertCopilotThreadReady, deleteCopilotThread, readCopilotThreadRun } from './state'
 import {
@@ -98,7 +99,7 @@ export async function listCopilotPending(
   const { runs } = await agent.listSuspendedRuns({ threadId, resourceId })
   const pending: ServerPending[] = []
   for (const suspended of runs) {
-    if (await isCopilotRunCancelled(suspended.runId)) continue
+    if ((await readCopilotCancellation(suspended.runId)) === 'settled') continue
     const run = await readCopilotRun(scope, threadId, suspended.runId)
     for (const call of suspended.toolCalls) {
       if (!call.toolCallId || !call.toolName || !isToolId(call.toolName))
@@ -362,6 +363,8 @@ async function readCommand(
         )
       )
       let ownership: Awaited<ReturnType<typeof claimCopilotThread>> | undefined
+      const drainWorkflows: Array<() => Promise<void>> = []
+      const run = { runId: request.runId, threadId: request.threadId, scope }
       try {
         const readJobOwnership = async () => {
           const job = await readCopilotJob(scope, request.threadId)
@@ -373,7 +376,6 @@ async function readCommand(
           return { job, owner, expectedGeneration }
         }
         if (currentRunId) {
-          const run = { runId: currentRunId, threadId: request.threadId, scope }
           await cancelCopilotRunAfterWorkflows(run, async (isAdmitted) => {
             waiting.throwIfAborted()
             const pending = async () =>
@@ -405,36 +407,45 @@ async function readCommand(
                   expectedGeneration
                 )
             }
-            const { cancelPendingWorkflowExecution } = await import(
-              '@/lib/workflows/queued-execution-cancellation'
-            )
+            const { cancelPendingWorkflowExecution, waitForPendingWorkflowExecutionDrain } =
+              await import('@/lib/workflows/queued-execution-cancellation')
             // Keep the suspension available to Stop until every admitted workflow is accounted for.
             const cancelWorkflows = async () => {
               for (const call of await pending()) {
                 const { entityId } = ToolArgSchemas.run_workflow.parse(call.originalArgs)
-                const result = await cancelPendingWorkflowExecution({
+                const target = {
                   pendingExecutionId: nativeToolCallId(call.target),
                   userId: scope.actorUserId,
                   workflowId: entityId,
                   ...(call.context?.contextEntityKind === 'workflow' &&
                     call.context.contextEntityId === entityId &&
                     call.context.workspaceId && { workspaceId: call.context.workspaceId }),
-                })
+                }
+                const result = await cancelPendingWorkflowExecution(target)
                 if (result.status === 'not_found')
                   throw new NativeTargetError('Workflow cancellation could not be verified', 503)
+                drainWorkflows.push(() =>
+                  waitForPendingWorkflowExecutionDrain(target, result, waiting)
+                )
               }
             }
             if (ownership) await ownership.run(cancelWorkflows)
             else await cancelWorkflows()
             waiting.throwIfAborted()
             await ownership?.renew()
+            return drainWorkflows.length > 0
           })
           await publishAbortRequest((await getMastra()).pubsub, run.runId)
         }
+        const drains = await Promise.allSettled(drainWorkflows.map((drain) => drain()))
+        for (const drain of drains) if (drain.status === 'rejected') throw drain.reason
         const { expectedGeneration } = await readJobOwnership()
         if (!ownership && expectedGeneration === undefined)
           await waitForCopilotRunRelease(scope, request.threadId, request.runId, waiting)
         waiting.throwIfAborted()
+        if (drainWorkflows.length) await finishCopilotWorkflowCancellation(run)
+        else if (currentRunId && (await readCopilotCancellation(run.runId)) === 'draining')
+          throw new NativeTargetError('Workflow cancellation could not be verified', 503)
         if (currentRunId) {
           const job = await readCopilotJob(scope, request.threadId)
           const owner = await readCopilotThreadOwnership(scope, request.threadId)
@@ -693,8 +704,11 @@ async function interruptCopilotJob(
     await ownership.run(async () => {
       const current = await readCopilotJob(scope, threadId)
       if (current?.status) return
-      const cancelled = await isCopilotRunCancelled(job.runId)
-      if (cancelled || !(await hasPendingWorkflowReadback(scope, threadId, current))) {
+      const cancellation = await readCopilotCancellation(job.runId)
+      if (
+        cancellation === 'settled' ||
+        (!cancellation && !(await hasPendingWorkflowReadback(scope, threadId, current)))
+      ) {
         await cancelCopilotRun({ runId: job.runId, threadId, scope })
         await deleteCopilotRunSnapshot(job.runId)
       }
@@ -702,7 +716,7 @@ async function interruptCopilotJob(
         scope,
         threadId,
         job.id,
-        cancelled
+        cancellation
           ? { status: 'aborted' }
           : { status: 'failed', error: copilotFailure(new Error(message)).error }
       )

@@ -60,6 +60,7 @@ const m = vi.hoisted(() => ({
   credential: vi.fn(),
   cancelInsert: vi.fn(),
   cancelWorkflow: vi.fn(),
+  drainWorkflow: vi.fn(),
   dispatch: vi.fn(),
   triggerState: vi.fn(),
   retrieveRun: vi.fn(),
@@ -117,6 +118,7 @@ vi.mock('@/lib/execution/background-execution', () => ({
 }))
 vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
   cancelPendingWorkflowExecution: m.cancelWorkflow,
+  waitForPendingWorkflowExecutionDrain: m.drainWorkflow,
 }))
 vi.mock('@trigger.dev/sdk', async (original) => ({
   ...(await original<object>()),
@@ -160,6 +162,14 @@ vi.mock('@tradinggoose/db', () => {
           return Object.assign(Promise.resolve(rows), {
             limit: async (n: number) => rows.slice(0, n),
           })
+        },
+      }),
+    }),
+    update: () => ({
+      set: ({ value }: { value: string }) => ({
+        where: async (matches: (row: unknown) => boolean) => {
+          for (const row of m.receipts.values())
+            if (matches(row)) m.receipts.set(row.id, { ...row, value })
         },
       }),
     }),
@@ -427,6 +437,7 @@ beforeEach(async () => {
   m.credential.mockReset()
   m.cancelInsert.mockReset().mockResolvedValue(undefined)
   m.cancelWorkflow.mockReset()
+  m.drainWorkflow.mockReset()
   m.storage = new InMemoryStore()
   m.pubsub = new EventEmitterPubSub()
   vi.spyOn((await m.storage.getStore('workflows'))!, 'claimRunOwnership')
@@ -1897,12 +1908,21 @@ describe('Copilot background execution and native history', () => {
     )
     const entered = deferred()
     const finish = deferred()
+    const child = deferred()
     m.executionLog.mockImplementationOnce(async () => {
       entered.resolve()
       await finish.promise
-      throw new ObserveResumedWorkflow({ executionId, taskId: executionId, workflowId })
+      return {
+        executionId,
+        level: 'error',
+        startedAt: new Date(),
+        endedAt: new Date(),
+        totalDurationMs: 1,
+        executionData: { errorMessage: 'Workflow execution was cancelled' },
+      }
     })
-    m.cancelWorkflow.mockResolvedValue({ status: 'cancelling' })
+    m.cancelWorkflow.mockResolvedValue({ status: 'finished', pendingExecutionId: executionId })
+    m.drainWorkflow.mockImplementationOnce(() => child.promise)
     const workflows = (await m.storage.getStore('workflows'))!
     const reading = command({ command: 'tool.execute', action: 'readback', target })
     await entered.promise
@@ -1927,12 +1947,18 @@ describe('Copilot background execution and native history', () => {
       })
       expect(await workflows.getWorkflowRunById({ runId })).not.toBeNull()
       expect(settled).not.toHaveBeenCalled()
+      finish.resolve()
+      expect((await reading).result.status).toBe('aborted')
+      expect(m.contacts).toHaveLength(1)
+      expect((await message({ threadId })).result.status).toBe('refused')
+      expect(await workflows.getWorkflowRunById({ runId })).not.toBeNull()
+      expect(settled).not.toHaveBeenCalled()
     } finally {
       finish.resolve()
+      child.resolve()
       await Promise.all([reading, stopping])
     }
     expect((await stopping).result).toEqual({ status: 'cancel_requested', runId })
-    expect((await reading).result.status).toBe('aborted')
     expect(await workflows.getWorkflowRunById({ runId })).toBeNull()
     expect(await readCopilotThreadRun(scope, threadId)).toBeUndefined()
     expect(m.cancelWorkflow).toHaveBeenCalledOnce()
@@ -1940,7 +1966,7 @@ describe('Copilot background execution and native history', () => {
   })
 
   it.each(['cancelling', 'finished'])(
-    'recovers a committed workflow on another Studio instance and waits for %s',
+    'waits for an admitted workflow and child to retire after a %s queue response',
     async (status) => {
       const workflowId = workflowCall.args.entityId
       const workspaceId = 'business-workspace'
@@ -1965,27 +1991,64 @@ describe('Copilot background execution and native history', () => {
       expect((await command(cancel)).response.ok).toBe(false)
       expect(await pending(threadId)).toEqual(initial.pending)
       expect(await isCopilotRunCancelled(runId)).toBe(false)
-      const cleanup = deferred()
-      m.cancelWorkflow.mockReturnValueOnce(cleanup.promise.then(() => ({ status })))
-      const settled = vi.fn()
-      const stopping = command(cancel).finally(settled)
+      const executionId = nativeToolCallId(target)
+      const task = {
+        pendingExecutionId: executionId,
+        userId: scope.actorUserId,
+        workflowId,
+        workspaceId,
+      }
+      const queueResult = { status, pendingExecutionId: executionId }
+      m.cancelWorkflow.mockResolvedValue(queueResult)
+      const deadline = new AbortController()
+      const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(deadline.signal)
+      const firstCheck = deferred()
+      m.drainWorkflow.mockImplementationOnce(async (_task, _result, signal: AbortSignal) => {
+        await firstCheck.promise
+        signal.throwIfAborted()
+      })
+      const expiring = command(cancel)
       try {
-        await vi.waitFor(() => expect(m.cancelWorkflow).toHaveBeenCalledTimes(2))
-        expect(m.cancelWorkflow).toHaveBeenLastCalledWith({
-          pendingExecutionId: nativeToolCallId(target),
-          userId: scope.actorUserId,
-          workflowId,
-          workspaceId,
-        })
-        expect(settled).not.toHaveBeenCalled()
+        await vi.waitFor(async () => expect(await isCopilotRunCancelled(runId)).toBe(true))
+        expect(m.cancelWorkflow).toHaveBeenCalledTimes(2)
+        deadline.abort(new DOMException('Timed out', 'TimeoutError'))
+      } finally {
+        firstCheck.resolve()
+        timeout.mockRestore()
+      }
+      expect((await expiring).response.status).toBe(503)
+      restart()
+      expect(await isCopilotRunCancelled(runId)).toBe(true)
+      expect(await readCopilotThreadRun(scope, threadId)).toBe(runId)
+      expect(await pending(threadId)).toEqual(initial.pending)
+      expect((await message({ threadId })).result.status).toBe('refused')
+      const parent = deferred()
+      const child = deferred()
+      m.drainWorkflow.mockImplementationOnce(async () => {
+        await parent.promise
+        await child.promise
+      })
+      const acknowledged = vi.fn()
+      const stopping = command(cancel).finally(acknowledged)
+      try {
+        await vi.waitFor(() => expect(m.drainWorkflow).toHaveBeenCalledTimes(2))
+        expect(m.cancelWorkflow).toHaveBeenLastCalledWith(task)
+        expect(m.drainWorkflow).toHaveBeenLastCalledWith(task, queueResult, expect.any(AbortSignal))
+        expect(acknowledged).not.toHaveBeenCalled()
         expect(await pending(threadId)).toEqual(initial.pending)
         const readback = await command({ command: 'tool.execute', action: 'readback', target })
         expect(readback.response.status).toBe(409)
         expect(m.contacts).toHaveLength(1)
+        parent.resolve()
+        expect(await pending(threadId)).toEqual(initial.pending)
+        expect((await message({ threadId })).result.status).toBe('refused')
+        expect(acknowledged).not.toHaveBeenCalled()
       } finally {
-        cleanup.resolve()
+        parent.resolve()
+        child.resolve()
       }
       expect((await stopping).result).toEqual({ status: 'cancel_requested', runId })
+      expect(acknowledged).toHaveBeenCalledOnce()
       expect(await pending(threadId)).toEqual([])
       expect((await message({ threadId })).result).toMatchObject({ text: 'Ready again' })
       expect(m.contacts).toHaveLength(2)

@@ -18,6 +18,7 @@ import {
   type CopilotRun,
   claimCopilotThread,
   deleteCopilotRunSnapshot,
+  hasPendingWorkflowReadback,
   readCopilotJob,
   saveCopilotJob,
   waitForCopilotRunRelease,
@@ -371,7 +372,8 @@ export async function executeCopilotJob(
         run &&
         (cancellation.signal.aborted ||
           ((privatePending || selected) && outcome.status === 'failed')) &&
-        !ownership.signal.aborted
+        !ownership.signal.aborted &&
+        !(await hasPendingWorkflowReadback(scope, threadId, await readCurrentJob()))
       ) {
         await ownership.renew()
         await ownership.run(() => deleteCopilotRunSnapshot(run!.runId))

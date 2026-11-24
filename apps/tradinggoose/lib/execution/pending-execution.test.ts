@@ -191,7 +191,10 @@ vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: authorizeW
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: checkWorkspaceAccessMock }))
 
 import { ApiError } from '@trigger.dev/sdk'
-import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
+import {
+  cancelPendingWorkflowExecution,
+  waitForPendingWorkflowExecutionDrain,
+} from '@/lib/workflows/queued-execution-cancellation'
 import {
   claimNextPendingExecution,
   completePendingExecution,
@@ -1568,6 +1571,43 @@ describe('cancelPendingWorkflowExecution', () => {
     ...pausedCancellation,
     workflowId: 'workflow-1',
   }
+  it('waits for a finished checkpoint owner retained by its child to retire', async () => {
+    const target = { ...scopedCancellation, workspaceId: 'workspace-1' }
+    const owner = createPendingRow({
+      id: 'paused-1:resume:1',
+      status: 'processing',
+      payload: {
+        resumeExecutionId: target.pendingExecutionId,
+        ownerCompletedAt: new Date().toISOString(),
+      },
+    })
+    selectChain.where.mockResolvedValueOnce([owner]).mockResolvedValueOnce([])
+    const settled = vi.fn()
+    const draining = waitForPendingWorkflowExecutionDrain(
+      target,
+      { status: 'finished', pendingExecutionId: owner.id },
+      AbortSignal.timeout(5_000)
+    ).then(settled)
+    await vi.waitFor(() => expect(selectChain.where).toHaveBeenCalledOnce())
+    expect(cancelPendingExecutionDescendantsMock).toHaveBeenCalledExactlyOnceWith(
+      target.pendingExecutionId
+    )
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.userId', target.userId)
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.workflowId', target.workflowId)
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.workspaceId', target.workspaceId)
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.id', target.pendingExecutionId)
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.source', 'human_in_the_loop')
+    expect(eqMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        strings: ['', "->>'resumeExecutionId'"],
+        values: ['pendingExecution.payload'],
+      }),
+      target.pendingExecutionId
+    )
+    expect(settled).not.toHaveBeenCalled()
+    await draining
+    expect(selectChain.where).toHaveBeenCalledTimes(2)
+  })
   beforeEach(() => {
     terminalizeWorkflowExecutionMock.mockResolvedValue(undefined)
     cancelPendingExecutionDescendantsMock.mockResolvedValue(undefined)
