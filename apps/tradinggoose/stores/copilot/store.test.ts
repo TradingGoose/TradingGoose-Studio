@@ -2438,6 +2438,7 @@ describe('local workflow execution refusals', () => {
     return target
   }
 
+  const originalCancellation = { command: 'cancel', workspaceId, threadId, runId }
   const cancelRequests = () => commands.filter((request) => request.command === 'cancel')
   const cancelled = () => json({ status: 'cancel_requested', runId })
   const failedCancellation = () =>
@@ -2528,8 +2529,7 @@ describe('local workflow execution refusals', () => {
       await vi.waitFor(() => expect(cancel).toHaveBeenCalledTimes(2))
       expect(settled).not.toHaveBeenCalled()
       expect(store().getState().isAborting).toBe(true)
-      const original = { command: 'cancel', workspaceId, threadId, runId }
-      expect(cancelRequests()).toEqual([original, original])
+      expect(cancelRequests()).toEqual([originalCancellation, originalCancellation])
       acknowledged.resolve(cancelled())
       await stopping
       expect(settled).toHaveBeenCalledExactlyOnceWith(true)
@@ -2545,42 +2545,6 @@ describe('local workflow execution refusals', () => {
     }
   )
 
-  it.each(['detached', 'reset'])(
-    'waits for Studio to cancel the pending workflow after the actor store is %s',
-    async (action) => {
-      const { original, id, jobs, execution } = await startInitialWorkflow()
-      await vi.waitFor(() => expect(jobs).toEqual(['GET']))
-      const previous = store()
-      previous.getState().detachStream()
-      await execution
-      onObserve = () => historyResponse([original])
-      if (action === 'reset') {
-        resetCopilotStoreRegistry()
-        expect(store()).not.toBe(previous)
-        await store().getState().selectChat(chat())
-      } else {
-        await previous.getState().loadChats({ workspaceId })
-      }
-      expect(store().getState().currentChat?.threadId).toBe(threadId)
-      expect(store().getState().toolCallsById[id].pending).toEqual(original)
-      const acknowledged = defer<Response>()
-      onCommand = (request) => (request.command === 'cancel' ? acknowledged.promise : undefined)
-      const settled = vi.fn()
-      const stopping = store().getState().abortMessage().then(settled)
-      await vi.waitFor(() =>
-        expect(cancelRequests()).toEqual([{ command: 'cancel', workspaceId, threadId, runId }])
-      )
-      expect(settled).not.toHaveBeenCalled()
-      expect(store().getState().isAborting).toBe(true)
-      acknowledged.resolve(cancelled())
-      await stopping
-      expect(settled).toHaveBeenCalledExactlyOnceWith(true)
-      expect(isCopilotBusy(store().getState())).toBe(false)
-      expect(workflowRequests).toEqual(['original-workflow/queue'])
-      expect(jobs).toEqual(['GET'])
-    }
-  )
-
   it('holds initial workflow Stop until the native cancellation and the outstanding admission settle', async () => {
     const admitted = defer<Response>()
     const acknowledged = defer<Response>()
@@ -2590,9 +2554,7 @@ describe('local workflow execution refusals', () => {
     )
     const settled = vi.fn()
     const stopping = store().getState().abortMessage().then(settled)
-    await vi.waitFor(() =>
-      expect(cancelRequests()).toEqual([{ command: 'cancel', workspaceId, threadId, runId }])
-    )
+    await vi.waitFor(() => expect(cancelRequests()).toEqual([originalCancellation]))
     acknowledged.resolve(cancelled())
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(settled).not.toHaveBeenCalled()
@@ -2621,7 +2583,12 @@ describe('local workflow execution refusals', () => {
     return next
   }
 
-  it.each(['visit another chat', 'create a chat before admission'] as const)(
+  it.each([
+    'detach',
+    'reset the actor store',
+    'visit another chat',
+    'create a chat before admission',
+  ])(
     'waits for Studio to stop the original workflow after returning to its chat (%s)',
     async (navigation) => {
       const admission =
@@ -2636,13 +2603,25 @@ describe('local workflow execution refusals', () => {
         expect(store().getState().currentChat).toBeNull()
       } else {
         await vi.waitFor(() => expect(jobs).toEqual(['GET']))
-        const next = await switchWorkflowChat('select')
-        await execution
-        expect(store().getState().currentChat?.threadId).toBe(next.threadId)
-        expect(store().getState().currentRunId).toBe('other-run')
+        if (navigation === 'visit another chat') {
+          const next = await switchWorkflowChat('select')
+          await execution
+          expect(store().getState().currentChat?.threadId).toBe(next.threadId)
+          expect(store().getState().currentRunId).toBe('other-run')
+        } else {
+          const previous = store()
+          previous.getState().detachStream()
+          await execution
+          if (navigation === 'reset the actor store') {
+            resetCopilotStoreRegistry()
+            expect(store()).not.toBe(previous)
+          }
+        }
       }
       onObserve = () => historyResponse([original])
-      await store().getState().selectChat(chat())
+      if (navigation === 'detach') await store().getState().loadChats({ workspaceId })
+      else await store().getState().selectChat(chat())
+      expect(store().getState().currentChat?.threadId).toBe(threadId)
       expect(store().getState().toolCallsById[id].pending).toEqual(original)
       const settled = vi.fn()
       const stopping = store().getState().abortMessage().then(settled)
@@ -2652,14 +2631,16 @@ describe('local workflow execution refusals', () => {
         expect(jobs).toEqual([])
         admission.resolve(json({ executionId: id, taskId: id }, 202))
       }
-      await vi.waitFor(() => expect(cancelRequests()).toHaveLength(1))
+      await vi.waitFor(() => expect(cancelRequests()).toEqual([originalCancellation]))
       expect(settled).not.toHaveBeenCalled()
       expect(store().getState().isAborting).toBe(true)
       acknowledgement.resolve(cancelled())
       await Promise.all([stopping, execution])
       expect(settled).toHaveBeenCalledExactlyOnceWith(true)
-      expect(cancelRequests()).toEqual([{ command: 'cancel', workspaceId, threadId, runId }])
+      expect(cancelRequests()).toEqual([originalCancellation])
+      expect(isCopilotBusy(store().getState())).toBe(false)
       expect(workflowRequests).toEqual(['original-workflow/queue'])
+      expect(jobs).toEqual(admission ? [] : ['GET'])
     }
   )
 
@@ -2702,7 +2683,7 @@ describe('local workflow execution refusals', () => {
       expect(isCopilotBusy(store().getState())).toBe(false)
       await store().getState().abortMessage()
       expect(cancelRequests()).toEqual([
-        { command: 'cancel', workspaceId, threadId, runId },
+        originalCancellation,
         { command: 'cancel', workspaceId, threadId: next.threadId, runId: 'other-run' },
       ])
       expect(jobs).toEqual(['GET'])
@@ -2744,7 +2725,7 @@ describe('local workflow execution refusals', () => {
       expect(store().getState().messages.at(-1)?.content).toBe('canonical answer')
       expect(store().getState()).toMatchObject({ currentRunId: null, isAborting: false })
       expect(isCopilotBusy(store().getState())).toBe(false)
-      expect(cancelRequests()).toEqual([{ command: 'cancel', workspaceId, threadId, runId }])
+      expect(cancelRequests()).toEqual([originalCancellation])
       expect(workflowRequests).toEqual(['original-workflow/queue'])
     }
   )
@@ -2935,9 +2916,9 @@ describe('local workflow execution refusals', () => {
     }
   )
 
-  it.each([false, true])(
-    'retries the original resumed workflow Stop until Studio acknowledges (refresh=%s)',
-    async (refresh) => {
+  it.each(['stay in chat', 'refresh', 'return to empty history'])(
+    'retries the original resumed workflow Stop until Studio acknowledges (%s)',
+    async (navigation) => {
       const acknowledged = defer<Response>()
       const cancel = vi
         .fn()
@@ -2949,7 +2930,15 @@ describe('local workflow execution refusals', () => {
       expect(await readback).toBe(false)
       expect(store().getState().error).toBe('Temporary outage')
       expect(jobs).toEqual(['GET'])
-      if (refresh) await store().getState().loadChats({ workspaceId })
+      if (navigation === 'refresh') await store().getState().loadChats({ workspaceId })
+      if (navigation === 'return to empty history') {
+        const next = await switchWorkflowChat('select')
+        expect(store().getState().currentChat?.threadId).toBe(next.threadId)
+        expect(store().getState().currentRunId).toBe('other-run')
+        onObserve = () => observingStream(historyResult([])).response
+        await store().getState().selectChat(chat())
+        expect(isCopilotBusy(store().getState())).toBe(true)
+      }
       expect(store().getState().currentRunId).toBe(runId)
       const settled = vi.fn()
       const retry = store().getState().abortMessage().then(settled)
@@ -2961,6 +2950,9 @@ describe('local workflow execution refusals', () => {
       await retry
       expect(settled).toHaveBeenCalledExactlyOnceWith(true)
       expect(store().getState().currentRunId).toBeNull()
+      expect(isCopilotBusy(store().getState())).toBe(false)
+      expect(workflowRequests).toEqual([])
+      expect(cancelRequests()).toEqual([originalCancellation, originalCancellation])
     }
   )
 
@@ -2986,7 +2978,7 @@ describe('local workflow execution refusals', () => {
       expect(store().getState().currentRunId).toBe('other-run')
       const nextStop = store().getState().abortMessage()
       expect(cancelRequests()).toEqual([
-        { command: 'cancel', workspaceId, threadId, runId },
+        originalCancellation,
         { command: 'cancel', workspaceId, threadId: next.threadId, runId: 'other-run' },
       ])
       expect(jobs).toEqual(['GET'])
@@ -2998,40 +2990,6 @@ describe('local workflow execution refusals', () => {
       expect(store().getState().currentChat?.threadId).toBe(next.threadId)
     }
   )
-
-  it('retries the original resumed workflow Stop after returning to empty native history', async () => {
-    const acknowledgement = defer<Response>()
-    const cancel = vi
-      .fn()
-      .mockResolvedValueOnce(failedCancellation())
-      .mockReturnValueOnce(acknowledgement.promise)
-    const { jobs, readback } = await startResumedReadback('stop', cancel)
-    await vi.waitFor(() => expect(jobs).toEqual(['GET']))
-    expect(await store().getState().abortMessage()).toBe(false)
-    expect(await readback).toBe(false)
-    expect(store().getState().error).toBe('Temporary outage')
-    const next = await switchWorkflowChat('select')
-    expect(store().getState().currentChat?.threadId).toBe(next.threadId)
-    expect(store().getState().currentRunId).toBe('other-run')
-    onObserve = () => observingStream(historyResult([])).response
-    await store().getState().selectChat(chat())
-    expect.soft(isCopilotBusy(store().getState())).toBe(true)
-    expect.soft(store().getState().currentRunId).toBe(runId)
-    const settled = vi.fn()
-    const retry = store().getState().abortMessage().then(settled)
-    await vi.waitFor(() => expect(cancelRequests()).toHaveLength(2))
-    expect(settled).not.toHaveBeenCalled()
-    acknowledgement.resolve(cancelled())
-    await retry
-    expect(settled).toHaveBeenCalledExactlyOnceWith(true)
-    expect(store().getState().currentRunId).toBeNull()
-    expect(isCopilotBusy(store().getState())).toBe(false)
-    expect(workflowRequests).toEqual([])
-    expect(cancelRequests()).toEqual([
-      { command: 'cancel', workspaceId, threadId, runId },
-      { command: 'cancel', workspaceId, threadId, runId },
-    ])
-  })
 
   it('retires a failed resumed workflow Stop after returning to its verified terminal readback', async () => {
     const { jobs, readback, target } = await startResumedReadback('stop', failedCancellation)

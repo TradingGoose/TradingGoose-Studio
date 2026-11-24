@@ -116,7 +116,7 @@ vi.mock('@/lib/execution/background-execution', () => ({
   dispatchBackgroundExecution: (...args: unknown[]) => m.dispatch(...args),
 }))
 vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
-  cancelPendingWorkflowExecution: (...args: unknown[]) => m.cancelWorkflow(...args),
+  cancelPendingWorkflowExecution: m.cancelWorkflow,
 }))
 vi.mock('@trigger.dev/sdk', async (original) => ({
   ...(await original<object>()),
@@ -176,16 +176,13 @@ vi.mock('@tradinggoose/db', () => {
       }),
     }),
   }
-  let previous = Promise.resolve()
+  let previous: Promise<unknown> = Promise.resolve()
   return {
     db: {
       ...store,
       transaction: <T>(operation: (tx: typeof store) => Promise<T>) => {
         const result = previous.then(() => operation(store))
-        previous = result.then(
-          () => {},
-          () => {}
-        )
+        previous = result.catch(() => {})
         return result
       },
     },
@@ -202,6 +199,10 @@ vi.mock('drizzle-orm', async (original) => ({
 }))
 
 const scope: Scope = { actorUserId: 'actor', workspaceId: 'workspace' }
+const workflowCall = {
+  tool: 'run_workflow',
+  args: { entityId: 'workflow', triggerBlockId: 'trigger' },
+}
 async function threadClaims() {
   const store = (await m.storage.getStore('workflows'))!
   const keys = new Set(vi.mocked(store.claimRunOwnership).mock.calls.map(([{ runId }]) => runId))
@@ -1933,40 +1934,30 @@ describe('Copilot background execution and native history', () => {
         { tool: 'run_workflow', args: { entityId: workflowId, triggerBlockId: 'trigger' } },
         { text: 'Ready again' }
       )
-      const initial = suspended(
-        (
-          await message({
-            accessLevel: 'full',
-            toolContext: {
-              contextEntityKind: 'workflow',
-              contextEntityId: workflowId,
-              workspaceId,
-            },
-          })
-        ).result
+      const toolContext = {
+        contextEntityKind: 'workflow',
+        contextEntityId: workflowId,
+        workspaceId,
+      }
+      const initial = suspended((await message({ accessLevel: 'full', toolContext })).result)
+      const { target } = initial.pending[0]
+      const { threadId, runId, toolCallId } = target
+      await db.transaction((tx) =>
+        claimCopilotWorkflowAdmission({ scope, threadId, runId }, toolCallId, tx)
       )
-      const target = initial.pending[0].target
-      const run = { runId: target.runId, threadId: target.threadId, scope }
-      await db.transaction((tx) => claimCopilotWorkflowAdmission(run, target.toolCallId, tx))
-      const cancel = { command: 'cancel', threadId: run.threadId, runId: run.runId }
+      const cancel = { command: 'cancel', threadId, runId }
       restart()
       const foreign = await command({ ...cancel, scope: { ...scope, actorUserId: 'other' } })
       expect(foreign.response.ok).toBe(false)
       expect(m.cancelWorkflow).not.toHaveBeenCalled()
       m.cancelWorkflow.mockResolvedValueOnce({ status: 'not_found' })
       expect((await command(cancel)).response.ok).toBe(false)
-      expect(await pending(run.threadId)).toEqual(initial.pending)
-      expect(await isCopilotRunCancelled(run.runId)).toBe(false)
+      expect(await pending(threadId)).toEqual(initial.pending)
+      expect(await isCopilotRunCancelled(runId)).toBe(false)
       const cleanup = deferred()
-      m.cancelWorkflow.mockImplementationOnce(async () => {
-        await cleanup.promise
-        return { status }
-      })
-      let acknowledged = false
-      const stopping = command(cancel).then((result) => {
-        acknowledged = true
-        return result
-      })
+      m.cancelWorkflow.mockReturnValueOnce(cleanup.promise.then(() => ({ status })))
+      const settled = vi.fn()
+      const stopping = command(cancel).finally(settled)
       try {
         await vi.waitFor(() => expect(m.cancelWorkflow).toHaveBeenCalledTimes(2))
         expect(m.cancelWorkflow).toHaveBeenLastCalledWith({
@@ -1975,25 +1966,23 @@ describe('Copilot background execution and native history', () => {
           workflowId,
           workspaceId,
         })
-        expect(acknowledged).toBe(false)
-        expect(await pending(run.threadId)).toEqual(initial.pending)
+        expect(settled).not.toHaveBeenCalled()
+        expect(await pending(threadId)).toEqual(initial.pending)
         const readback = await command({ command: 'tool.execute', action: 'readback', target })
         expect(readback.response.status).toBe(409)
         expect(m.contacts).toHaveLength(1)
       } finally {
         cleanup.resolve()
       }
-      expect((await stopping).result).toEqual({ status: 'cancel_requested', runId: run.runId })
-      expect(await pending(run.threadId)).toEqual([])
-      expect((await message({ threadId: run.threadId })).result).toMatchObject({
-        text: 'Ready again',
-      })
+      expect((await stopping).result).toEqual({ status: 'cancel_requested', runId })
+      expect(await pending(threadId)).toEqual([])
+      expect((await message({ threadId })).result).toMatchObject({ text: 'Ready again' })
       expect(m.contacts).toHaveLength(2)
     }
   )
 
   it('retries native Stop for a never-admitted workflow after restart without replay', async () => {
-    setModel({ tool: 'run_workflow', args: { entityId: 'workflow', triggerBlockId: 'trigger' } })
+    setModel(workflowCall)
     const initial = suspended((await message({ accessLevel: 'full' })).result)
     const target = initial.pending[0].target
     const run = { scope, runId: target.runId, threadId: target.threadId }
@@ -2013,7 +2002,7 @@ describe('Copilot background execution and native history', () => {
   })
 
   it('rechecks a newly reported sibling admitted while Stop drains the first workflow', async () => {
-    setModel({ tool: 'run_workflow', args: { entityId: 'workflow', triggerBlockId: 'trigger' } })
+    setModel(workflowCall)
     const initial = suspended((await message({ accessLevel: 'full' })).result)
     const run = { scope, runId: initial.runId, threadId: initial.threadId }
     const first = initial.pending[0].target
@@ -2061,8 +2050,7 @@ describe('Copilot background execution and native history', () => {
     const generating = deferred()
     const suspend = deferred()
     setModel({
-      tool: 'run_workflow',
-      args: { entityId: 'workflow', triggerBlockId: 'trigger' },
+      ...workflowCall,
       text: (async function* () {
         generating.resolve()
         await suspend.promise

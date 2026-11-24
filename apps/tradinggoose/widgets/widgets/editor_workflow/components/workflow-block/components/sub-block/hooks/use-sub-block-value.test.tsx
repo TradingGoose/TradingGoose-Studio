@@ -52,7 +52,13 @@ beforeEach(() => {
       {
         id: 'openai',
         name: 'OpenAI',
-        models: [{ id: 'openai/gpt-4.1' }, { id: 'openai/gpt-5.6-sol' }],
+        models: [
+          { id: 'openai/gpt-5.6-sol' },
+          ...['openai/gpt-5', 'openai/gpt-5.1', 'openai/gpt-4.1'].map((id) => ({
+            id,
+            reasoningOptions: requestableReasoningOptions(id),
+          })),
+        ],
       },
       { id: 'anthropic', name: 'Anthropic', models: [{ id: 'anthropic/claude-sonnet-5-5' }] },
     ],
@@ -153,18 +159,6 @@ it.each(['anthropic/claude-sonnet-5-5', 'openai/gpt-5.6-sol', '<upstream.model>'
 )
 
 function renderReasoning(mode = 'effort', effort = 'high') {
-  useModelRegistry.setState({
-    providers: [
-      {
-        id: 'openai',
-        name: 'OpenAI',
-        models: ['openai/gpt-5', 'openai/gpt-5.1', 'openai/gpt-4.1'].map((id) => ({
-          id,
-          reasoningOptions: requestableReasoningOptions(id),
-        })),
-      },
-    ],
-  })
   mocks.values.reasoningMode = mode
   mocks.values.reasoningEffort = effort
   render('openai/gpt-5')
