@@ -300,10 +300,10 @@ interface JobOutcome {
 }
 type TestResult = CopilotResponse | HistoryResponse | JobOutcome
 
-async function executeJob(id: string) {
+async function executeJob(id: string, signal?: AbortSignal) {
   const row = m.jobs.get(id)!
   try {
-    await executeCopilotJob(row.payload)
+    await executeCopilotJob(row.payload, signal)
   } catch (error) {
     await finalizeCopilotJob(row.payload, error instanceof Error ? error.message : String(error))
   } finally {
@@ -333,7 +333,7 @@ async function command(
     }
   } else {
     body = (await response.json()) as CopilotResponse
-    if (body.status === 'accepted') {
+    if (body.status === 'accepted' && m.startJobs) {
       const { threadId } = body
       const thread = await m.memory.getThreadById({ threadId })
       const job = thread!.metadata!.copilotJob as { id: string }
@@ -440,17 +440,14 @@ afterEach(() => {
 describe('Copilot background execution and native history', () => {
   it('scopes admission identities to the authenticated actor', async () => {
     m.startJobs = false
-    const request: CopilotRequest = {
-      command: 'message',
-      requestId: crypto.randomUUID(),
-      workspaceId: scope.workspaceId,
-      model: 'configured/model',
-      input: { content: 'Same request ID' },
-    }
-    const first = await (await executeCopilotCommand(request, scope.actorUserId)).json()
-    const second = await (await executeCopilotCommand(request, 'another-actor')).json()
-    expect(first.status).toBe('accepted')
-    expect(second.status).toBe('accepted')
+    const requestId = crypto.randomUUID()
+    const { result: first } = await message({ requestId })
+    const { result: second } = await message({
+      requestId,
+      scope: { ...scope, actorUserId: 'another-actor' },
+    })
+    if (first.status !== 'accepted' || second.status !== 'accepted')
+      throw new Error('Expected both actors to be admitted')
     expect(second.runId).not.toBe(first.runId)
     expect(second.threadId).not.toBe(first.threadId)
     expect(m.dispatch).toHaveBeenCalledTimes(2)
@@ -569,19 +566,19 @@ describe('Copilot background execution and native history', () => {
       m.dispatch.mockImplementationOnce(async (job) => {
         m.jobs.set(job.id, job)
         if (timing !== 'late failure') {
-          const waiting = deferred()
-          const workflows = (await m.storage.getStore('workflows'))!
-          const read = workflows.getRunOwnership.bind(workflows)
-          const spy = vi.spyOn(workflows, 'getRunOwnership').mockImplementation(async (input) => {
-            const owner = await read(input)
-            if (owner?.live && owner.ownerId === job.payload.runId) waiting.resolve()
-            return owner
-          })
+          const waiting = vi.spyOn(await import('./ownership'), 'waitForCopilotRunRelease')
           try {
             m.executions.set(job.id, executeJob(job.id))
-            await waiting.promise
+            await vi.waitFor(() =>
+              expect(waiting).toHaveBeenCalledWith(
+                scope,
+                job.payload.threadId,
+                job.payload.runId,
+                expect.any(AbortSignal)
+              )
+            )
           } finally {
-            spy.mockRestore()
+            waiting.mockRestore()
           }
         }
         if (!success) throw new Error(failure)
@@ -623,20 +620,9 @@ describe('Copilot background execution and native history', () => {
     async (otherInstance) => {
       m.startJobs = false
       setModel({ text: 'Next turn' })
-      const response = await executeCopilotCommand(
-        {
-          command: 'message',
-          requestId: crypto.randomUUID(),
-          workspaceId: scope.workspaceId,
-          model: 'configured/model',
-          input: { content: 'Cancel before execution' },
-        },
-        scope.actorUserId
-      )
-      const accepted = await response.json()
-      expect(accepted.status).toBe('accepted')
-      const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
-      const job = thread!.metadata!.copilotJob as { id: string }
+      const { result: accepted } = await message()
+      if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
+      const [job] = m.jobs.values()
       if (otherInstance) restart()
       expect(
         (await command({ command: 'cancel', threadId: accepted.threadId, runId: accepted.runId }))
@@ -657,19 +643,9 @@ describe('Copilot background execution and native history', () => {
   it('does not let a delayed local worker take over a successor generation', async () => {
     m.startJobs = false
     setModel({ text: 'Must not run' })
-    const response = await executeCopilotCommand(
-      {
-        command: 'message',
-        requestId: crypto.randomUUID(),
-        workspaceId: scope.workspaceId,
-        model: 'configured/model',
-        input: { content: 'Delayed local dispatch' },
-      },
-      scope.actorUserId
-    )
-    const accepted = await response.json()
-    const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
-    const job = thread!.metadata!.copilotJob as { id: string }
+    const { result: accepted } = await message()
+    if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
+    const [job] = m.jobs.values()
     const admission = (await readCopilotThreadOwnership(scope, accepted.threadId))!
     expect(admission.live).toBe(true)
     restart()
@@ -679,7 +655,7 @@ describe('Copilot background execution and native history', () => {
       vi.setSystemTime(admission.leaseExpiresAt!.getTime() + 1)
       successor = await claimCopilotThread(scope, accepted.threadId, 'successor-run')
       const before = await readCopilotThreadOwnership(scope, accepted.threadId)
-      await expect(executeCopilotJob(m.jobs.get(job.id)!.payload)).rejects.toMatchObject({
+      await expect(executeCopilotJob(job.payload)).rejects.toMatchObject({
         status: 409,
       })
       expect(await readCopilotThreadOwnership(scope, accepted.threadId)).toEqual(before)
@@ -791,22 +767,13 @@ describe('Copilot background execution and native history', () => {
         image: 'data:image/png;base64,aGVsbG8=',
         mediaType: 'image/png',
       }
-      const response = await executeCopilotCommand(
-        {
-          command: 'message',
-          requestId: crypto.randomUUID(),
-          ...editing,
-          workspaceId: scope.workspaceId,
-          model: 'configured/model',
-          input: { content: kind === 'edit' ? text : [{ type: 'text', text }, image], contexts },
-        },
-        scope.actorUserId
-      )
-      const accepted = await response.json()
-      expect(accepted.status).toBe('accepted')
-      const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
-      const job = thread!.metadata!.copilotJob as { id: string }
-      const queued = m.jobs.get(job.id)!.payload
+      const { result: accepted } = await message({
+        ...editing,
+        input: { content: kind === 'edit' ? text : [{ type: 'text', text }, image], contexts },
+      })
+      if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
+      const [job] = m.jobs.values()
+      const queued = job.payload
       expect(queued).toMatchObject({ messageId: accepted.messageId })
       expect(queued.request).not.toHaveProperty('input')
       expect(JSON.stringify(queued)).not.toContain(image.image)
@@ -1859,23 +1826,14 @@ describe('Copilot background execution and native history', () => {
   })
 
   it('keeps the native result pending when the accepted readback finds a resumed checkpoint', async () => {
-    const workflowId = 'reviewed-workflow'
-    setModel(
-      { tool: 'run_workflow', args: { entityId: workflowId, triggerBlockId: 'trigger' } },
-      { text: 'Received the final cancellation' }
-    )
-    const initial = suspended(
-      (
-        await message({
-          accessLevel: 'full',
-          toolContext: {
-            contextEntityKind: 'workflow',
-            contextEntityId: workflowId,
-            workspaceId: 'business',
-          },
-        })
-      ).result
-    )
+    const workflowId = workflowCall.args.entityId
+    setModel(workflowCall, { text: 'Received the final cancellation' })
+    const toolContext = {
+      contextEntityKind: 'workflow',
+      contextEntityId: workflowId,
+      workspaceId: 'business',
+    }
+    const initial = suspended((await message({ accessLevel: 'full', toolContext })).result)
     const target = initial.pending[0].target
     const executionId = nativeToolCallId(target)
     const handle = { workflowId, executionId, taskId: executionId }
@@ -1883,11 +1841,10 @@ describe('Copilot background execution and native history', () => {
       command: 'tool.execute',
       action: 'readback',
       target,
-      workspaceId: scope.workspaceId,
       requestId: crypto.randomUUID(),
-    } as const
+    }
     m.startJobs = false
-    expect((await executeCopilotCommand(request, scope.actorUserId)).status).toBe(202)
+    expect((await command(request)).response.status).toBe(202)
     expect(m.executionLog).not.toHaveBeenCalled()
     m.executionLog.mockRejectedValueOnce(new ObserveResumedWorkflow(handle))
     await executeJob([...m.jobs.keys()][0])
@@ -1985,12 +1942,9 @@ describe('Copilot background execution and native history', () => {
   it.each(['cancelling', 'finished'])(
     'recovers a committed workflow on another Studio instance and waits for %s',
     async (status) => {
-      const workflowId = 'owned-workflow'
+      const workflowId = workflowCall.args.entityId
       const workspaceId = 'business-workspace'
-      setModel(
-        { tool: 'run_workflow', args: { entityId: workflowId, triggerBlockId: 'trigger' } },
-        { text: 'Ready again' }
-      )
+      setModel(workflowCall, { text: 'Ready again' })
       const toolContext = {
         contextEntityKind: 'workflow',
         contextEntityId: workflowId,
@@ -2078,24 +2032,21 @@ describe('Copilot background execution and native history', () => {
       return found
     })
     await db.transaction((tx) => claimCopilotWorkflowAdmission(run, first.toolCallId, tx))
-    const draining = deferred()
-    const drained = deferred()
     m.cancelWorkflow.mockResolvedValue({ status: 'finished' }).mockImplementationOnce(async () => {
-      draining.resolve()
-      await drained.promise
-      return { status: 'cancelling' }
-    })
-    const stopping = command({ command: 'cancel', threadId: run.threadId, runId: run.runId })
-    try {
-      await draining.promise
       siblingVisible = true
       await db.transaction((tx) => claimCopilotWorkflowAdmission(run, second.toolCallId, tx))
+      return { status: 'cancelling' }
+    })
+    try {
+      const { result } = await command({
+        command: 'cancel',
+        threadId: run.threadId,
+        runId: run.runId,
+      })
+      expect(result).toEqual({ status: 'cancel_requested', runId: run.runId })
     } finally {
-      drained.resolve()
-      await stopping
       discovery.mockRestore()
     }
-    expect((await stopping).result).toEqual({ status: 'cancel_requested', runId: run.runId })
     expect(m.cancelWorkflow.mock.calls.map(([request]) => request.pendingExecutionId)).toEqual([
       nativeToolCallId(first),
       nativeToolCallId(second),
@@ -2335,19 +2286,12 @@ describe('Copilot background execution and native history', () => {
       entityName: 'Changed',
       workspaceId: scope.workspaceId,
     })
-    const response = await executeCopilotCommand(
-      {
-        command: 'tool.approve',
-        requestId: crypto.randomUUID(),
-        workspaceId: scope.workspaceId,
-        target: initial.pending[0].target,
-      },
-      scope.actorUserId
-    )
-    const accepted = await response.json()
+    const { result: accepted } = await command({
+      command: 'tool.approve',
+      target: initial.pending[0].target,
+    })
     expect(accepted).toMatchObject({ status: 'accepted', runId: initial.runId })
-    const thread = await m.memory.getThreadById({ threadId: initial.threadId })
-    const job = thread!.metadata!.copilotJob as { id: string }
+    const [job] = m.jobs.values()
     const cancellation = new AbortController()
     const observation = await executeCopilotCommand(
       { command: 'thread.observe', workspaceId: scope.workspaceId, threadId: initial.threadId },
@@ -2665,12 +2609,11 @@ describe('Copilot background execution and native history', () => {
   it.each(
     ['local', 'trigger'].flatMap((mode) =>
       [
-        { command: 'tool.approve', requestId: crypto.randomUUID() },
-        { command: 'tool.decline', requestId: crypto.randomUUID(), reason: 'Declined' },
-        { command: 'tool.execute', requestId: crypto.randomUUID(), action: 'readback' },
+        { command: 'tool.approve' },
+        { command: 'tool.decline', reason: 'Declined' },
+        { command: 'tool.execute', action: 'readback' },
         {
           command: 'tool.result',
-          requestId: crypto.randomUUID(),
           assertion: { kind: 'timer.completed', data: {} },
         },
       ].map((request) => ({ mode, request }))
@@ -2699,22 +2642,15 @@ describe('Copilot background execution and native history', () => {
       m.triggerState.mockResolvedValue({ mode })
       vi.stubEnv('REDIS_URL', 'redis://shared-streams.invalid')
       m.dispatch.mockClear()
-      const response = await executeCopilotCommand(
-        {
-          ...request,
-          workspaceId: scope.workspaceId,
-          target: {
-            ...victim.pending[0].target,
-            threadId,
-            resourceId: nativeConversationIdentity(scope).resourceId,
-          },
-        } as CopilotRequest,
-        scope.actorUserId
-      )
-      await executeCopilotCommand(
-        { command: 'cancel', workspaceId: scope.workspaceId, threadId, runId: victim.runId },
-        scope.actorUserId
-      )
+      const { response } = await command({
+        ...request,
+        target: {
+          ...victim.pending[0].target,
+          threadId,
+          resourceId: nativeConversationIdentity(scope).resourceId,
+        },
+      })
+      await command({ command: 'cancel', threadId, runId: victim.runId })
       expect(await isCopilotRunCancelled(victim.runId)).toBe(false)
       expect(m.receipts).toEqual(receipts)
       expect(await workflows.getWorkflowRunById({ runId: victim.runId })).toEqual(snapshot)
@@ -2729,7 +2665,7 @@ describe('Copilot background execution and native history', () => {
     }
   )
 
-  it('durably cancels pending work so another instance cannot resume generation or effects', async () => {
+  it('refuses to resume cancelled work after restart and deletes its native receipts with the thread', async () => {
     setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
     const initial = suspended((await message({ accessLevel: 'limited' })).result)
     const original = initial.pending[0]
@@ -2751,6 +2687,13 @@ describe('Copilot background execution and native history', () => {
     expect(m.route).not.toHaveBeenCalled()
     expect(m.contacts).toHaveLength(1)
     expect(m.accept).toHaveBeenCalledTimes(charges)
+    expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
+    expect(
+      (await command({ command: 'thread.delete', threadId: initial.threadId })).result
+    ).toMatchObject({ status: 'updated', operation: 'thread.delete' })
+    expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
+    expect(await m.memory.getThreadById({ threadId: initial.threadId })).toBeNull()
+    expect(await isCopilotRunCancelled(initial.runId)).toBe(false)
     expect(await threadClaims()).toHaveLength(0)
   })
 
@@ -2846,19 +2789,8 @@ describe('Copilot background execution and native history', () => {
       toolSignal?.throwIfAborted()
       return { results: [], query: 'test', type: 'search', totalResults: 0, source: 'exa' }
     })
-    const response = await executeCopilotCommand(
-      {
-        command: 'message',
-        requestId: crypto.randomUUID(),
-        workspaceId: scope.workspaceId,
-        model: 'configured/model',
-        input: { content: 'Search for test' },
-        accessLevel: 'full',
-      },
-      scope.actorUserId
-    )
-    const accepted = await response.json()
-    expect(accepted.status).toBe('accepted')
+    const { result: accepted } = await message({ accessLevel: 'full' })
+    if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
     const controller = new AbortController()
     let settled = false
     const running = executeCopilotJob(
@@ -2927,18 +2859,8 @@ describe('Copilot background execution and native history', () => {
           : Response.json({ result: {} })
       })
       vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
-      const response = await executeCopilotCommand(
-        {
-          command: 'message',
-          requestId: crypto.randomUUID(),
-          workspaceId: scope.workspaceId,
-          model: 'configured/model',
-          input: { content: 'Rename workflow' },
-          accessLevel: 'full',
-        },
-        scope.actorUserId
-      )
-      const accepted = await response.json()
+      const { result: accepted } = await message({ accessLevel: 'full' })
+      if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
       const running = executeCopilotJob(m.jobs.get(accepted.runId)!.payload)
       try {
         await entered.promise
@@ -3095,25 +3017,15 @@ describe('Copilot background execution and native history', () => {
   it.each(['before worker start', 'during Studio readback'])(
     'keeps an admitted workflow available to Stop after a readback is interrupted %s',
     async (interruption) => {
-      const workflowId = 'owned-workflow'
-      setModel({ tool: 'run_workflow', args: { entityId: workflowId, triggerBlockId: 'trigger' } })
+      setModel(workflowCall)
       const initial = suspended((await message({ accessLevel: 'full' })).result)
-      const target = initial.pending[0].target
+      const { target } = initial.pending[0]
       const run = { scope, threadId: target.threadId, runId: target.runId }
       await db.transaction((tx) => claimCopilotWorkflowAdmission(run, target.toolCallId, tx))
       m.startJobs = false
       m.triggerState.mockResolvedValue({ mode: 'trigger' })
       vi.stubEnv('REDIS_URL', 'redis://shared-streams.invalid')
-      const response = await executeCopilotCommand(
-        {
-          command: 'tool.execute',
-          action: 'readback',
-          target,
-          workspaceId: scope.workspaceId,
-          requestId: crypto.randomUUID(),
-        },
-        scope.actorUserId
-      )
+      const { response } = await command({ command: 'tool.execute', action: 'readback', target })
       expect(response.status).toBe(202)
       const [job] = m.jobs.values()
       if (interruption === 'before worker start') {
@@ -3127,9 +3039,7 @@ describe('Copilot background execution and native history', () => {
           throw new NativeTargetError('Original workflow execution has no terminal result', 409)
         })
         const controller = new AbortController()
-        const running = executeCopilotJob(job.payload, controller.signal).catch((error) =>
-          finalizeCopilotJob(job.payload, String(error))
-        )
+        const running = executeJob(job.id, controller.signal)
         await entered.promise
         controller.abort()
         finish.resolve()
@@ -3144,7 +3054,7 @@ describe('Copilot background execution and native history', () => {
       expect(m.cancelWorkflow).toHaveBeenCalledExactlyOnceWith({
         pendingExecutionId: nativeToolCallId(target),
         userId: scope.actorUserId,
-        workflowId,
+        workflowId: workflowCall.args.entityId,
       })
       expect(await pending(run.threadId)).toEqual([])
       expect(m.contacts).toHaveLength(1)
@@ -3457,20 +3367,6 @@ describe('Copilot background execution and native history', () => {
       spy.mockRestore()
       await successor?.release()
     }
-  })
-
-  it('deletes cancelled native suspensions and their application receipts with the conversation', async () => {
-    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
-    const initial = suspended((await message({ accessLevel: 'limited' })).result)
-    await command({ command: 'cancel', threadId: initial.threadId, runId: initial.runId })
-    expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
-    expect(
-      (await command({ command: 'thread.delete', threadId: initial.threadId })).result
-    ).toMatchObject({ status: 'updated', operation: 'thread.delete' })
-    expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
-    expect(await m.memory.getThreadById({ threadId: initial.threadId })).toBeNull()
-    expect(await isCopilotRunCancelled(initial.runId)).toBe(false)
-    expect(await threadClaims()).toHaveLength(0)
   })
 
   it('refuses to recreate a thread deleted after preflight but before writer admission', async () => {

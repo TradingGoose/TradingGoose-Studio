@@ -58,6 +58,17 @@ function pending(): Pending {
     stage: 'result',
   }
 }
+const deploy = {
+  ...pending(),
+  target: { ...target, toolName: 'deploy_workflow' },
+  originalArgs: { entityId: 'workflow', action: 'deploy', deployType: 'api' },
+}
+const deploymentScope = [
+  'member',
+  'workflow',
+  { workspaceId: null, target: deploy.target },
+] as const
+
 function body() {
   return {
     native: { workspaceId: null, target },
@@ -157,56 +168,32 @@ describe('native business effect admission', () => {
     await authorizeNativeWorkflowQueueEffect('member', 'workflow', request)
   })
   it('deployment validates actual action/entity/type and current authorization before mutation', async () => {
-    const deploy = {
-      ...pending(),
-      target: { ...target, toolName: 'deploy_workflow' },
-      originalArgs: { entityId: 'workflow', action: 'deploy', deployType: 'api' },
-    }
     m.pending.mockResolvedValue(deploy)
-    await authorizeNativeWorkflowDeploymentEffect(
-      'member',
-      'workflow',
-      { workspaceId: null, target: deploy.target },
-      'deploy'
-    )
+    await authorizeNativeWorkflowDeploymentEffect(...deploymentScope, 'deploy')
     expect(m.access).toHaveBeenCalledWith(scope, deploy)
     expect(m.claim).toHaveBeenCalledExactlyOnceWith(run, target.toolCallId, 'browser')
     await expect(
-      authorizeNativeWorkflowDeploymentEffect(
-        'member',
-        'workflow',
-        { workspaceId: null, target: deploy.target },
-        'undeploy'
-      )
+      authorizeNativeWorkflowDeploymentEffect(...deploymentScope, 'undeploy')
     ).rejects.toMatchObject({ status: 403 })
     m.pending.mockResolvedValue({
       ...deploy,
       originalArgs: { ...deploy.originalArgs, deployType: 'chat' },
     })
     await expect(
-      authorizeNativeWorkflowDeploymentEffect(
-        'member',
-        'workflow',
-        { workspaceId: null, target: deploy.target },
-        'deploy'
-      )
+      authorizeNativeWorkflowDeploymentEffect(...deploymentScope, 'deploy')
     ).rejects.toMatchObject({ status: 403 })
   })
-  it('rejects stale callbacks before any effect claim', async () => {
-    m.pending.mockRejectedValueOnce(
-      Object.assign(new Error('Stale pending target'), { status: 409 })
-    )
+  it.each([
+    ['stale pending target', m.pending],
+    ['cancelled run', m.active],
+  ] as const)('rejects %s before any queue effect claim', async (message, check) => {
+    check.mockRejectedValueOnce(Object.assign(new Error(message), { status: 409 }))
     await expect(
       authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
     ).rejects.toMatchObject({ status: 409 })
     expect(m.claimAdmission).not.toHaveBeenCalled()
   })
-  it('rejects cancelled runs and duplicate browser dispatch', async () => {
-    m.active.mockRejectedValueOnce(Object.assign(new Error('Cancelled run'), { status: 409 }))
-    await expect(
-      authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
-    ).rejects.toMatchObject({ status: 409 })
-    expect(m.claimAdmission).not.toHaveBeenCalled()
+  it('rejects duplicate browser dispatch on the admission claim', async () => {
     m.claimAdmission.mockRejectedValueOnce(
       Object.assign(new Error('Already dispatched'), { status: 409 })
     )
@@ -224,19 +211,9 @@ describe('native business effect admission', () => {
       await expect(
         authorizeNativeWorkflowQueueEffect('member', 'workflow', body())
       ).rejects.toMatchObject({ status })
-      const deploy = {
-        ...pending(),
-        target: { ...target, toolName: 'deploy_workflow' },
-        originalArgs: { entityId: 'workflow', action: 'deploy', deployType: 'api' },
-      }
       m.pending.mockResolvedValueOnce(deploy)
       await expect(
-        authorizeNativeWorkflowDeploymentEffect(
-          'member',
-          'workflow',
-          { workspaceId: null, target: deploy.target },
-          'deploy'
-        )
+        authorizeNativeWorkflowDeploymentEffect(...deploymentScope, 'deploy')
       ).rejects.toMatchObject({ status })
       expect(m.claim).not.toHaveBeenCalled()
       expect(m.claimAdmission).not.toHaveBeenCalled()
