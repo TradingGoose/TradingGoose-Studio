@@ -807,11 +807,11 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().isSendingMessage).toBe(false)
   })
 
-  it('restores model and reasoning only within the saved actor and workspace', async () => {
+  it('restores model and reasoning only within the saved actor and workspace', () => {
     vi.stubGlobal('window', { localStorage: sessionStorage })
     const selectedModel = 'openai/gpt-5'
     const reasoning = { type: 'effort', value: 'high' } as const
-    await store().getState().setSelectedModel(selectedModel)
+    store().getState().setSelectedModel(selectedModel)
     store().getState().setReasoning(reasoning)
     resetCopilotStoreRegistry()
     expect(store().getState()).toMatchObject({ selectedModel, reasoning })
@@ -854,7 +854,7 @@ describe('canonical browser conversation transport', () => {
   })
   it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
     'keeps access, model and provider options immutable during %s',
-    async (busyState) => {
+    (busyState) => {
       const selectedModel = store().getState().selectedModel
       const reasoning = { type: 'effort', value: 'high' } as const
       store().getState().setAccessLevel('full')
@@ -865,7 +865,7 @@ describe('canonical browser conversation transport', () => {
         })
       else store().setState({ [busyState]: true })
       store().getState().setAccessLevel('limited')
-      await store().getState().setSelectedModel('openai/gpt-5.6-sol')
+      store().getState().setSelectedModel('openai/gpt-5.6-sol')
       store().getState().setReasoning({ type: 'effort', value: 'low' })
       expect(store().getState()).toMatchObject({
         selectedModel,
@@ -880,13 +880,13 @@ describe('canonical browser conversation transport', () => {
       expect(store().getState().reasoning).toBeUndefined()
     }
   )
-  it('clears provider options only when the selected model changes', async () => {
+  it('clears provider options only when the selected model changes', () => {
     const model = store().getState().selectedModel
     const reasoning = { type: 'effort', value: 'high' } as const
     store().getState().setReasoning(reasoning)
-    await store().getState().setSelectedModel(model)
+    store().getState().setSelectedModel(model)
     expect(store().getState().reasoning).toBe(reasoning)
-    await store().getState().setSelectedModel('openai/gpt-5.6-sol')
+    store().getState().setSelectedModel('openai/gpt-5.6-sol')
     expect(store().getState().reasoning).toBeUndefined()
   })
   it('merges live contexts without promoting UI workspace/entity locators to tool payload authority', async () => {
@@ -1765,7 +1765,7 @@ describe('actual bounded initial-title publication', () => {
           currentChat: { ...store().getState().currentChat!, title: 'Manual title' },
         })
       if (change === 'thread-switch') await store().getState().createNewChat('other-workspace')
-      if (change === 'model-switch') await store().getState().setSelectedModel('openai/gpt-5.6-sol')
+      if (change === 'model-switch') store().getState().setSelectedModel('openai/gpt-5.6-sol')
       if (change === 'new-user-message') await store().getState().sendMessage('Second')
       late.resolve(json({ title: 'Generated title' }))
       await new Promise((resolve) => setTimeout(resolve, 10))

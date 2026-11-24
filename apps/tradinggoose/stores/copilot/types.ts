@@ -105,7 +105,7 @@ export interface CopilotState {
 
 export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
-  setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
+  setSelectedModel: (model: CopilotStore['selectedModel']) => void
   setReasoning: (options: CopilotStore['reasoning']) => void
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>

@@ -102,33 +102,28 @@ async function validateFence(context: WorkerContext, value: unknown) {
     owner.generation !== fence.generation
   )
     throw new NativeTargetError('This Copilot turn no longer owns the conversation', 409)
-  return fence
-}
-
-async function runForJob(job: CopilotJob): Promise<CopilotRun> {
-  const scope = scopeOf(job)
-  return job.request.command === 'message'
-    ? {
-        runId: job.runId,
-        threadId: job.threadId,
-        scope,
-        model: job.request.model,
-        reasoning: job.request.reasoning,
-        accessLevel: job.request.accessLevel ?? 'limited',
-        toolContext: job.request.toolContext,
-        toolContexts: job.toolContexts,
-      }
-    : readCopilotRun(scope, job.threadId, job.runId)
 }
 
 async function prepare(job: CopilotJob, signal?: AbortSignal): Promise<CopilotWorkerPrepared> {
   const scope = scopeOf(job)
   await authorizeNativeConversationScope(scope.actorUserId, scope.workspaceId)
-  const run = await runForJob(job)
+  const request = job.request
+  const run: CopilotRun =
+    request.command === 'message'
+      ? {
+          runId: job.runId,
+          threadId: job.threadId,
+          scope,
+          model: request.model,
+          reasoning: request.reasoning,
+          accessLevel: request.accessLevel ?? 'limited',
+          toolContext: request.toolContext,
+          toolContexts: job.toolContexts,
+        }
+      : await readCopilotRun(scope, job.threadId, job.runId)
   const selected = await resolveCopilotModel(run.model, run.reasoning)
   const model = await resolveConfiguredModel(run.model, selected.apiKey)
   let pending: CopilotWorkerPrepared['pending']
-  const request = job.request
   if (request.command === 'tool.approve' || request.command === 'tool.decline') {
     if (!(await readCopilotAdmission(run, request)))
       throw new NativeTargetError('Tool continuation was not admitted', 403)

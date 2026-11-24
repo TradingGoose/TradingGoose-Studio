@@ -965,7 +965,7 @@ function createCopilotStoreInstance(channelId: string) {
         },
         setDraft: (update) =>
           set((state) => ({ draft: typeof update === 'function' ? update(state.draft) : update })),
-        setSelectedModel: async (selectedModel) => {
+        setSelectedModel: (selectedModel) => {
           if (isCopilotBusy(get()) || get().selectedModel === selectedModel) return
           const dialog = get().workflowChatDeployment
           if (dialog)

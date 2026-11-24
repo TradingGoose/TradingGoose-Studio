@@ -58,7 +58,7 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
     if (!catalog.data || busy) return
     if (catalog.data.models.some(({ id }) => id === selectedModel)) return
     const firstModel = catalog.data.models[0]?.id ?? null
-    if (selectedModel !== firstModel) void setSelectedModel(firstModel)
+    if (selectedModel !== firstModel) setSelectedModel(firstModel)
   }, [busy, catalog.data, selectedModel, setSelectedModel])
 
   const selected = catalog.data?.models.find(({ id }) => id === selectedModel)
@@ -114,7 +114,7 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
                 title={label}
                 aria-label={label}
                 disabled={busy}
-                onClick={() => void setSelectedModel(id)}
+                onClick={() => setSelectedModel(id)}
                 className={cn(
                   'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
                   selectedModel === id && 'bg-muted/40'
