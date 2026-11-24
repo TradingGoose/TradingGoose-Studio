@@ -8,8 +8,9 @@ import {
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { workflowResumeJobId } from '@/lib/workflows/human-in-the-loop/types'
 import type { Pending, Scope } from './contract'
-import { NativeTargetError } from './errors'
+import { NativeTargetError, ObserveResumedWorkflow } from './errors'
 import { nativeToolCallId } from './identity'
 
 function record(value: unknown): Record<string, unknown> {
@@ -35,7 +36,7 @@ export async function readAuthorizedWorkflowExecutionLog(
       )
     )
     .limit(1)
-  if (!row?.endedAt)
+  if (!row || row.executionId !== nativeToolCallId(pending.target))
     throw new NativeTargetError('Original workflow execution has no terminal result', 409)
   const environment = record(record(row.executionData).environment)
   if (
@@ -47,6 +48,22 @@ export async function readAuthorizedWorkflowExecutionLog(
   )
     throw new NativeTargetError('Original execution workspace access has been revoked', 403)
   throwIfServerToolAborted(context)
+  if (!row.endedAt && !record(row.executionData).pause) {
+    const checkpoint = record(record(row.executionData).checkpoint)
+    if (
+      row.workflowId === args.entityId &&
+      typeof checkpoint.revision === 'number' &&
+      Number.isSafeInteger(checkpoint.revision) &&
+      checkpoint.revision > 0 &&
+      checkpoint.activeJobId === workflowResumeJobId(row.executionId, checkpoint.revision)
+    )
+      throw new ObserveResumedWorkflow({
+        workflowId: args.entityId,
+        taskId: row.executionId,
+        executionId: row.executionId,
+      })
+    throw new NativeTargetError('Original workflow execution has no terminal result', 409)
+  }
   return row
 }
 

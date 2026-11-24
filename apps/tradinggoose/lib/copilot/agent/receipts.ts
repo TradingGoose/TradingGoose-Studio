@@ -3,7 +3,7 @@ import { db } from '@tradinggoose/db'
 import { verification } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { CopilotRequest } from '@/lib/copilot/native/contract'
-import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { CopilotRunCancelled, NativeTargetError } from '@/lib/copilot/native/errors'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { type CopilotRun, copilotThreadOwnerId } from './ownership'
 
@@ -72,8 +72,7 @@ export async function cancelCopilotRun(run: ScopedRun) {
 }
 
 export async function assertCopilotRunActive(runId: string) {
-  if (await isCopilotRunCancelled(runId))
-    throw new NativeTargetError('Copilot generation was cancelled; completed effects remain', 409)
+  if (await isCopilotRunCancelled(runId)) throw new CopilotRunCancelled()
 }
 
 export async function isCopilotRunCancelled(runId: string) {

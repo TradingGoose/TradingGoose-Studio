@@ -28,7 +28,7 @@ export async function authorizeNativeConversationScope(
 export async function resolveNativePendingTarget(
   scope: Scope,
   target: Target,
-  stage: Pending['stage'],
+  stage: Pending['stage'] | 'studio',
   signal?: AbortSignal
 ): Promise<ServerPending> {
   if (
@@ -36,11 +36,11 @@ export async function resolveNativePendingTarget(
     target.resourceId !== nativeConversationIdentity(scope).resourceId
   )
     throw new NativeTargetError('Copilot target does not belong to this conversation scope', 403)
-  const items = await listCopilotPending(scope, target.threadId, signal)
+  const items = await listCopilotPending(scope, target.threadId, signal, stage === 'studio')
   const match = items.find(
     (pending) => stableStringifyJsonValue(pending.target) === stableStringifyJsonValue(target)
   )
-  if (!match || match.stage !== stage)
+  if (!match || match.stage !== (stage === 'studio' ? 'result' : stage))
     throw new NativeTargetError('Copilot target is stale or at the wrong suspension stage', 409)
   return match
 }

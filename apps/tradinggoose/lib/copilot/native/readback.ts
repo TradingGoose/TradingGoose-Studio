@@ -22,9 +22,16 @@ export async function readbackNativeToolResult(
         throw new NativeTargetError('Workflow readback does not accept a credential reference', 422)
       const row = await readAuthorizedWorkflowExecutionLog(scope, pending, context)
       const state = createWorkflowExecutionResultFromLog(row)
+      if (!state.result)
+        throw new NativeTargetError('Original workflow execution has no terminal result', 409)
       return {
         executionId: row.executionId,
-        message: state.failureReason ?? 'Workflow execution completed',
+        message:
+          state.status === 'paused'
+            ? 'Workflow paused for review'
+            : state.status === 'completed'
+              ? 'Workflow execution completed'
+              : (state.failureReason ?? 'Workflow execution failed'),
         data: state.result,
       }
     }

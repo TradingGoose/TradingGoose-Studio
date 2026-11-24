@@ -15,6 +15,7 @@ import type {
   CopilotToolContext,
   SafeError,
   Scope,
+  WorkflowObservation,
 } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
@@ -26,7 +27,7 @@ export interface CopilotRun {
   threadId: string
   scope: Scope
   model: string
-  providerOptions?: Extract<CopilotRequest, { command: 'message' }>['providerOptions']
+  reasoning?: Extract<CopilotRequest, { command: 'message' }>['reasoning']
   accessLevel: CopilotAccessLevel
   toolContext?: CopilotToolContext
   toolContexts?: CopilotToolContext[]
@@ -38,6 +39,8 @@ export interface CopilotJobState {
   triggerRunId?: string
   admissionGeneration?: number
   status?: 'success' | 'suspended' | 'failed' | 'aborted'
+  readbackRequestId?: string
+  workflowObservation?: WorkflowObservation
   error?: SafeError
 }
 

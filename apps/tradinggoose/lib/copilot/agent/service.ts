@@ -17,7 +17,11 @@ import {
   type Scope,
 } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
-import { readNativeThread, readNativeThreadHistory } from '@/lib/copilot/native/history'
+import {
+  publicCopilotMessage,
+  readNativeThread,
+  readNativeThreadHistory,
+} from '@/lib/copilot/native/history'
 import { nativeAdmissionId, nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import {
   authorizeNativeConversationScope,
@@ -25,6 +29,8 @@ import {
   type ServerPending,
 } from '@/lib/copilot/native/target'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
+import { validateCopilotModel } from '@/lib/copilot/settings.server'
+import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { dispatchBackgroundExecution } from '@/lib/execution/background-execution'
 import type { PendingExecutionPayload } from '@/lib/execution/pending-execution'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
@@ -59,9 +65,12 @@ import {
   readCopilotAdmission,
 } from './receipts'
 import { assertCopilotThreadReady, deleteCopilotThread, readCopilotThreadRun } from './state'
-import { CopilotJobSchema, CopilotSuspendSchema } from './worker-contract'
+import {
+  COPILOT_CANCELLATION_POLL_INTERVAL,
+  CopilotJobSchema,
+  CopilotSuspendSchema,
+} from './worker-contract'
 
-const CANCELLATION_POLL_INTERVAL = 500
 const CANCELLATION_TIMEOUT = 30_000
 
 async function requireThread(scope: Scope, threadId: string, signal?: AbortSignal) {
@@ -74,7 +83,8 @@ async function requireThread(scope: Scope, threadId: string, signal?: AbortSigna
 export async function listCopilotPending(
   scope: Scope,
   threadId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  privateDispatch = false
 ): Promise<ServerPending[]> {
   await requireThread(scope, threadId, signal)
   const { resourceId } = nativeConversationIdentity(scope)
@@ -90,6 +100,12 @@ export async function listCopilotPending(
       const payload = call.requiresApproval
         ? undefined
         : CopilotSuspendSchema.parse(call.suspendPayload)
+      if (Boolean(payload?.studioDispatch) !== privateDispatch) continue
+      if (
+        privateDispatch &&
+        (getCopilotToolPolicy(call.toolName).execution !== 'server' || payload?.preview)
+      )
+        throw new NativeTargetError('Invalid Studio dispatch stage', 409)
       const args = parseNativeToolArguments(
         call.requiresApproval ? call.args : payload!.originalArgs
       )
@@ -161,16 +177,30 @@ function projectChunk<T>(part: ChunkType<T>): CopilotOutputEvent | undefined {
     }
 }
 
-async function readCopilotHistory(
+async function projectPendingJob(
   scope: Scope,
   threadId: string,
+  job: CopilotJobState | undefined,
   signal?: AbortSignal
-): Promise<HistoryResponse> {
+): Promise<Pick<HistoryResponse, 'pending' | 'readbackRequestId' | 'workflowObservation'>> {
+  const pending = (await listCopilotPending(scope, threadId, signal)).map(publicPending)
+  const observation = job?.workflowObservation
   return {
-    status: 'history',
-    threadId,
-    items: await readNativeThreadHistory(scope, threadId, signal),
-    pending: (await listCopilotPending(scope, threadId, signal)).map(publicPending),
+    pending,
+    ...(job?.readbackRequestId ? { readbackRequestId: job.readbackRequestId } : {}),
+    ...(job?.status === 'suspended' &&
+    observation &&
+    job.readbackRequestId === observation.requestId &&
+    job.id === nativeAdmissionId(scope, observation.requestId) &&
+    (await readCopilotJob(scope, threadId))?.id === job.id &&
+    pending.some(
+      (call) =>
+        call.stage === 'result' &&
+        call.target.toolName === 'run_workflow' &&
+        stableStringifyJsonValue(call.target) === stableStringifyJsonValue(observation.target)
+    )
+      ? { workflowObservation: observation }
+      : {}),
   }
 }
 
@@ -196,7 +226,7 @@ async function* observeThread(
         ? Promise.race([
             next,
             new Promise<undefined>((resolve) => {
-              const timer = setTimeout(resolve, CANCELLATION_POLL_INTERVAL)
+              const timer = setTimeout(resolve, COPILOT_CANCELLATION_POLL_INTERVAL)
               clearTick = () => clearTimeout(timer)
             }),
           ]).finally(() => clearTick?.())
@@ -221,7 +251,12 @@ async function* observeThread(
             type: 'thread.status',
             runId: settled.runId,
             status: settled.status,
-            history: await readCopilotHistory(scope, threadId, signal),
+            history: {
+              status: 'history',
+              threadId,
+              items: await readNativeThreadHistory(scope, threadId, signal),
+              ...(await projectPendingJob(scope, threadId, settled, signal)),
+            },
             ...(settled.error ? { error: settled.error } : {}),
           }
         }
@@ -243,8 +278,10 @@ async function* observeThread(
           result: {
             status: 'history',
             threadId,
-            items: part.payload.messages.map(projectNativeMessage),
-            pending: (await listCopilotPending(scope, threadId, signal)).map(publicPending),
+            items: part.payload.messages.map((message) =>
+              publicCopilotMessage(projectNativeMessage(message))
+            ),
+            ...(await projectPendingJob(scope, threadId, job, signal)),
           },
           activeRunId,
           ...(job?.error ? { error: job.error } : {}),
@@ -431,6 +468,7 @@ async function dispatchCopilotCommand(
   try {
     if (request.command === 'message') {
       if (request.threadId) await requireThread(scope, threadId, signal)
+      await validateCopilotModel(request.model, request.reasoning)
     } else {
       await resolveNativePendingTarget(
         scope,
@@ -451,13 +489,18 @@ async function dispatchCopilotCommand(
       if (!owner?.live || owner.ownerId !== runId) break
       if (request.command !== 'message' && (await readCopilotJob(scope, threadId))?.id !== jobId)
         break
-      await delay(CANCELLATION_POLL_INTERVAL, undefined, { signal })
+      await delay(COPILOT_CANCELLATION_POLL_INTERVAL, undefined, { signal })
     }
     throw error
   }
   const job: CopilotJobState = {
     id: jobId,
     runId,
+    ...(request.command === 'tool.execute' &&
+    request.action === 'readback' &&
+    request.target.toolName === 'run_workflow'
+      ? { readbackRequestId: request.requestId }
+      : {}),
     ...(mode === 'local' ? { admissionGeneration: ownership.fence.generation } : {}),
   }
   let localDispatched = false
@@ -586,12 +629,17 @@ async function interruptCopilotJob(
     await ownership.run(async () => {
       const current = await readCopilotJob(scope, threadId)
       if (current?.status) return
+      const cancelled = await isCopilotRunCancelled(job.runId)
       await cancelCopilotRun({ runId: job.runId, threadId, scope })
       await deleteCopilotRunSnapshot(job.runId)
-      await saveCopilotJob(scope, threadId, job.id, {
-        status: 'failed',
-        error: copilotFailure(new Error(message)).error,
-      })
+      await saveCopilotJob(
+        scope,
+        threadId,
+        job.id,
+        cancelled
+          ? { status: 'aborted' }
+          : { status: 'failed', error: copilotFailure(new Error(message)).error }
+      )
     })
   } finally {
     await ownership.release()

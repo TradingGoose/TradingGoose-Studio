@@ -3,7 +3,7 @@ import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { MAX_COPILOT_CONTEXTS_PER_TURN } from '@/lib/copilot/context-limits'
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import type { NativeHistoryMessage } from '@/lib/mastra/messages'
-import { providerOptionsSchema } from '@/lib/mastra/options'
+import { reasoningSchema } from '@/lib/mastra/reasoning'
 import type { NativeUsage } from '@/lib/mastra/usage'
 
 export type Json = null | boolean | number | string | Json[] | JsonObject
@@ -19,6 +19,16 @@ const id = z.string().min(1)
 export const TargetSchema = z
   .object({ threadId: id, resourceId: id, runId: id, toolCallId: id, toolName: id })
   .strict()
+export const WorkflowObservationSchema = z
+  .object({
+    requestId: z.uuid(),
+    nextRequestId: z.uuid(),
+    target: TargetSchema,
+    handle: z.object({ workflowId: id, taskId: id, executionId: id }).strict(),
+  })
+  .strict()
+export type WorkflowObservation = z.infer<typeof WorkflowObservationSchema>
+
 export const InputSchema = z
   .object({
     content: z.union([
@@ -62,7 +72,7 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       messageId: id.optional(),
       input: InputSchema,
       model: id,
-      providerOptions: providerOptionsSchema.optional(),
+      reasoning: reasoningSchema.optional(),
       accessLevel: z.enum(['limited', 'full']).optional(),
       toolContext: ToolContextSchema.optional(),
     })
@@ -149,6 +159,8 @@ export interface HistoryResponse {
   threadId: string
   items: NativeHistoryMessage[]
   pending: Pending[]
+  readbackRequestId?: string
+  workflowObservation?: WorkflowObservation
 }
 export interface MutationResponse {
   status: 'updated'

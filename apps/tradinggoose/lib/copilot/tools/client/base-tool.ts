@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import type { BrowserAssertion } from '@/lib/copilot/native/contract'
+import type { TrackWorkflowAdmission } from '@/lib/workflows/queued-execution-client'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 // Client tool call states used by the new runtime
@@ -45,6 +46,7 @@ export interface BaseClientToolMetadata {
 }
 
 export interface ClientToolExecutionContext {
+  onWorkflowAdmission?: TrackWorkflowAdmission
   workspaceId?: string
 }
 
@@ -60,6 +62,24 @@ export abstract class BaseClientTool {
   }
   hasSubmittedResult() {
     return this.resultSubmitted
+  }
+  async executeWithTimeout(execute: () => Promise<void>, timeoutMs: number) {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      await Promise.race([
+        execute(),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('Tool request timed out; its effect outcome was not verified')),
+            timeoutMs
+          )
+        }),
+      ])
+    } catch (error) {
+      this.fail(error instanceof Error ? error.message : 'Tool execution failed')
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
   }
   abstract execute(args?: Record<string, any>): Promise<void>
   setExecutionContext(context: ClientToolExecutionContext) {

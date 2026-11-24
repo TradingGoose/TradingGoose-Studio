@@ -25,7 +25,9 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
     },
     reasoning: {
       label: 'Thinking / Reasoning',
-      description: 'Native Provider Options for this model.',
+      providerDefault: 'Provider default',
+      on: 'On',
+      off: 'Off',
       providerOptions: 'Provider Options (JSON)',
       effort: 'Published effort values',
       budget: 'Thinking-token budget',
@@ -65,7 +67,7 @@ vi.mock('@/components/ui', async () => {
     },
     PopoverContent: ({ align: _align, side: _side, children, ...props }: any) =>
       useContext(OptionsContext).open ? <div {...props}>{children}</div> : null,
-    Textarea: (props: any) => <textarea {...props} />,
+    Input: (props: any) => <input {...props} />,
   }
 })
 
@@ -99,8 +101,8 @@ beforeEach(() => {
     setAccessLevel: vi.fn(),
     selectedModel: null,
     setSelectedModel: vi.fn(),
-    providerOptions: undefined,
-    setProviderOptions: vi.fn(),
+    reasoning: undefined,
+    setReasoning: vi.fn(),
     isSendingMessage: false,
     isAwaitingContinuation: false,
     isAborting: false,
@@ -206,18 +208,16 @@ it('preserves a valid selection and replaces a removed selection on catalog refr
   expect(state.setSelectedModel).toHaveBeenLastCalledWith(null)
 })
 
-it('applies native provider options without mutating drafts or translating fields', () => {
-  state.selectedModel = 'openai/reasoning-model'
-  state.providerOptions = { openai: { reasoningEffort: 'low' } }
+it('offers only supported choices and locks an open editor while busy', () => {
+  state.selectedModel = 'openai/gpt-5'
   catalog.data = {
     models: [
       {
         id: state.selectedModel,
         label: state.selectedModel,
-        reasoning: true,
         reasoningOptions: [
           { type: 'effort', values: ['low', 'high'] },
-          { type: 'budget_tokens', min: 1024, max: 32768 },
+          { type: 'budget_tokens', min: 0, max: 12 },
           { type: 'toggle' },
         ],
       },
@@ -227,81 +227,44 @@ it('applies native provider options without mutating drafts or translating field
   act(() =>
     container.querySelector<HTMLButtonElement>('[aria-label="Thinking / Reasoning"]')!.click()
   )
-  expect(container.textContent).toContain('Published effort values: low, high')
-  expect(container.textContent).toContain('Thinking-token budget · minimum 1024 · maximum 32768')
-  expect(container.textContent).toContain('On/off thinking control')
-
-  const field = container.querySelector('textarea')!
-  const edit = (value: string) =>
-    act(() => {
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(
-        field,
-        value
-      )
-      field.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-  const apply = () =>
-    act(() =>
-      [...container.querySelectorAll('button')]
-        .find((button) => button.textContent === 'Apply')!
-        .click()
-    )
-  edit('{invalid')
-  apply()
-  expect(container.querySelector('[role="alert"]')).toHaveTextContent(
-    'Invalid Provider Options JSON'
+  const select = container.querySelector('select')!
+  expect([...select.options].map((o) => o.value)).toEqual([
+    'auto',
+    'low',
+    'high',
+    'budget_tokens',
+    'true',
+    'false',
+  ])
+  act(() => {
+    select.value = 'false'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  act(() =>
+    [...container.querySelectorAll('button')].find((b) => b.textContent === 'Apply')!.click()
   )
-  expect(state.setProviderOptions).not.toHaveBeenCalled()
-  edit('{"anthropic":{"mcpServers":[{"type":"url","url":"https://tools.example.test"}]}}')
-  apply()
-  expect(container.querySelector('[role="alert"]')).toHaveTextContent(
-    'Invalid Provider Options JSON'
+  expect(state.setReasoning).toHaveBeenCalledExactlyOnceWith({ type: 'toggle', value: false })
+  act(() =>
+    container.querySelector<HTMLButtonElement>('[aria-label="Thinking / Reasoning"]')!.click()
   )
-  expect(state.setProviderOptions).not.toHaveBeenCalled()
-  const options = {
-    openai: {
-      reasoningEffort: 'high',
-      promptCacheKey: 'conversation-cache',
-      textVerbosity: 'low',
-      futureGenerationOption: { enabled: true },
-    },
-  }
-  edit(JSON.stringify(options))
-  expect(state.providerOptions).toEqual({ openai: { reasoningEffort: 'low' } })
-  apply()
-  expect(state.setProviderOptions).toHaveBeenCalledExactlyOnceWith(options)
-  expect(container.querySelector('textarea')).toBeNull()
+  state.isSendingMessage = true
+  render()
+  expect(container.querySelector('select')).toBeDisabled()
 })
 
-it.each([{ reasoning: false }, { reasoningOptions: [] }])(
-  'disables reasoning for known unsupported metadata %j',
+it.each([{}, { reasoningOptions: [] }])(
+  'hides reasoning without public choices and clears stale preferences %j',
   (metadata) => {
     state.selectedModel = 'openai/text-model'
+    state.reasoning = { type: 'effort', value: 'high' }
     catalog.data = {
       models: [{ id: state.selectedModel, label: state.selectedModel, ...metadata }],
     }
     render()
-    expect(container.querySelector('[aria-label="Thinking / Reasoning"]')).toBeDisabled()
+    expect(container.querySelector('[aria-label="Thinking / Reasoning"]')).toBeNull()
+    expect(state.setReasoning).toHaveBeenCalledWith(undefined)
   }
 )
-
-it('allows unknown reasoning metadata and locks an open editor while the response is busy', () => {
-  state.selectedModel = 'openai/future-model'
-  catalog.data = { models: [{ id: state.selectedModel, label: state.selectedModel }] }
-  render()
-  const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Thinking / Reasoning"]')!
-  expect(trigger).toBeEnabled()
-  act(() => trigger.click())
-  state.isSendingMessage = true
-  render()
-  expect(container.querySelector('textarea')).toBeDisabled()
-  for (const button of container.querySelectorAll('button')) expect(button).toBeDisabled()
-  expect(state.setProviderOptions).not.toHaveBeenCalled()
-  state.isSendingMessage = false
-  catalog.data.models[0].reasoning = false
-  render()
-  expect(container.querySelector('textarea')).toBeDisabled()
-})
 
 it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
   'locks access and model and hides a removed route during %s',

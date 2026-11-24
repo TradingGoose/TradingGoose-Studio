@@ -81,7 +81,7 @@ export interface WorkflowChatDeploymentRequest {
 export interface CopilotState {
   accessLevel: CopilotAccessLevel
   selectedModel: string | null
-  providerOptions?: Extract<CopilotRequest, { command: 'message' }>['providerOptions']
+  reasoning?: Extract<CopilotRequest, { command: 'message' }>['reasoning']
 
   currentChat: CopilotChat | null
   conversationWorkspaceId: string | null
@@ -106,7 +106,7 @@ export interface CopilotState {
 export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
-  setProviderOptions: (options: CopilotStore['providerOptions']) => void
+  setReasoning: (options: CopilotStore['reasoning']) => void
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>

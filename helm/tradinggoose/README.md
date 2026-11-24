@@ -711,3 +711,7 @@ kubectl logs job/<release>-migrations
 - Documentation: https://docs.tradinggoose.ai
 - GitHub Issues: https://github.com/TradingGoose/TradingGoose-Studio/issues
 - Discord: https://discord.gg/wavf5JWhuT
+
+### Copilot worker connectivity
+
+Local jobs call the app listener on loopback. Trigger workers use the configured Studio URL. Set `COPILOT_STUDIO_ORIGIN` on the worker to reach a long-running Studio service when a public frontend has a shorter function lifetime. Run the same Studio revision with shared Postgres, Redis, signing secrets, and business configuration. The Studio tool response sends a heartbeat every 25 seconds. Preserve streaming through NGINX and ALB. The GCE example attaches a 660-second BackendConfig to the app Service's `http` port to cover the 600-second worker budget and cancellation drainage.

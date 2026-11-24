@@ -1,15 +1,15 @@
-import type { RunFence } from '@mastra/core/storage'
 import { z } from 'zod'
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { validateNativeBrowserAssertion } from '@/lib/copilot/native/browser-assertion'
 import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
 import { COPILOT_CONTEXT_PART } from '@/lib/copilot/native/contract'
-import { NativeTargetError } from '@/lib/copilot/native/errors'
-import { nativeAdmissionId, nativeConversationIdentity } from '@/lib/copilot/native/identity'
+import { NativeTargetError, ObserveResumedWorkflow } from '@/lib/copilot/native/errors'
+import { nativeAdmissionId } from '@/lib/copilot/native/identity'
 import { readbackNativeToolResult } from '@/lib/copilot/native/readback'
 import {
   authorizeNativeConversationScope,
   resolveNativePendingTarget,
+  type ServerPending,
 } from '@/lib/copilot/native/target'
 import { isToolId, ToolArgSchemas, ToolResultSchemas } from '@/lib/copilot/registry'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
@@ -17,16 +17,26 @@ import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { getCopilotToolPolicy, isWorkspaceAgnosticServerTool } from '@/lib/copilot/tool-policy'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
+import { nativeReasoningSettings } from '@/lib/mastra/native-reasoning'
 import { createModelUsageAccounting } from '@/lib/mastra/request'
-import { getNativeMemoryStore, getNativeWorkflowsStore } from '@/lib/mastra/runtime'
-import { type CopilotDecision, readCopilotRun, resolveCopilotRunToolContext } from './context'
+import { getNativeMemoryStore } from '@/lib/mastra/runtime'
+import { type CopilotDecision, readCopilotRun } from './context'
+import { copilotFailure } from './errors'
 import {
   type CopilotRun,
-  maintainCopilotThreadLease,
+  claimCopilotThread,
+  deleteCopilotRunSnapshot,
   readCopilotJob,
   readCopilotThreadOwnership,
+  saveCopilotJob,
 } from './ownership'
-import { assertCopilotRunActive, cancelCopilotRun, claimCopilotEffect } from './receipts'
+import {
+  assertCopilotRunActive,
+  cancelCopilotRun,
+  claimCopilotEffect,
+  isCopilotRunCancelled,
+  readCopilotAdmission,
+} from './receipts'
 import {
   COPILOT_CANCELLATION_POLL_INTERVAL,
   type CopilotJob,
@@ -34,7 +44,7 @@ import {
   type CopilotWorkerOperation,
   type CopilotWorkerOperations,
   type CopilotWorkerPrepared,
-  type CopilotWorkerToolInput,
+  CopilotWorkerToolInputSchema,
   type CopilotWorkerToolResult,
 } from './worker-contract'
 
@@ -92,10 +102,7 @@ async function validateFence(context: WorkerContext, value: unknown) {
     owner.generation !== fence.generation
   )
     throw new NativeTargetError('This Copilot turn no longer owns the conversation', 409)
-  return {
-    fence,
-    leaseDeadline: performance.now() + Math.max(0, owner.leaseExpiresAt!.getTime() - Date.now()),
-  }
+  return fence
 }
 
 async function runForJob(job: CopilotJob): Promise<CopilotRun> {
@@ -106,7 +113,7 @@ async function runForJob(job: CopilotJob): Promise<CopilotRun> {
         threadId: job.threadId,
         scope,
         model: job.request.model,
-        providerOptions: job.request.providerOptions,
+        reasoning: job.request.reasoning,
         accessLevel: job.request.accessLevel ?? 'limited',
         toolContext: job.request.toolContext,
         toolContexts: job.toolContexts,
@@ -118,60 +125,15 @@ async function prepare(job: CopilotJob, signal?: AbortSignal): Promise<CopilotWo
   const scope = scopeOf(job)
   await authorizeNativeConversationScope(scope.actorUserId, scope.workspaceId)
   const run = await runForJob(job)
-  const selected = await resolveCopilotModel(run.model)
+  const selected = await resolveCopilotModel(run.model, run.reasoning)
   const model = await resolveConfiguredModel(run.model, selected.apiKey)
   let pending: CopilotWorkerPrepared['pending']
-  let decision: CopilotDecision | undefined
   const request = job.request
-  if ('target' in request) {
-    pending = await resolveNativePendingTarget(
-      scope,
-      request.target,
-      request.command === 'tool.approve' || request.command === 'tool.decline'
-        ? 'approval'
-        : 'result',
-      signal
-    )
-    if (request.command !== 'tool.execute') await authorizeNativeBusinessResult(scope, pending)
-    if (request.command === 'tool.result') {
-      validateNativeBrowserAssertion(pending, request.assertion)
-      decision = {
-        action: 'result',
-        result:
-          request.assertion.kind === 'ui.opened'
-            ? {
-                message:
-                  'The requested Studio dialog was opened. User completion is still required.',
-              }
-            : request.assertion.data,
-      }
-    } else if (request.command === 'tool.execute') {
-      const businessContext = { ...pending.context, userId: run.scope.actorUserId, signal }
-      for (const [key, value] of Object.entries(request.context ?? {})) {
-        if (value === undefined || value === pending.context?.[key as keyof typeof pending.context])
-          continue
-        if (
-          key === 'workspaceId' &&
-          !pending.context?.workspaceId &&
-          ['gdrive_request_access', 'oauth_request_access'].includes(pending.target.toolName)
-        ) {
-          await authorizeNativeConversationScope(run.scope.actorUserId, value)
-          businessContext.workspaceId = value
-        } else throw new NativeTargetError('The original tool context has changed', 403)
-      }
-      if (request.action !== 'readback')
-        await authorizeNativeBusinessResult(scope, pending, undefined, businessContext)
-      if (request.action === 'readback')
-        decision = {
-          action: 'result',
-          result: await readbackNativeToolResult(scope, pending, businessContext, request.readback),
-        }
-      else {
-        if (!pending.preview || !pending.reviewBaseStateHash)
-          throw new NativeTargetError('The current tool preview is required', 409)
-        decision = { action: request.action }
-      }
-    }
+  if (request.command === 'tool.approve' || request.command === 'tool.decline') {
+    if (!(await readCopilotAdmission(run, request)))
+      throw new NativeTargetError('Tool continuation was not admitted', 403)
+    pending = await resolveNativePendingTarget(scope, request.target, 'approval', signal)
+    await authorizeNativeBusinessResult(scope, pending)
   }
   let contexts: CopilotWorkerPrepared['contexts'] = []
   if (request.command === 'message') {
@@ -196,58 +158,44 @@ async function prepare(job: CopilotJob, signal?: AbortSignal): Promise<CopilotWo
         { signal }
       )
   }
-  return { run, pending, decision, contexts, model }
+  return {
+    run,
+    pending,
+    contexts,
+    model,
+    reasoning: run.reasoning && nativeReasoningSettings(run.model, run.reasoning),
+  }
 }
 
 /** Studio owns business authorization, approvals and effects; the worker owns native suspension. */
 export async function executeCopilotWorkerTool(
-  input: Omit<CopilotWorkerToolInput, 'fence'>,
+  input: { run: CopilotRun; pending: ServerPending; decision?: CopilotDecision },
   signal?: AbortSignal
 ): Promise<CopilotWorkerToolResult> {
-  const { run, pending: previous, decision, toolName: name, toolCallId } = input
+  const { run, pending, decision } = input
+  const { toolName: name, toolCallId } = pending.target
   if (!isToolId(name)) throw new NativeTargetError('Unknown native tool', 422)
-  const args = ToolArgSchemas[name].parse(input.args)
+  const args = ToolArgSchemas[name].parse(pending.originalArgs)
   signal?.throwIfAborted()
   await authorizeNativeConversationScope(run.scope.actorUserId, run.scope.workspaceId)
   await assertCopilotRunActive(run.runId)
-  const resumed =
-    previous?.target.runId === run.runId &&
-    previous.target.threadId === run.threadId &&
-    previous.target.toolCallId === toolCallId &&
-    previous.target.toolName === name
-  if (resumed && stableStringifyJsonValue(previous.originalArgs) !== stableStringifyJsonValue(args))
-    throw new NativeTargetError('Suspended Copilot tool arguments have changed', 403)
-  const pending = {
-    target: {
-      threadId: run.threadId,
-      resourceId: nativeConversationIdentity(run.scope).resourceId,
-      runId: run.runId,
-      toolCallId,
-      toolName: name,
-    },
-    stage: 'result' as const,
-    originalArgs: args,
-    context: isWorkspaceAgnosticServerTool(name)
-      ? run.scope.workspaceId
-        ? { workspaceId: run.scope.workspaceId }
-        : undefined
-      : resolveCopilotRunToolContext(run, name, args),
-    ...(resumed && previous.preview ? { preview: previous.preview } : {}),
-  }
+  const context = isWorkspaceAgnosticServerTool(name)
+    ? { workspaceId: run.scope.workspaceId ?? undefined }
+    : pending.context
   const businessContext = {
-    ...pending.context,
+    ...context,
     userId: run.scope.actorUserId,
     accessLevel: run.accessLevel,
     signal,
   }
-  if (!(resumed && decision?.action === 'result'))
+  if (decision?.action !== 'result')
     await authorizeNativeBusinessResult(run.scope, pending, undefined, businessContext)
   let result: unknown
-  if (resumed && decision?.action === 'result') result = decision.result
+  if (decision?.action === 'result') result = decision.result
   else if (pending.preview || getCopilotToolPolicy(name).execution === 'server') {
     const { routeExecution } = await import('@/lib/copilot/tools/server/router')
     if (pending.preview) {
-      const baseStateHash = previous?.reviewBaseStateHash
+      const baseStateHash = pending.reviewBaseStateHash
       if (
         !decision ||
         !['review.accept', 'review.reject'].includes(decision.action) ||
@@ -285,33 +233,165 @@ export async function executeCopilotWorkerTool(
   return { result: typed }
 }
 
-async function withToolLease<T>(
-  runId: string,
-  fence: RunFence,
-  leaseDeadline: number,
-  signal: AbortSignal | undefined,
-  operation: (signal: AbortSignal) => Promise<T>
+async function executeSavedTool(
+  identity: CopilotWorkerIdentity,
+  input: ReturnType<typeof CopilotWorkerToolInputSchema.parse>,
+  signal: AbortSignal
 ) {
-  const workflows = await getNativeWorkflowsStore()
-  const lease = maintainCopilotThreadLease(workflows, fence, leaseDeadline)
-  const cancellation = new AbortController()
-  let checking: Promise<void> | undefined
-  const cancellationTimer = setInterval(() => {
-    if (checking || cancellation.signal.aborted) return
-    checking = assertCopilotRunActive(runId)
-      .catch((error) => cancellation.abort(error))
-      .finally(() => {
-        checking = undefined
-      })
-  }, COPILOT_CANCELLATION_POLL_INTERVAL)
-  try {
-    await lease.renew()
-    return await operation(
-      AbortSignal.any([lease.signal, cancellation.signal, ...(signal ? [signal] : [])])
+  const scope = scopeOf(identity)
+  const { target, admission, stage } = input
+  if (target.threadId !== identity.threadId || target.runId !== identity.runId)
+    throw new NativeTargetError('The tool belongs to another Copilot run', 403)
+  const run = await readCopilotRun(scope, target.threadId, target.runId)
+  if (admission) {
+    if (
+      admission.workspaceId !== scope.workspaceId ||
+      admission.target.threadId !== run.threadId ||
+      admission.target.runId !== run.runId ||
+      nativeAdmissionId(scope, admission.requestId) !== identity.jobId ||
+      !(await readCopilotAdmission(run, admission))
     )
+      throw new NativeTargetError('Tool continuation was not admitted', 403)
+  } else if (identity.jobId !== run.runId)
+    throw new NativeTargetError('Tool continuation requires its admitted command', 403)
+  const pending = await resolveNativePendingTarget(scope, target, stage, signal)
+  let decision: CopilotDecision | undefined
+  if (stage === 'result') {
+    const continuation = admission
+    if (
+      (continuation?.command !== 'tool.execute' && continuation?.command !== 'tool.result') ||
+      stableStringifyJsonValue(continuation.target) !== stableStringifyJsonValue(target)
+    )
+      throw new NativeTargetError('Tool decision does not match the saved target', 403)
+    await resolveCopilotModel(run.model, run.reasoning)
+    if (continuation.command === 'tool.result') {
+      await authorizeNativeBusinessResult(scope, pending)
+      validateNativeBrowserAssertion(pending, continuation.assertion)
+      decision = {
+        action: 'result',
+        result:
+          continuation.assertion.kind === 'ui.opened'
+            ? {
+                message:
+                  'The requested Studio dialog was opened. User completion is still required.',
+              }
+            : continuation.assertion.data,
+      }
+    } else {
+      const context = { ...pending.context, userId: scope.actorUserId, signal }
+      for (const [key, value] of Object.entries(continuation.context ?? {})) {
+        if (value === undefined || value === pending.context?.[key as keyof typeof pending.context])
+          continue
+        if (
+          key === 'workspaceId' &&
+          !pending.context?.workspaceId &&
+          ['gdrive_request_access', 'oauth_request_access'].includes(target.toolName)
+        ) {
+          await authorizeNativeConversationScope(scope.actorUserId, value)
+          context.workspaceId = value
+        } else throw new NativeTargetError('The original tool context has changed', 403)
+      }
+      if (continuation.action === 'readback') {
+        // The readback authorizes the selected workspace and reads the canonical postcondition.
+        const result = await readbackNativeToolResult(
+          scope,
+          pending,
+          context,
+          continuation.readback
+        )
+        if (!isToolId(target.toolName)) throw new NativeTargetError('Unknown native tool', 422)
+        const typed = ToolResultSchemas[target.toolName].parse(result)
+        if (target.toolName !== 'run_workflow')
+          await authorizeNativeBusinessResult(scope, pending, typed, context)
+        return { result: typed }
+      }
+      if (!pending.preview || !pending.reviewBaseStateHash)
+        throw new NativeTargetError('The current tool preview is required', 409)
+      decision = { action: continuation.action }
+    }
+  }
+  try {
+    return await executeCopilotWorkerTool({ run, pending, decision }, signal)
+  } catch (error) {
+    signal.throwIfAborted()
+    if (error instanceof NativeTargetError) return { error: copilotFailure(error).error.message }
+    return { error: buildCopilotServerToolErrorResponse(target.toolName, error).body.error }
+  }
+}
+
+async function ownStudioTool(
+  identity: CopilotWorkerIdentity,
+  input: ReturnType<typeof CopilotWorkerToolInputSchema.parse>,
+  requestSignal?: AbortSignal
+) {
+  const scope = scopeOf(identity)
+  const owner = await claimCopilotThread(
+    scope,
+    identity.threadId,
+    identity.runId,
+    identity.jobId,
+    input.fence.generation
+  )
+  const stop = new AbortController()
+  const signal = AbortSignal.any([
+    owner.signal,
+    stop.signal,
+    ...(requestSignal ? [requestSignal] : []),
+  ])
+  let checking: Promise<void> | undefined
+  const timer = setInterval(() => {
+    if (!checking && !signal.aborted)
+      checking = assertCopilotRunActive(identity.runId)
+        .catch((error) => stop.abort(error))
+        .finally(() => {
+          checking = undefined
+        })
+  }, COPILOT_CANCELLATION_POLL_INTERVAL)
+  let handback = false
+  try {
+    const value = await owner.run(async () => {
+      await owner.renew()
+      if ((await readCopilotJob(scope, identity.threadId))?.status)
+        throw new NativeTargetError('This Copilot job has already ended', 409)
+      await authorizeNativeConversationScope(scope.actorUserId, scope.workspaceId)
+      await assertCopilotRunActive(identity.runId)
+      signal.throwIfAborted()
+      try {
+        return { response: await executeSavedTool(identity, input, signal) }
+      } catch (error) {
+        if (error instanceof ObserveResumedWorkflow) return { observe: error.handle }
+        throw error
+      }
+    })
+    await assertCopilotRunActive(identity.runId)
+    signal.throwIfAborted()
+    await owner.renew()
+    handback = true
+    return { generation: owner.fence.generation, ...value }
+  } catch (error) {
+    // A disconnected caller cannot acknowledge the effect. Settle only after the operation drained.
+    if (!owner.signal.aborted)
+      await owner.run(async () => {
+        if ((await readCopilotJob(scope, identity.threadId))?.status) return
+        const cancelled = await isCopilotRunCancelled(identity.runId)
+        if (cancelled || signal.aborted || input.stage === 'studio') {
+          await cancelCopilotRun({ scope, runId: identity.runId, threadId: identity.threadId })
+          await deleteCopilotRunSnapshot(identity.runId)
+        }
+        await saveCopilotJob(
+          scope,
+          identity.threadId,
+          identity.jobId,
+          cancelled
+            ? { status: 'aborted' }
+            : { status: 'failed', error: copilotFailure(error).error }
+        )
+      })
+    throw error
   } finally {
-    clearInterval(cancellationTimer)
-    await lease.handoff()
+    clearInterval(timer)
+    if (handback) await owner.handoff()
+    else await owner.release()
   }
 }
 
@@ -359,33 +439,15 @@ export async function handleCopilotWorkerOperation(
   }
   if (operation === 'cancel')
     return cancelCopilotRun({ scope, threadId: identity.threadId, runId: identity.runId })
-  const { fence, leaseDeadline } = await validateFence(context, fields.fence)
+  await validateFence(context, fields.fence)
   await assertCopilotRunActive(identity.runId)
   if (operation === 'prepare') {
     if (!('request' in context)) throw new NativeTargetError('The original job is required', 422)
     return prepare(context, signal)
   }
   if (operation === 'active') return
-  if (operation === 'tool') {
-    const tool = input as CopilotWorkerToolInput
-    if (
-      tool.run.runId !== identity.runId ||
-      tool.run.threadId !== identity.threadId ||
-      stableStringifyJsonValue(tool.run.scope) !== stableStringifyJsonValue(scope) ||
-      (!('request' in context) && context.model !== tool.run.model)
-    )
-      throw new NativeTargetError('The tool belongs to another Copilot run', 403)
-    return withToolLease(identity.runId, fence, leaseDeadline, signal, async (toolSignal) => {
-      try {
-        return await executeCopilotWorkerTool(tool, toolSignal)
-      } catch (error) {
-        toolSignal.throwIfAborted()
-        if (error instanceof NativeTargetError) throw error
-        const failure = buildCopilotServerToolErrorResponse(tool.toolName, error)
-        return { error: failure.body.error }
-      }
-    })
-  }
+  if (operation === 'tool')
+    return ownStudioTool(identity, CopilotWorkerToolInputSchema.parse(fields), signal)
   const model = identity.model
   if (!model) throw new NativeTargetError('The admitted model is required', 403)
   await authorizeNativeConversationScope(scope.actorUserId, scope.workspaceId)

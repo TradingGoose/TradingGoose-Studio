@@ -1,6 +1,7 @@
 import type { CancelResponse, CopilotOutputEvent, Pending } from '@/lib/copilot/native/contract'
 import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { workflowReadback } from '@/lib/copilot/tools/client/workflow/workflow-result'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { updateMessageToolCalls } from './store-messages'
@@ -239,7 +240,7 @@ export function applyNativeEvent(
         ? ClientToolCallState.error
         : event.denied || isServerToolReviewRejectedResult(event.toolName, event.result)
           ? ClientToolCallState.rejected
-          : ClientToolCallState.success
+          : (workflowReadback(event.toolName, event.result)?.state ?? ClientToolCallState.success)
       const toolCall: CopilotToolCall = {
         ...current,
         id,

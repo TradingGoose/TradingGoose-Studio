@@ -10,12 +10,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Textarea,
 } from '@/components/ui'
-import { parseProviderOptions } from '@/lib/mastra/options'
+import { reasoningSchema, supportsReasoning } from '@/lib/mastra/reasoning'
 import { cn } from '@/lib/utils'
 import { useCopilotModels } from '@/hooks/queries/copilot-models'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
@@ -40,18 +40,17 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
   const { models: copy, reasoning: reasoningCopy } = useCopilotMessages()
   const catalog = useCopilotModels()
   const [optionsOpen, setOptionsOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [error, setError] = useState(false)
-  const { selectedModel, setSelectedModel, providerOptions, setProviderOptions, busy } =
-    useCopilotStore(
-      useShallow((state) => ({
-        selectedModel: state.selectedModel,
-        setSelectedModel: state.setSelectedModel,
-        providerOptions: state.providerOptions,
-        setProviderOptions: state.setProviderOptions,
-        busy: isCopilotBusy(state),
-      }))
-    )
+  const [choice, setChoice] = useState('auto')
+  const [budget, setBudget] = useState('')
+  const { selectedModel, setSelectedModel, reasoning, setReasoning, busy } = useCopilotStore(
+    useShallow((state) => ({
+      selectedModel: state.selectedModel,
+      setSelectedModel: state.setSelectedModel,
+      reasoning: state.reasoning,
+      setReasoning: state.setReasoning,
+      busy: isCopilotBusy(state),
+    }))
+  )
 
   useEffect(() => setOptionsOpen(false), [selectedModel])
 
@@ -63,9 +62,20 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
   }, [busy, catalog.data, selectedModel, setSelectedModel])
 
   const selected = catalog.data?.models.find(({ id }) => id === selectedModel)
-  const reasoningUnsupported =
-    selected?.reasoning === false || selected?.reasoningOptions?.length === 0
-  const reasoningDisabled = busy || !selected || reasoningUnsupported
+  const options = selected?.reasoningOptions
+  const budgetOption = options?.find((option) => option.type === 'budget_tokens')
+  useEffect(() => {
+    if (selected && !busy && reasoning && !supportsReasoning(options, reasoning))
+      setReasoning(undefined)
+  }, [selected, options, busy, reasoning, setReasoning])
+  const selection = reasoningSchema.safeParse(
+    choice === 'budget_tokens'
+      ? { type: choice, value: budget.trim() ? Number(budget) : undefined }
+      : choice === 'true' || choice === 'false'
+        ? { type: 'toggle', value: choice === 'true' }
+        : { type: 'effort', value: choice }
+  ).data
+  const valid = choice === 'auto' || (selection && supportsReasoning(options, selection))
   const unavailable = catalog.isPending
     ? copy.loading
     : selectedModel || (catalog.isError && !catalog.data)
@@ -117,82 +127,99 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Popover
-        open={optionsOpen}
-        onOpenChange={(open) => {
-          setOptionsOpen(open)
-          if (open) {
-            setDraft(JSON.stringify(providerOptions ?? {}, null, 2))
-            setError(false)
-          }
-        }}
-      >
-        <PopoverTrigger
-          disabled={reasoningDisabled}
-          render={
-            <Button
-              variant='outline'
-              size='sm'
-              aria-label={reasoningCopy.label}
-              title={reasoningUnsupported ? reasoningCopy.unsupported : reasoningCopy.label}
-              className='h-6 min-w-0 rounded-sm px-2 py-1 font-medium text-xs'
-            />
-          }
+      {!!options?.length && (
+        <Popover
+          open={optionsOpen}
+          onOpenChange={(open) => {
+            setOptionsOpen(open)
+            if (open) {
+              setChoice(
+                reasoning?.type === 'budget_tokens'
+                  ? 'budget_tokens'
+                  : String(reasoning?.value ?? 'auto')
+              )
+              setBudget(
+                String(
+                  reasoning?.type === 'budget_tokens' ? reasoning.value : (budgetOption?.min ?? 0)
+                )
+              )
+            }
+          }}
         >
-          <span className='max-w-20 truncate'>{reasoningCopy.label}</span>
-        </PopoverTrigger>
-        <PopoverContent align='start' side={isNearTop ? 'bottom' : 'top'} className='space-y-2 p-3'>
-          <p className='font-medium text-sm'>{reasoningCopy.label}</p>
-          <p className='text-muted-foreground text-xs'>{reasoningCopy.description}</p>
-          {selected?.reasoningOptions?.map((option, index) => (
-            <p key={index} className='text-muted-foreground text-xs'>
-              {option.type === 'effort'
-                ? `${reasoningCopy.effort}: ${option.values.join(', ')}`
-                : option.type === 'budget_tokens'
-                  ? [
-                      reasoningCopy.budget,
-                      option.min === undefined ? '' : `${reasoningCopy.minimum} ${option.min}`,
-                      option.max === undefined ? '' : `${reasoningCopy.maximum} ${option.max}`,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')
-                  : reasoningCopy.toggle}
-            </p>
-          ))}
-          <Textarea
-            aria-label={reasoningCopy.providerOptions}
-            value={draft}
-            disabled={reasoningDisabled}
-            spellCheck={false}
-            className='min-h-32 font-mono text-xs'
-            onChange={(event) => {
-              setDraft(event.target.value)
-              setError(false)
-            }}
-          />
-          {error && (
-            <p role='alert' className='text-destructive text-xs'>
-              {reasoningCopy.invalid}
-            </p>
-          )}
-          <Button
-            size='sm'
-            disabled={reasoningDisabled}
-            onClick={() => {
-              if (reasoningDisabled) return
-              try {
-                const options = parseProviderOptions(draft)
-                setProviderOptions(Object.keys(options).length ? options : undefined)
-                setOptionsOpen(false)
-              } catch {
-                setError(true)
-              }
-            }}
+          <PopoverTrigger
+            disabled={busy}
+            render={
+              <Button
+                variant='outline'
+                size='sm'
+                aria-label={reasoningCopy.label}
+                title={reasoningCopy.label}
+                className='h-6 min-w-0 rounded-sm px-2 py-1 font-medium text-xs'
+              />
+            }
           >
-            {reasoningCopy.apply}
-          </Button>
-        </PopoverContent>
-      </Popover>
+            <span className='max-w-20 truncate'>{reasoningCopy.label}</span>
+          </PopoverTrigger>
+          <PopoverContent
+            align='start'
+            side={isNearTop ? 'bottom' : 'top'}
+            className='space-y-2 p-3'
+          >
+            <label className='block space-y-1 text-xs'>
+              <span>{reasoningCopy.label}</span>
+              <select
+                className='w-full rounded border bg-background px-2 py-1'
+                disabled={busy}
+                value={choice}
+                onChange={(event) => setChoice(event.target.value)}
+              >
+                <option value='auto'>{reasoningCopy.providerDefault}</option>
+                {options.map((option) =>
+                  option.type === 'effort' ? (
+                    option.values.map((level) => (
+                      <option key={level} value={level}>
+                        {reasoningCopy.effort} · {level}
+                      </option>
+                    ))
+                  ) : option.type === 'budget_tokens' ? (
+                    <option key={option.type} value={option.type}>
+                      {reasoningCopy.budget}
+                    </option>
+                  ) : (
+                    <optgroup key={option.type} label={reasoningCopy.label}>
+                      <option value='true'>{reasoningCopy.on}</option>
+                      <option value='false'>{reasoningCopy.off}</option>
+                    </optgroup>
+                  )
+                )}
+              </select>
+            </label>
+            {choice === 'budget_tokens' && (
+              <Input
+                type='number'
+                aria-label={reasoningCopy.budget}
+                min={budgetOption?.min ?? 0}
+                max={budgetOption?.max}
+                step={1}
+                value={budget}
+                onChange={(event) => setBudget(event.target.value)}
+                disabled={busy}
+              />
+            )}
+            <Button
+              size='sm'
+              disabled={busy || !valid}
+              onClick={() => {
+                if (busy || !valid) return
+                setReasoning(choice === 'auto' ? undefined : selection)
+                setOptionsOpen(false)
+              }}
+            >
+              {reasoningCopy.apply}
+            </Button>
+          </PopoverContent>
+        </Popover>
+      )}
     </>
   )
 }

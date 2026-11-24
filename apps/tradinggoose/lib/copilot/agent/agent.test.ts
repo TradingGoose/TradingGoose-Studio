@@ -8,7 +8,11 @@ import { Memory } from '@mastra/memory'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { createCopilotAgent } from './agent'
-import { createCopilotRequestContext, getCopilotExecution } from './context'
+import {
+  createCopilotRequestContext,
+  getCopilotExecution,
+  resolveCopilotRunToolContext,
+} from './context'
 import { executeCopilotWorkerTool } from './worker-server'
 
 const m = vi.hoisted(() => ({
@@ -67,8 +71,9 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     storage: memory.storage,
     recovery: { workflows: 'off', durableAgents: 'off' },
   })
-  const continuation: Pick<Parameters<typeof executeCopilotWorkerTool>[0], 'pending' | 'decision'> =
-    {}
+  const continuation: Partial<
+    Pick<Parameters<typeof executeCopilotWorkerTool>[0], 'pending' | 'decision'>
+  > = {}
   const execution: Parameters<typeof createCopilotRequestContext>[0] = {
     run: {
       runId,
@@ -84,11 +89,19 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
       executeCopilotWorkerTool(
         {
           run: live.run,
-          pending: continuation.pending,
+          pending: continuation.pending ?? {
+            stage: 'result',
+            target: {
+              ...nativeConversationIdentity(live.run.scope),
+              threadId: live.run.threadId,
+              runId: live.run.runId,
+              toolCallId,
+              toolName,
+            },
+            context: resolveCopilotRunToolContext(live.run, toolName, args),
+            originalArgs: args,
+          },
           decision: continuation.decision,
-          toolName,
-          args,
-          toolCallId,
         },
         live.signal
       ),

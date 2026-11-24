@@ -86,9 +86,10 @@ export class RunWorkflowClientTool extends BaseClientTool {
       const native = await this.requireNativeTarget()
       // Keep replay blocked unless admission explicitly confirms that nothing was queued.
       this.executionAttempted = true
-      const result = await executeWorkflowWithFullLogging({
+      await executeWorkflowWithFullLogging({
         native,
         signal: this.getAbortSignal(),
+        onWorkflowAdmission: this.requireExecutionContext().onWorkflowAdmission,
         workflowInput,
         workflowId: activeWorkflowId,
         triggerBlockId: params.triggerBlockId,
@@ -96,9 +97,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
 
       // Completion is attested from the actual canonical retained execution, including a real failed outcome.
       await this.completeAuthoritativeReadback()
-      this.setState(result.success ? ClientToolCallState.success : ClientToolCallState.error, {
-        result,
-      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
 

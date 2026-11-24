@@ -4,6 +4,7 @@ import {
   observeQueuedWorkflowExecution,
   queueWorkflowExecution,
   runQueuedWorkflowExecution,
+  type TrackWorkflowAdmission,
   WorkflowQueueAdmissionError,
 } from './queued-execution-client'
 
@@ -174,6 +175,31 @@ describe('queued workflow observation', () => {
       )
     }
   )
+
+  it('detaches a Copilot observer during admission without issuing Stop', async () => {
+    const observer = new AbortController()
+    const completed = vi.fn()
+    const onWorkflowAdmission = vi.fn<TrackWorkflowAdmission>(() => completed)
+    const fetchMock = vi.fn(async () => {
+      observer.abort()
+      return receipt('original-job')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(
+      runQueuedWorkflowExecution({
+        ...runParams,
+        signal: observer.signal,
+        onWorkflowAdmission,
+      })
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(onWorkflowAdmission).toHaveBeenCalledOnce()
+    await expect(onWorkflowAdmission.mock.calls[0][0]).resolves.toEqual({
+      taskId: 'original-job',
+      executionId: 'execution-1',
+    })
+    expect(completed).not.toHaveBeenCalled()
+  })
 
   it('waits for an in-flight admission before sending cancellation', async () => {
     const controller = new AbortController()

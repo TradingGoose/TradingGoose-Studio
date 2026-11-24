@@ -150,7 +150,7 @@ describe('server Copilot settings', () => {
     })
     expect(await getPublicCopilotModels()).toEqual({
       models: [
-        { id: 'openai/gpt-4.1', label: 'openai/gpt-4.1', reasoning: false, reasoningOptions: [] },
+        { id: 'openai/gpt-4.1', label: 'openai/gpt-4.1', reasoningOptions: [] },
         { id: 'new-native-provider/namespace/future-model', label: 'namespace/future-model' },
       ],
     })
@@ -172,7 +172,6 @@ describe('server Copilot settings', () => {
         {
           id: 'openrouter/amazon/nova-premier-v1',
           label: 'amazon/nova-premier',
-          reasoning: false,
           reasoningOptions: [],
         },
         { id: 'openrouter/vendor/family/future-model', label: 'vendor/family/future-model' },
@@ -209,11 +208,22 @@ describe('server Copilot settings', () => {
     for (const model of result.models) {
       const native = getModelReasoningOptions(model.id)
       expect(model.reasoningOptions).toEqual(native)
-      expect(model.reasoning).toBe(native === undefined ? undefined : native.length > 0)
     }
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
 
+  it('checks selections against the authorized model before credential lookup', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValue({
+      copilot: { models: [{ provider: 'openai', model: 'gpt-5' }] },
+    })
+    await expect(
+      resolveCopilotModel('openai/gpt-5', { type: 'toggle', value: false })
+    ).rejects.toMatchObject({ status: 422 })
+    await expect(
+      resolveCopilotModel('openai/stale', { type: 'effort', value: 'low' })
+    ).rejects.toMatchObject({ status: 422 })
+    expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
+  })
   it('reports an unconfigured Copilot with no built-in fallback', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({ copilot: DEFAULT_COPILOT_SETTINGS })
 

@@ -53,3 +53,15 @@ spec:
           {{- end }}
     {{- end }}
 {{- end }}
+{{- if and .Values.app.enabled .Values.ingress.enabled (eq .Values.ingress.className "gce") }}
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ include "tradinggoose.fullname" . }}-app
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tradinggoose.app.labels" . | nindent 4 }}
+spec:
+  timeoutSec: 660
+{{- end }}

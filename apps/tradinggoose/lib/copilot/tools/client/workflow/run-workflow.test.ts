@@ -99,7 +99,7 @@ describe('native workflow client explicit scoping', () => {
     expect(m.execute.mock.invocationCallOrder[0]).toBeLessThan(
       m.readback.mock.invocationCallOrder[0]!
     )
-    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.success])
+    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.executing])
   })
   it('requires native approval stage to complete before any queue request', async () => {
     m.pending.mockResolvedValueOnce({ stage: 'approval', target })
@@ -118,7 +118,7 @@ describe('native workflow client explicit scoping', () => {
     const instance = tool()
     await instance.execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
     expect(m.readback).toHaveBeenCalledOnce()
-    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.error])
+    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.executing])
   })
   it('preserves existing busy-execution guard before native discovery', async () => {
     m.isExecuting = true

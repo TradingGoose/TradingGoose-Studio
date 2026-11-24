@@ -1,18 +1,21 @@
 import type { RunFence } from '@mastra/core/storage'
 import type { LanguageModelUsage } from '@mastra/core/stream'
 import { z } from 'zod'
-import type { JsonObject } from '@/lib/copilot/native/contract'
-import { CopilotRequestSchema, ToolContextSchema } from '@/lib/copilot/native/contract'
+import {
+  CopilotRequestSchema,
+  TargetSchema,
+  ToolContextSchema,
+  WorkflowObservationSchema,
+} from '@/lib/copilot/native/contract'
 import type { ServerPending } from '@/lib/copilot/native/target'
 import type { processContextsServer } from '@/lib/copilot/process-contents'
-import type { ToolId } from '@/lib/copilot/registry'
 import type { NativeCost } from '@/lib/mastra/usage'
-import type { CopilotDecision } from './context'
 import type { CopilotRun } from './ownership'
 
 export const COPILOT_CANCELLATION_POLL_INTERVAL = 500
 
 export const CopilotSuspendSchema = z.object({
+  studioDispatch: z.literal(true).optional(),
   originalArgs: z.record(z.string(), z.json()),
   preview: z.record(z.string(), z.json()).optional(),
   reviewBaseStateHash: z.string().min(1).optional(),
@@ -39,20 +42,46 @@ export const CopilotJobSchema = z.object({
   messageId: z.string().min(1).optional(),
 })
 export type CopilotJob = z.infer<typeof CopilotJobSchema>
-export type CopilotWorkerToolInput = {
-  run: CopilotRun
-  pending?: ServerPending
-  decision?: CopilotDecision
-  toolName: ToolId
-  args: JsonObject
-  toolCallId: string
-  fence: RunFence
-}
+export const CopilotWorkerToolInputSchema = z
+  .object({
+    target: TargetSchema,
+    fence: z
+      .object({
+        runId: z.string().min(1),
+        ownerId: z.string().min(1),
+        generation: z.number().int().nonnegative(),
+      })
+      .strict(),
+    stage: z.enum(['studio', 'result']),
+    admission: z
+      .discriminatedUnion('command', [
+        CopilotRequestSchema.options[1],
+        CopilotRequestSchema.options[2],
+        CopilotRequestSchema.options[3],
+        CopilotRequestSchema.options[4],
+      ])
+      .optional(),
+  })
+  .strict()
+export type CopilotWorkerToolInput = z.infer<typeof CopilotWorkerToolInputSchema>
+export const StudioToolFrameSchema = z.union([
+  z
+    .object({ generation: z.number().int().positive(), response: CopilotWorkerToolResultSchema })
+    .strict(),
+  z
+    .object({
+      generation: z.number().int().positive(),
+      observe: WorkflowObservationSchema.shape.handle,
+    })
+    .strict(),
+  z.object({ failure: z.string().min(1), status: z.number().int() }).strict(),
+])
+export type StudioToolHandback = Exclude<z.infer<typeof StudioToolFrameSchema>, { failure: string }>
 export type CopilotWorkerToolResult = z.infer<typeof CopilotWorkerToolResultSchema>
 export interface CopilotWorkerPrepared {
+  reasoning?: import('@/lib/mastra/native-reasoning').NativeReasoningSettings
   run: CopilotRun
   pending?: ServerPending
-  decision?: CopilotDecision
   contexts: Awaited<ReturnType<typeof processContextsServer>>
   model: { providerId: string; modelId: string; apiKey: string }
 }
@@ -61,7 +90,7 @@ export interface CopilotWorkerOperations {
   active: { input: { fence: RunFence }; output: undefined }
   cancel: { input: Record<string, never>; output: undefined }
   finalize: { input: { message: string }; output: undefined }
-  tool: { input: CopilotWorkerToolInput; output: CopilotWorkerToolResult }
+  tool: { input: CopilotWorkerToolInput; output: StudioToolHandback }
   'usage.allow': { input: { fence: RunFence }; output: undefined }
   'usage.record': {
     input: {

@@ -91,6 +91,7 @@ function safeCreateEnv() {
     DOCKER_BUILD: z.boolean().optional(),                 // Flag indicating Docker build environment
 
     // Background Jobs & Scheduling
+    COPILOT_STUDIO_ORIGIN: z.url({ protocol: /^https?$/ }).optional(),
     TRIGGER_PROJECT_ID: z.string().optional(),                  // Trigger.dev project ID
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),           // Trigger.dev secret key for background jobs
     CRON_SECRET: z.string().optional(),                  // Secret for authenticating cron job requests

@@ -1,4 +1,4 @@
-import { type JWTPayload, jwtVerify, SignJWT } from 'jose'
+import { base64url, type JWTPayload, jwtVerify, SignJWT } from 'jose'
 import type { CopilotWorkerIdentity } from '@/lib/copilot/agent/worker-contract'
 
 const getJwtSecret = () => {
@@ -109,16 +109,30 @@ export async function verifyInternalTokenDetailed(
   }
 }
 
-export function generateCopilotWorkerToken(context: CopilotWorkerIdentity): Promise<string> {
-  return signPayload({ type: 'copilot-worker', ...context })
+const workerBodyDigest = async (body: string) =>
+  base64url.encode(
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body)))
+  )
+
+export async function generateCopilotWorkerToken(
+  context: CopilotWorkerIdentity,
+  body: string
+): Promise<string> {
+  return signPayload({
+    type: 'copilot-worker',
+    ...context,
+    bodyDigest: await workerBodyDigest(body),
+  })
 }
 
 export async function verifyCopilotWorkerToken(
-  token: string
+  token: string,
+  body: string
 ): Promise<CopilotWorkerIdentity | undefined> {
   const payload = await verifyPayload(token)
   if (
     payload?.type !== 'copilot-worker' ||
+    payload.bodyDigest !== (await workerBodyDigest(body)) ||
     !['actorUserId', 'jobId', 'threadId', 'runId'].every(
       (key) => typeof payload[key] === 'string' && payload[key].length > 0
     ) ||

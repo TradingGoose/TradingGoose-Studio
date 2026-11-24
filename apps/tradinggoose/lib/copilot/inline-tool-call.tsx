@@ -12,6 +12,7 @@ import { isToolId } from '@/lib/copilot/registry'
 import { ToolAccessChoice } from '@/lib/copilot/tool-access-choice'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
+import { workflowReadback } from '@/lib/copilot/tools/client/workflow/workflow-result'
 import { getListingIdentityKey, getListingIdentitySymbol } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputContent, WatchlistSettings } from '@/lib/watchlists/types'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
@@ -703,11 +704,12 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
       (toolCall.name === 'gdrive_request_access' &&
         typeof toolCall.result?.credentialId === 'string'))
 
+  const workflowResult = workflowReadback(toolCall.name, toolCall.result)
   const metadataDisplay = getCopilotToolMetadata(toolCall.name)?.displayNames[toolCall.state]
   const displayName =
     toolCall.name === 'deploy_workflow' && toolCall.result?.needsApiKey === true
       ? 'Deployment requires a valid API key'
-      : toolCall.display?.text || metadataDisplay?.text || toolCall.name
+      : workflowResult?.message || toolCall.display?.text || metadataDisplay?.text || toolCall.name
   const DisplayIcon = toolCall.display?.icon || metadataDisplay?.icon || Loader2
   const failureDetails = readToolFailureDetails(toolCall)
   const params = toolCall.params ?? {}
@@ -852,6 +854,26 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
         ) : (
           <div className='flex items-center gap-2 text-muted-foreground'>{toolNameContent}</div>
         )}
+        {workflowResult?.data.status === 'paused' && typeof params.entityId === 'string' && (
+          <a
+            className='text-primary text-xs underline'
+            href={`/resume/${encodeURIComponent(params.entityId)}/${encodeURIComponent(workflowResult.executionId)}`}
+          >
+            Review workflow{' '}
+            {typeof workflowResult.data.output.revision === 'number' &&
+              `(revision ${workflowResult.data.output.revision})`}
+          </a>
+        )}
+        {workflowResult &&
+          workflowResult.data.status !== 'paused' &&
+          Object.keys(workflowResult.data.output).length > 0 && (
+            <details className='w-full text-xs'>
+              <summary>Workflow output</summary>
+              <pre className='overflow-x-auto'>
+                {JSON.stringify(workflowResult.data.output, null, 2)}
+              </pre>
+            </details>
+          )}
         {showButtons ? (
           <ToolActionButtons toolCall={toolCall} hideAccept={showAccessChoice || oauthOpened} />
         ) : recoverable ? (

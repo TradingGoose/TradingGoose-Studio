@@ -8,6 +8,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "tradinggoose.app.labels" . | nindent 4 }}
+  {{- if and .Values.ingress.enabled (eq .Values.ingress.className "gce") }}
+  annotations:
+    cloud.google.com/backend-config: '{"ports":{"http":"{{ include "tradinggoose.fullname" . }}-app"}}'
+  {{- end }}
 spec:
   type: {{ .Values.app.service.type }}
   ports:

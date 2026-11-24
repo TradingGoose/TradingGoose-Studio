@@ -7,7 +7,7 @@ it('accepts the browser command with ordered native content parts', () => {
     requestId: crypto.randomUUID(),
     workspaceId: 'workspace',
     model: 'openai/gpt-4.1',
-    providerOptions: { openai: { reasoningEffort: 'high' } },
+    reasoning: { type: 'effort', value: 'high' },
     input: {
       content: [
         { type: 'text', text: 'Inspect this' },
@@ -48,7 +48,11 @@ it.each([
       },
     },
   },
+  { providerOptions: { openai: { reasoningEffort: 'high' } } },
   { reasoningEffort: 'low' },
+  { reasoning: { type: 'effort', value: 'invented' } },
+  { reasoning: { type: 'toggle', value: false, apiKey: 'extra' } },
+  { reasoning: { type: 'budget_tokens', value: 1.5 } },
   { fileAttachments: [{ key: 'old-object-reference' }] },
 ])('rejects additional authority and retired transport fields: %j', (fields) => {
   expect(() =>
@@ -84,3 +88,29 @@ it.each([
     })
   ).toThrow()
 })
+
+it.each(['tool.approve', 'tool.decline', 'tool.execute', 'tool.result'])(
+  'rejects settings on %s continuations',
+  (command) => {
+    expect(
+      CopilotRequestSchema.safeParse({
+        command,
+        requestId: crypto.randomUUID(),
+        workspaceId: 'workspace',
+        target: {
+          threadId: 'thread',
+          runId: 'run',
+          toolCallId: 'call',
+          resourceId: 'resource',
+          toolName: 'sleep',
+        },
+        ...(command === 'tool.execute'
+          ? { action: 'readback' }
+          : command === 'tool.result'
+            ? { assertion: { kind: 'timer.completed', data: {} } }
+            : {}),
+        reasoning: { type: 'effort', value: 'high' },
+      }).success
+    ).toBe(false)
+  }
+)

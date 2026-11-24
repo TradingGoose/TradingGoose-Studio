@@ -102,6 +102,7 @@ vi.mock('@/lib/copilot/agent/context', () => ({
   }),
 }))
 vi.mock('@/lib/copilot/settings.server', () => ({
+  validateCopilotModel: async (model: string) => model,
   resolveCopilotModel: async (model: string) => ({ model, apiKey: 'admin-key' }),
 }))
 vi.mock('@/lib/copilot/agent/receipts', () => ({
@@ -454,6 +455,43 @@ describe('local workflow execution and authoritative readback', () => {
     expect((await queue()).status).toBe(202)
     terminal()
     await expect(readback({ workspaceId: 'workspace-c' })).rejects.toMatchObject({ status: 403 })
+  })
+  it('attests each pause revision and follows the original admitted ID across a running checkpoint', async () => {
+    expect((await queue()).status).toBe(202)
+    const row = terminal()
+    row.endedAt = null
+    const pause = { url: 'https://studio.example/resume/review', revision: 1 }
+    const data: Record<string, unknown> = row.executionData
+    data.pause = pause
+    await expect(readback()).resolves.toMatchObject({
+      message: 'Workflow paused for review',
+      data: { status: 'paused', output: pause },
+    })
+    data.pause = undefined
+    data.checkpoint = { revision: 1, activeJobId: `${EXECUTION}:resume:1` }
+    await expect(readback()).rejects.toMatchObject({
+      handle: {
+        executionId: EXECUTION,
+        taskId: EXECUTION,
+        workflowId: WORKFLOW,
+      },
+    })
+    m.state.allowedWorkspaces.delete(row.workspaceId as string)
+    await expect(readback()).rejects.toMatchObject({ status: 403 })
+    m.state.allowedWorkspaces.add(row.workspaceId as string)
+    data.pause = { ...pause, revision: 2 }
+    await expect(readback()).resolves.toMatchObject({
+      data: { status: 'paused', output: { revision: 2 } },
+    })
+    data.pause = undefined
+    row.endedAt = new Date()
+    row.level = 'error'
+    data.errorMessage = 'Workflow execution was cancelled'
+    await expect(readback()).resolves.toMatchObject({
+      message: data.errorMessage,
+      data: { success: false, error: data.errorMessage },
+    })
+    expect(m.enqueue).toHaveBeenCalledOnce()
   })
   it('rejects nonterminal logs without replaying', async () => {
     expect((await queue()).status).toBe(202)

@@ -5,12 +5,13 @@ import { transformSync } from 'next/dist/build/swc'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as internalTokens from '@/lib/auth/internal-token'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { readSseData } from '@/lib/events/stream'
 import { createCopilotWorkerClient } from './worker-client'
 import {
   type CopilotJob,
   type CopilotWorkerPrepared,
   type CopilotWorkerToolInput,
-  CopilotWorkerToolResultSchema,
+  StudioToolFrameSchema,
 } from './worker-contract'
 
 const job: CopilotJob = {
@@ -40,10 +41,14 @@ const prepared: CopilotWorkerPrepared = {
 }
 const fence = { runId: 'thread-ownership', ownerId: job.runId, generation: 1 }
 const tool: CopilotWorkerToolInput = {
-  run: prepared.run,
-  toolName: 'list_workflows',
-  args: { workspaceId: 'workspace' },
-  toolCallId: 'call',
+  stage: 'studio',
+  target: {
+    threadId: job.threadId,
+    resourceId: 'resource',
+    runId: job.runId,
+    toolName: 'list_workflows',
+    toolCallId: 'call',
+  },
   fence,
 }
 const observation = { attemptId: 'attempt', usage: { inputTokens: 1, outputTokens: 2 } }
@@ -81,14 +86,17 @@ it('uses the deployment origin after Next compiles public environment variables'
   new Function('require', 'exports', code)((specifier: string) => {
     if (specifier === '@/lib/auth/internal-token') return internalTokens
     if (specifier === '@/lib/copilot/native/errors') return { NativeTargetError }
-    if (specifier === './worker-contract') return { CopilotWorkerToolResultSchema }
+    if (specifier === '@/lib/events/stream') return { readSseData }
+    if (specifier === './worker-contract') return { StudioToolFrameSchema }
     throw new Error(`Unexpected worker import: ${specifier}`)
   }, compiled)
   const fetcher = vi.fn(async (_url: unknown) => Response.json({ result: null }))
   vi.stubGlobal('fetch', fetcher)
   vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://runtime.example.test')
   await compiled.createCopilotWorkerClient(job).call('active', { fence })
-  expect(String(fetcher.mock.calls[0][0])).toBe('https://runtime.example.test/api/copilot/worker')
+  expect(String(fetcher.mock.calls[0][0])).toBe(
+    'https://runtime.example.test/api/copilot/native/tool'
+  )
 })
 
 it('signs each callback for its saved-message job without transferring input or credentials', async () => {
@@ -98,20 +106,15 @@ it('signs each callback for its saved-message job without transferring input or 
   const originalJob = structuredClone(job)
   const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
     const token = new Headers(init!.headers).get('authorization')!.slice('Bearer '.length)
-    expect(await internalTokens.verifyCopilotWorkerToken(token)).toMatchObject({
+    expect(await internalTokens.verifyCopilotWorkerToken(token, String(init!.body))).toMatchObject({
       actorUserId: 'actor',
       jobId: 'job',
     })
     expect(await internalTokens.verifyInternalTokenDetailed(token)).toEqual({ valid: false })
     const { operation } = JSON.parse(init!.body as string)
-    return Response.json({
-      result:
-        operation === 'prepare'
-          ? prepared
-          : operation === 'tool'
-            ? { result: { success: true } }
-            : null,
-    })
+    if (operation === 'tool')
+      return frame({ generation: 2, response: { result: { success: true } } })
+    return Response.json({ result: operation === 'prepare' ? prepared : null })
   })
   vi.stubGlobal('fetch', fetcher)
   const client = createCopilotWorkerClient(job)
@@ -126,7 +129,7 @@ it('signs each callback for its saved-message job without transferring input or 
   await client.call('finalize', { message: 'Worker interrupted' }, signal)
   expect(signing).toHaveBeenCalledTimes(fetcher.mock.calls.length)
   const requests = fetcher.mock.calls.map(([url, init]) => {
-    expect(String(url)).toBe('https://studio.example.test/api/copilot/worker')
+    expect(String(url)).toBe('https://studio.example.test/api/copilot/native/tool')
     const body = JSON.parse(init!.body as string)
     const token = new Headers(init!.headers).get('authorization')!.slice('Bearer '.length)
     const claims = decodeJwt(token)
@@ -145,10 +148,29 @@ it('signs each callback for its saved-message job without transferring input or 
     iat: requests[0].claims.iat! + 600,
   })
   expect(requests[1].signal).toBe(signal)
+  expect(requests[2].signal).toBe(signal)
   expect(job).toEqual(originalJob)
 })
 
-it.each(['tool', 'usage.record'] as const)('drains %s after cancellation', async (operation) => {
+it.each([
+  ['local', 'http://127.0.0.1:3333'],
+  ['trigger', 'https://worker-studio.example.test'],
+] as const)(
+  'uses the configured %s listener for one fixed route and refuses redirects',
+  async (mode, origin) => {
+    vi.stubEnv('PORT', '3333')
+    vi.stubEnv('COPILOT_STUDIO_ORIGIN', 'https://worker-studio.example.test')
+    const fetcher = vi.fn(async (_url: URL, _options: RequestInit) =>
+      Response.json({ result: null })
+    )
+    vi.stubGlobal('fetch', fetcher)
+    await createCopilotWorkerClient(job, mode).call('active', { fence })
+    expect(String(fetcher.mock.calls[0][0])).toBe(`${origin}/api/copilot/native/tool`)
+    expect(fetcher.mock.calls[0][1].redirect).toBe('error')
+  }
+)
+
+it('drains usage accounting after cancellation', async () => {
   let complete!: (response: Response) => void
   const fetcher = vi.fn((_url: unknown, init?: RequestInit) => {
     expect(init!.signal).toBeUndefined()
@@ -159,14 +181,10 @@ it.each(['tool', 'usage.record'] as const)('drains %s after cancellation', async
   vi.stubGlobal('fetch', fetcher)
   const abort = new AbortController()
   const client = createCopilotWorkerClient(job)
-  const pending =
-    operation === 'tool'
-      ? client.call(operation, tool, abort.signal)
-      : client.call(operation, observation, abort.signal)
+  const pending = client.call('usage.record', observation, abort.signal)
   await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce())
   abort.abort()
-  const result =
-    operation === 'tool' ? { result: { success: true } } : { status: 'estimated', total: 0.01 }
+  const result = { status: 'estimated', total: 0.01 }
   complete(Response.json({ result }))
   await expect(pending).resolves.toEqual(result)
 })
@@ -187,9 +205,13 @@ it.each([403, 409, 503])(
 )
 
 it.each([
-  ['missing result', () => Response.json({}), { name: 'ZodError' }],
-  ['null result', () => Response.json({ result: null }), { name: 'ZodError' }],
-  ['malformed JSON', () => new Response('{'), { name: 'SyntaxError' }],
+  ['missing result', () => frame({ generation: 2 }), { name: 'ZodError' }],
+  ['null result', () => frame({ response: null }), { name: 'ZodError' }],
+  [
+    'early EOF',
+    () => new Response(': keepalive\n\n', { headers: { 'content-type': 'text/event-stream' } }),
+    { message: 'Studio tool response ended before acknowledgment' },
+  ],
   [
     'HTTP failure',
     () => Response.json({ error: { message: 'Unavailable' } }, { status: 503 }),
@@ -204,10 +226,16 @@ it.each([
 })
 
 it('returns an acknowledged Studio tool error for native tool recovery', async () => {
-  const result = { error: 'Server tool execution failed' }
+  const result = { generation: 2, response: { error: 'Server tool execution failed' } }
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => Response.json({ result }))
+    vi.fn(async () => frame(result))
   )
   await expect(createCopilotWorkerClient(job).call('tool', tool)).resolves.toEqual(result)
 })
+
+function frame(value: unknown) {
+  return new Response(`data: ${JSON.stringify(value)}\n\n`, {
+    headers: { 'Content-Type': 'text/event-stream' },
+  })
+}

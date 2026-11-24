@@ -1,14 +1,13 @@
 import { providers } from '@opencode-ai/models/snapshot'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import { getModelProviders } from '@/lib/mastra/providers'
+import { type Reasoning, supportsReasoning } from '@/lib/mastra/reasoning'
 import { getNativeModel, isLanguageModel } from '@/lib/mastra/registry'
 import { getCopilotSettings } from '@/lib/system-settings/service'
 import { NativeTargetError } from './native/errors'
 import { type CopilotModelOption, getCopilotModelId } from './settings'
 
-export async function resolveCopilotModel(
-  modelId?: string
-): Promise<{ model: string; apiKey: string }> {
+export async function validateCopilotModel(modelId?: string, reasoning?: Reasoning) {
   const settings = await getCopilotSettings()
   const first = settings.models[0]
   if (!first) {
@@ -23,6 +22,16 @@ export async function resolveCopilotModel(
   ) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
   }
+  if (reasoning && !supportsReasoning(getNativeModel(selected).reasoningOptions, reasoning))
+    throw new NativeTargetError(
+      'Selected reasoning control is unsupported for this Copilot model',
+      422
+    )
+  return selected
+}
+
+export async function resolveCopilotModel(modelId?: string, reasoning?: Reasoning) {
+  const selected = await validateCopilotModel(modelId, reasoning)
   try {
     const { apiKey } = await resolveConfiguredModel(selected)
     return { model: selected, apiKey }
@@ -46,13 +55,12 @@ export async function getPublicCopilotModels(): Promise<{
     )
     .map((row) => {
       const id = getCopilotModelId(row)
-      const { reasoning, reasoningOptions } = getNativeModel(id)
+      const { reasoningOptions } = getNativeModel(id)
       return {
         id,
         label:
           providers[row.provider]?.models?.[row.model]?.canonical_model_id ??
           (row.model.includes('/') ? row.model : id),
-        reasoning,
         reasoningOptions,
       }
     })
