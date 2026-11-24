@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
 import type { BrowserAssertion } from '@/lib/copilot/native/contract'
-import type { TrackWorkflowAdmission } from '@/lib/workflows/queued-execution-client'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 // Client tool call states used by the new runtime
@@ -46,7 +45,6 @@ export interface BaseClientToolMetadata {
 }
 
 export interface ClientToolExecutionContext {
-  onWorkflowAdmission?: TrackWorkflowAdmission
   workspaceId?: string
 }
 

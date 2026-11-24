@@ -89,7 +89,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
       await executeWorkflowWithFullLogging({
         native,
         signal: this.getAbortSignal(),
-        onWorkflowAdmission: this.requireExecutionContext().onWorkflowAdmission,
         workflowInput,
         workflowId: activeWorkflowId,
         triggerBlockId: params.triggerBlockId,

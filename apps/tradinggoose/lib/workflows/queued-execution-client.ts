@@ -20,8 +20,6 @@ type QueuedWorkflowExecutionRequest = {
   workflowVariables?: Record<string, unknown>
   triggerBlockId?: string
   selectedOutputs?: string[]
-  signal?: AbortSignal
-  onWorkflowAdmission?: TrackWorkflowAdmission
 }
 
 export type QueuedWorkflowExecutionHandle = {
@@ -29,12 +27,7 @@ export type QueuedWorkflowExecutionHandle = {
   executionId: string
 }
 
-// Copilot retains the admission across observer detachment. A verified terminal event retires it.
-export type TrackWorkflowAdmission = (
-  admission: Promise<QueuedWorkflowExecutionHandle>
-) => () => void
-
-export type QueuedWorkflowExecutionCallbacks = {
+type QueuedWorkflowExecutionCallbacks = {
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
 
@@ -160,31 +153,5 @@ export async function observeQueuedWorkflowExecution(
       await events.return()
     }
     await waitToReconnect(signal)
-  }
-}
-
-export async function runQueuedWorkflowExecution(
-  request: QueuedWorkflowExecutionRequest,
-  callbacks?: QueuedWorkflowExecutionCallbacks
-): Promise<ExecutionResult> {
-  if (request.onWorkflowAdmission) request.signal?.throwIfAborted()
-  const admission = queueWorkflowExecution(request)
-  const completed = request.onWorkflowAdmission?.(admission)
-  const queued = await admission
-  const cancelQueuedExecution = () => {
-    void cancelQueuedWorkflowExecution(queued.taskId).catch(() => {})
-  }
-  const cancelSignal = request.onWorkflowAdmission ? undefined : request.signal
-  if (cancelSignal?.aborted) cancelQueuedExecution()
-  else cancelSignal?.addEventListener('abort', cancelQueuedExecution, { once: true })
-  try {
-    const result = await observeQueuedWorkflowExecution(queued, {
-      signal: request.signal,
-      callbacks,
-    })
-    completed?.()
-    return result
-  } finally {
-    cancelSignal?.removeEventListener('abort', cancelQueuedExecution)
   }
 }
