@@ -22304,15 +22304,11 @@
       "copilot": {
         "reasoning": {
           "label": "思考 / 推理",
-          "description": "输入所选模型的原生提供商选项。",
-          "providerOptions": "提供商选项（JSON）",
-          "effort": "已公布的推理强度",
+          "providerDefault": "提供商默认值",
+          "effort": "推理强度",
           "budget": "思考令牌预算",
-          "minimum": "最小值",
-          "maximum": "最大值",
-          "toggle": "思考开关",
-          "unsupported": "此模型未公布推理控制选项。",
-          "invalid": "请输入有效的提供商选项 JSON 对象。",
+          "on": "开启",
+          "off": "关闭",
           "apply": "应用"
         },
         "models": {
@@ -23340,8 +23336,8 @@
           "concurrencyLimit": "最大并发执行数",
           "concurrencyLimitHint": "最大并行执行数。",
           "concurrencyLimitBlank": "草稿阶段可留空。",
-          "workflowExecutionTimeLimit": "工作流执行时间限制",
-          "workflowExecutionTimeLimitHint": "单个工作流的最长处理时间（秒）。",
+          "workflowExecutionTimeLimit": "后台执行时限",
+          "workflowExecutionTimeLimitHint": "每个 Trigger 工作流或文档可运行的最长秒数。本地文档处理不限时。",
           "workflowExecutionTimeLimitBlank": "留空表示执行时间不受限制。",
           "syncRateLimit": "同步执行 / 分钟",
           "syncRateLimitHint": "每分钟同步执行限制。",

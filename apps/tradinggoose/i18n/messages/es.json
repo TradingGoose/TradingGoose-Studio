@@ -22317,15 +22317,11 @@
       "copilot": {
         "reasoning": {
           "label": "Pensamiento / Razonamiento",
-          "description": "Introduce las opciones nativas del proveedor para el modelo seleccionado.",
-          "providerOptions": "Opciones del proveedor (JSON)",
-          "effort": "Niveles de esfuerzo publicados",
-          "budget": "Presupuesto de tokens de pensamiento",
-          "minimum": "mínimo",
-          "maximum": "máximo",
-          "toggle": "Control de pensamiento activado/desactivado",
-          "unsupported": "Este modelo no publica controles de razonamiento.",
-          "invalid": "Introduce un objeto JSON válido con opciones del proveedor.",
+          "providerDefault": "Predeterminado del proveedor",
+          "effort": "Esfuerzo",
+          "budget": "Presupuesto de tokens de razonamiento",
+          "on": "Activado",
+          "off": "Desactivado",
           "apply": "Aplicar"
         },
         "models": {
@@ -23353,8 +23349,8 @@
           "concurrencyLimit": "Máx. ejecuciones concurrentes",
           "concurrencyLimitHint": "Máximo de ejecuciones en paralelo.",
           "concurrencyLimitBlank": "Déjalo en blanco mientras está en borrador.",
-          "workflowExecutionTimeLimit": "Límite de tiempo de ejecución del flujo",
-          "workflowExecutionTimeLimitHint": "Tiempo máximo de procesamiento de un flujo, en segundos.",
+          "workflowExecutionTimeLimit": "Límite de tiempo de ejecución en segundo plano",
+          "workflowExecutionTimeLimitHint": "Duración máxima en segundos de cada flujo de trabajo o documento en Trigger. El procesamiento local tiene duración ilimitada.",
           "workflowExecutionTimeLimitBlank": "Déjalo en blanco para tiempo de ejecución ilimitado.",
           "syncRateLimit": "Ejecuciones síncronas / min",
           "syncRateLimitHint": "Límite de ejecuciones síncronas por minuto.",

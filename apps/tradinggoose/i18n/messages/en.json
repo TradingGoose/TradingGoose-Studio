@@ -22317,15 +22317,11 @@
       "copilot": {
         "reasoning": {
           "label": "Thinking / Reasoning",
-          "description": "Enter native Provider Options for the selected model.",
-          "providerOptions": "Provider Options (JSON)",
-          "effort": "Published effort values",
+          "providerDefault": "Provider default",
+          "effort": "Effort",
           "budget": "Thinking-token budget",
-          "minimum": "minimum",
-          "maximum": "maximum",
-          "toggle": "On/off thinking control",
-          "unsupported": "This model does not publish reasoning controls.",
-          "invalid": "Enter a valid Provider Options JSON object.",
+          "on": "On",
+          "off": "Off",
           "apply": "Apply"
         },
         "models": {
@@ -23353,8 +23349,8 @@
           "concurrencyLimit": "Max Concurrent Executions",
           "concurrencyLimitHint": "Max parallel executions.",
           "concurrencyLimitBlank": "Leave blank while drafting.",
-          "workflowExecutionTimeLimit": "Workflow Execution Time Limit",
-          "workflowExecutionTimeLimitHint": "Maximum processing time for one workflow, in seconds.",
+          "workflowExecutionTimeLimit": "Background Execution Time Limit",
+          "workflowExecutionTimeLimitHint": "Maximum seconds per Trigger workflow or document. Local processing has unlimited duration.",
           "workflowExecutionTimeLimitBlank": "Leave blank for unlimited execution time.",
           "syncRateLimit": "Sync Executions / Min",
           "syncRateLimitHint": "Per-minute sync execution limit.",
