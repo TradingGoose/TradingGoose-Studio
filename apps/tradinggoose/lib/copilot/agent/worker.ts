@@ -61,6 +61,7 @@ export async function executeCopilotJob(
   let run: CopilotRun | undefined
   let apiKey: string | undefined
   let ownership: Awaited<ReturnType<typeof claimCopilotThread>> | undefined
+  let canSettleJob = false
   let nativeStarting = false
   let privatePending = false
   let nativeOutput: { getFullOutput(): Promise<{ finishReason?: string }> } | undefined
@@ -79,17 +80,22 @@ export async function executeCopilotJob(
     await ownership!.renew()
     cancellation.signal.throwIfAborted()
   }
+  const readCurrentJob = async () => {
+    const current = await readCopilotJob(scope, threadId)
+    if (current?.id !== jobId || current.runId !== runId)
+      throw new NativeTargetError('This Copilot turn has changed', 409)
+    return current
+  }
   try {
-    const currentJob = await readCopilotJob(scope, threadId)
-    if (currentJob?.id !== jobId) throw new NativeTargetError('This Copilot turn has changed', 409)
-    if (currentJob.status) {
-      outcome = currentJob
-      return
-    }
+    const currentJob = await readCurrentJob()
+    if (currentJob.status) return
     const { admissionGeneration } = currentJob
     if (admissionGeneration === undefined)
       await waitForCopilotRunRelease(scope, threadId, runId, cancellation.signal)
     ownership = await claimCopilotThread(scope, threadId, runId, jobId, admissionGeneration)
+    // Admission can settle the job while this worker waits for its claim.
+    if ((await ownership.run(readCurrentJob)).status) return
+    canSettleJob = true
     cancellation.signal.addEventListener('abort', publishCancellation, { once: true })
     if (cancellation.signal.aborted) publishCancellation()
     const signal = cancellation.signal
@@ -348,7 +354,7 @@ export async function executeCopilotJob(
       if (cancellation.signal.aborted)
         await waitForCopilotRunRelease(scope, threadId, runId, new AbortController().signal)
       await studio.call('finalize', { message: copilotFailure(error, apiKey).error.message })
-    } else if (!ownership) throw error
+    } else if (!ownership || !canSettleJob) throw error
   } finally {
     try {
       // stream() can reject during startup, including after it started asynchronous work.
@@ -372,7 +378,7 @@ export async function executeCopilotJob(
       }
     } finally {
       try {
-        if (ownership && !ownership.signal.aborted) {
+        if (canSettleJob && ownership && !ownership.signal.aborted) {
           await ownership.run(() => saveCopilotJob(scope, threadId, jobId, outcome))
         }
       } finally {

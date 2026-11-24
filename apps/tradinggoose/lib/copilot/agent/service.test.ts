@@ -530,6 +530,65 @@ describe('Copilot background execution and native history', () => {
     expect(await threadClaims()).toHaveLength(0)
   })
 
+  it.each(['early failure', 'late failure', 'early success'] as const)(
+    'honors the admission result after Trigger dispatch (%s)',
+    async (timing) => {
+      m.triggerState.mockResolvedValue({ mode: 'trigger' })
+      vi.stubEnv('REDIS_URL', 'redis://shared-streams.invalid')
+      const success = timing === 'early success'
+      const failure = 'Trigger acknowledgment was lost'
+      m.dispatch.mockImplementationOnce(async (job) => {
+        m.jobs.set(job.id, job)
+        if (timing !== 'late failure') {
+          const waiting = deferred()
+          const workflows = (await m.storage.getStore('workflows'))!
+          const read = workflows.getRunOwnership.bind(workflows)
+          const spy = vi.spyOn(workflows, 'getRunOwnership').mockImplementation(async (input) => {
+            const owner = await read(input)
+            if (owner?.live && owner.ownerId === job.payload.runId) waiting.resolve()
+            return owner
+          })
+          try {
+            m.executions.set(job.id, executeJob(job.id))
+            await waiting.promise
+          } finally {
+            spy.mockRestore()
+          }
+        }
+        if (!success) throw new Error(failure)
+        return `trigger-${job.id}`
+      })
+
+      setModel({ text: 'Worker answer' })
+      const { response, result } = await message()
+      expect(response.status).toBe(success ? 202 : 503)
+      expect(m.dispatch).toHaveBeenCalledOnce()
+      const [
+        {
+          id,
+          payload: { threadId, runId },
+        },
+      ] = m.dispatch.mock.calls[0]
+      const outcome = success
+        ? { status: 'success' }
+        : { status: 'failed', error: { code: 'GENERATION_FAILED', message: failure } }
+      expect(result).toMatchObject(outcome)
+      if (timing === 'late failure') await executeJob(id)
+      else await m.executions.get(id)
+
+      const count = success ? 1 : 0
+      expect.soft(m.resolve).toHaveBeenCalledTimes(count)
+      expect.soft(resolveConfiguredModel).toHaveBeenCalledTimes(count)
+      expect.soft(m.contacts).toHaveLength(count)
+      expect.soft(m.admit).toHaveBeenCalledTimes(count)
+      expect.soft(m.accept).toHaveBeenCalledTimes(count)
+      expect(m.route).not.toHaveBeenCalled()
+      const thread = await m.memory.getThreadById({ threadId })
+      expect(thread?.metadata?.copilotJob).toMatchObject({ id, runId, ...outcome })
+      expect(await threadClaims()).toHaveLength(0)
+    }
+  )
+
   it.each([false, true])(
     'cancels an admitted turn before its worker starts (other instance: %s)',
     async (otherInstance) => {
