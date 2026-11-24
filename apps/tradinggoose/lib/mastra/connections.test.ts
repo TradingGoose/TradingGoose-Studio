@@ -466,10 +466,50 @@ it.each(nativeCases)(
   }
 )
 it.each([
+  [undefined, 1024, 1024],
+  [1024, 1024, 2048],
+  [4096, 1024, 5120],
+  [4096, 59_904, 64_000],
+] as const)(
+  'serializes Haiku thinking budget %s and answer allowance %i as max_tokens %i',
+  async (thinkingBudget, maxOutputTokens, wireMaxTokens) => {
+    const model = 'anthropic/claude-haiku-4-5'
+    const scope = { ...requestScope, model }
+    const capture = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({
+        id: 'message_1',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-haiku-4-5',
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 1, output_tokens: 1 },
+      })
+    )
+    vi.stubGlobal('fetch', capture)
+    const work = await prepareModelRequest(scope, {
+      apiKey: 'fixture',
+      modelSettings: { maxOutputTokens },
+      reasoning: thinkingBudget === undefined ? undefined : budget(thinkingBudget),
+    })
+    const agent = new Agent({ id: 'wire', name: 'wire', instructions: '', model: work.model })
+    expect((await agent.generate('hello', work.options)).text).toBe('ok')
+    expect(capture).toHaveBeenCalledTimes(1)
+    const [url, init] = capture.mock.calls[0]!
+    expect(String(url)).toBe('https://api.anthropic.com/v1/messages')
+    const body = JSON.parse(String(init?.body))
+    expect(body).toMatchObject({ model: 'claude-haiku-4-5', max_tokens: wireMaxTokens })
+    if (thinkingBudget === undefined) expect(body).not.toHaveProperty('thinking')
+    else expect(body.thinking).toEqual({ type: 'enabled', budget_tokens: thinkingBudget })
+    expect(usageProcessors).toHaveBeenLastCalledWith(scope, expect.anything())
+  }
+)
+
+it.each([
   ['mistral/mistral-large-4', effort('medium'), {}, false],
   ['alibaba/qwen-flash', budget(0), {}, false],
   ['google/gemini-2.5-flash', budget(1.5), {}, false],
-  ['anthropic/claude-haiku-4-5', budget(1024), { maxOutputTokens: 1024 }, false],
+  ['anthropic/claude-haiku-4-5', budget(4096), { maxOutputTokens: 59_905 }, false],
   ['anthropic/claude-haiku-4-5', budget(1024), {}, true],
   ['fireworks-ai/accounts/fireworks/models/deepseek-v4p1-flash', toggle(false), {}, false],
 ] as const)(

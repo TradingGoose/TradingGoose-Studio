@@ -203,10 +203,7 @@ export function nativeReasoningSettings(
         })
       if (type === 'budget_tokens') {
         const limit = providers[provider]?.models?.[modelId]?.limit.output
-        if (
-          maxOutputTokens !== undefined &&
-          (value >= maxOutputTokens || (limit && maxOutputTokens + value > limit))
-        )
+        if (limit && maxOutputTokens !== undefined && maxOutputTokens + value > limit)
           throw new Error('Thinking budget conflicts with Max Output Tokens')
         return withOptions({ thinking: { type: 'enabled', budgetTokens: value } })
       }
