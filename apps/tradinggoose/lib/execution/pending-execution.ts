@@ -212,15 +212,10 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
   try {
     const triggerKey = getPendingExecutionTriggerKey(row.id)
     const idempotencyKey = await idempotencyKeys.create(triggerKey, { scope: 'global' })
-    const maxDuration =
-      isWorkflowPendingExecution(row) || row.executionType === 'monitor'
-        ? ((
-            await resolveServerExecutionBillingTierForScope({
-              scopeId: row.billingScopeId,
-              scopeType: row.billingScopeType,
-            })
-          )?.workflowExecutionTimeLimitSeconds ?? timeout.None)
-        : undefined
+    const tier = await resolveServerExecutionBillingTierForScope({
+      scopeId: row.billingScopeId,
+      scopeType: row.billingScopeType,
+    })
 
     admissionStarted = true
     await tasks.trigger(
@@ -229,7 +224,7 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
         pendingExecutionId: row.id,
         billingScopeId: row.billingScopeId,
         billingScopeType: row.billingScopeType,
-        ...(maxDuration === undefined ? {} : { executionMaxDuration: maxDuration }),
+        executionMaxDuration: tier?.workflowExecutionTimeLimitSeconds ?? timeout.None,
       },
       {
         idempotencyKey,
@@ -248,12 +243,16 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
         '@/background/pending-execution-worker'
       )
       try {
-        await finalizePendingExecutionFailure(
+        const result = await finalizePendingExecutionFailure(
           row,
           error.message,
           Math.max(1, Date.now() - startedAt)
         )
+        if (result === 'retired') return { status: 'retired' as const, error }
       } catch (finalizationError) {
+        if (row.executionType === 'document')
+          return { status: 'finalization_failed' as const, error: finalizationError }
+
         logger.error(
           'Permanent Trigger admission failure finalization failed',
           { pendingExecutionId: row.id, status: error.status, message: error.message },
@@ -299,21 +298,26 @@ export async function dispatchNextPendingExecution(params: {
 
   let claim = await claimNextPendingExecution(params.billingScopeId, params.billingScopeType)
   if (claim.status === 'capacity_blocked' || claim.status === 'empty') {
-    await reconcilePendingExecutionCapacity(params.billingScopeId)
+    const rejection = await reconcilePendingExecutionCapacity(params.billingScopeId)
+    if (rejection) return rejection
     claim = await claimNextPendingExecution(params.billingScopeId, params.billingScopeType)
   }
   if (claim.status !== 'claimed') {
     return claim
   }
 
+  let rejection
   try {
-    await triggerPendingExecution(claim.row)
+    rejection = await triggerPendingExecution(claim.row)
   } catch (error) {
     const processing = await getProcessingPendingExecution(claim.row.id)
     if (!processing) throw error
-    await reconcileProcessingPendingExecution(processing, processing.id)
+    const reconciled = await reconcileProcessingPendingExecution(processing, processing.id)
+    if (typeof reconciled === 'object') return reconciled
   }
 
+  if (rejection?.status === 'finalization_failed') throw rejection.error
+  if (rejection) return rejection
   return { status: 'dispatched' as const, pendingExecutionId: claim.row.id }
 }
 
@@ -325,16 +329,20 @@ export async function wakePendingExecution(params: {
   try {
     const triggerState = await getTriggerExecutionState()
 
+    let rejection
     for (let dispatchCount = 0; dispatchCount < MAX_WAKE_DISPATCHES; dispatchCount += 1) {
       const result = await dispatchNextPendingExecution({
         billingScopeId: params.billingScopeId,
         billingScopeType: params.billingScopeType,
         triggerState,
       })
-      if (result.status !== 'dispatched') {
+      if (result.status === 'retired') rejection ??= result
+      else if (result.status !== 'dispatched') {
+        if (rejection) throw rejection.error
         return result
       }
     }
+    if (rejection) throw rejection.error
   } catch (error) {
     logger.error('Pending execution wake failed', {
       billingScopeId: params.billingScopeId,
@@ -363,7 +371,15 @@ export async function enqueuePendingExecution(
         })
       : null
 
-  const queueResult = await db.transaction(async (tx) => {
+  const heartbeat =
+    initialTriggerState.mode === 'local' && params.executionType === 'document'
+      ? await import('@/lib/knowledge/documents/local-heartbeat')
+      : undefined
+  const nonce = await heartbeat?.armLocalDocument(params.pendingExecutionId)
+  const disarm = () => {
+    if (nonce) heartbeat?.disarmLocalDocument(params.pendingExecutionId, nonce)
+  }
+  const admission = db.transaction(async (tx) => {
     await lockPendingExecutionMode(tx)
     const triggerState = await getTriggerExecutionState(tx)
     if (triggerState.mode === 'unavailable') {
@@ -373,6 +389,14 @@ export async function enqueuePendingExecution(
       throw new TriggerExecutionUnavailableError(
         'Execution mode changed during admission. Retry the request.'
       )
+    }
+    if (params.executionType === 'document' && params.beforeEnqueue) {
+      const [existing] = await tx
+        .select({ id: pendingExecution.id })
+        .from(pendingExecution)
+        .where(eq(pendingExecution.id, params.pendingExecutionId))
+        .limit(1)
+      if (existing) return { mode: 'skipped' as const, inserted: false }
     }
     if (params.beforeEnqueue && !(await params.beforeEnqueue(tx))) {
       return { mode: 'skipped' as const, inserted: false }
@@ -385,7 +409,7 @@ export async function enqueuePendingExecution(
       userId: params.userId,
       workflowId: params.workflowId ?? null,
       workspaceId: params.workspaceId ?? null,
-      payload: params.payload,
+      payload: nonce ? { ...params.payload, localDocumentNonce: nonce } : params.payload,
     }
     if (triggerState.mode === 'local') {
       if (await hasWorkflowExecutionLog(tx, params)) {
@@ -399,9 +423,12 @@ export async function enqueuePendingExecution(
           billingScopeType: 'local',
           status: 'processing',
           processingStartedAt: new Date(),
+          ...(nonce && { updatedAt: sql`clock_timestamp() at time zone 'UTC'` }),
         })
         .onConflictDoNothing({ target: pendingExecution.id })
         .returning({ id: pendingExecution.id })
+      if (params.executionType === 'document' && params.beforeEnqueue && !inserted)
+        throw new Error('Document retry admission collided')
       return { mode: 'local' as const, inserted: Boolean(inserted) }
     }
 
@@ -498,17 +525,24 @@ export async function enqueuePendingExecution(
     })
     return queueResult(true)
   })
+  const queueResult = await admission.catch((error) => {
+    disarm()
+    throw error
+  })
 
+  if (!queueResult.inserted) disarm()
   if (queueResult.mode === 'skipped') {
     return { pendingExecutionId: params.pendingExecutionId, inserted: false }
   }
 
   if (queueResult.mode === 'local') {
-    if (queueResult.inserted)
-      await dispatchBackgroundExecution(
-        { pendingExecutionId: params.pendingExecutionId, executionType: params.executionType },
-        'local'
-      )
+    if (queueResult.inserted) {
+      const job = {
+        pendingExecutionId: params.pendingExecutionId,
+        executionType: params.executionType,
+      }
+      await dispatchBackgroundExecution(job, 'local', nonce)
+    }
     return {
       pendingExecutionId: params.pendingExecutionId,
       inserted: queueResult.inserted,
@@ -517,22 +551,23 @@ export async function enqueuePendingExecution(
 
   const { billingScopeId, billingScopeType, inserted, triggerState } = queueResult
 
-  if (!inserted) {
+  const scope = { billingScopeId, billingScopeType, requestId: params.requestId }
+  let rejected
+  if (inserted) {
+    const result = await dispatchNextPendingExecution({ ...scope, triggerState })
+    if (result.status === 'retired') rejected = result
+  } else {
     const processing = await getProcessingPendingExecution(params.pendingExecutionId)
     if (processing)
-      await reconcilePendingExecutionCapacity(processing.billingScopeId, processing.id)
-    await wakePendingExecution({ billingScopeId, billingScopeType, requestId: params.requestId })
-    return {
-      pendingExecutionId: params.pendingExecutionId,
-      inserted,
-    }
+      rejected = await reconcilePendingExecutionCapacity(processing.billingScopeId, processing.id)
   }
-
-  await dispatchNextPendingExecution({
-    billingScopeId,
-    billingScopeType,
-    triggerState,
-  })
+  if (rejected) {
+    await wakePendingExecution(scope).catch((error) =>
+      logger.error('Wake after document admission rejection failed', { billingScopeId, error })
+    )
+    throw rejected.error
+  }
+  if (!inserted) await wakePendingExecution(scope)
 
   return {
     pendingExecutionId: params.pendingExecutionId,
@@ -733,7 +768,13 @@ async function reconcileProcessingPendingExecution(
       await settlePendingExecutionOwner(row, { wake: false })
       return releasedPendingExecutionCapacity(capacityOwnerId)
     }
-    await triggerPendingExecution(row)
+    const rejection = await triggerPendingExecution(row)
+    if (rejection?.status === 'finalization_failed') throw rejection.error
+    if (
+      rejection?.status === 'retired' &&
+      (await releasedPendingExecutionCapacity(capacityOwnerId))
+    )
+      return rejection
     return false
   }
   if (!run.isCompleted) return false
@@ -767,7 +808,9 @@ async function reconcilePendingExecutionCapacity(
   for (const row of rows) {
     try {
       const capacityOwnerId = getPendingExecutionCapacityOwnerId(row, activeRowsById)
-      if (await reconcileProcessingPendingExecution(row, capacityOwnerId)) return
+      const released = await reconcileProcessingPendingExecution(row, capacityOwnerId)
+      if (typeof released === 'object') return released
+      if (released) return
     } catch (error) {
       logger.error('Pending execution capacity reconciliation failed', {
         billingScopeId,

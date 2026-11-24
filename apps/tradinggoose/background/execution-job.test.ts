@@ -81,14 +81,18 @@ describe('background execution job', () => {
     const signal = new AbortController().signal
     const task = createBackgroundExecutionTask('document') as any
     const payload = { pendingExecutionId: 'document-job-1', executionType: 'document' }
-    await task.run(payload, { signal })
+    await task.run({ pendingExecutionId: payload.pendingExecutionId }, { signal })
     expect(mocks.executePendingExecutionRun).toHaveBeenCalledWith(payload, signal)
     await executeBackgroundExecution(
       { id: 'document-job-1', executionType: 'document', payload: documentPayload },
       signal
     )
 
-    expect(mocks.executeDocumentProcessingJob).toHaveBeenCalledWith(documentPayload, signal)
+    expect(mocks.executeDocumentProcessingJob).toHaveBeenCalledWith(
+      { id: payload.pendingExecutionId, executionType: 'document', payload: documentPayload },
+      signal,
+      undefined
+    )
   })
 
   it('runs Copilot directly with its cancellation signal', async () => {

@@ -79,6 +79,11 @@ const nextConfig: NextConfig = {
   },
   output: isTruthy(env.DOCKER_BUILD) ? 'standalone' : undefined,
   outputFileTracingIncludes: {
+    '/*': [
+      './lib/knowledge/documents/local-heartbeat-worker.mjs',
+      '../../node_modules/postgres/package.json',
+      '../../node_modules/postgres/src/*.js',
+    ],
     '/monaco-editor/esm/**/*': MONACO_TRACE_FILES,
   },
   turbopack: {

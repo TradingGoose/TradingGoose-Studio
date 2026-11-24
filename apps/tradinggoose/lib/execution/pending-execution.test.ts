@@ -89,6 +89,11 @@ const deleteChain = {
   returning: deleteReturningMock,
 }
 
+vi.mock('@/lib/knowledge/documents/local-heartbeat', () => ({
+  armLocalDocument: vi.fn(async () => 'local-nonce'),
+  disarmLocalDocument: vi.fn(),
+}))
+
 vi.mock('@tradinggoose/db', () => ({
   db: {
     transaction: transactionMock,
@@ -301,7 +306,7 @@ describe('dispatchNextPendingExecution', () => {
     { executionType: 'workflow', source: 'workflow_api', maxDuration: 45 },
     { executionType: 'monitor', source: 'monitor:portfolio', maxDuration: 45 },
     { executionType: 'monitor', source: 'monitor:indicator:calculation', maxDuration: 45 },
-    { executionType: 'document', source: 'document', maxDuration: undefined },
+    { executionType: 'document', source: 'document_processing', maxDuration: 45 },
   ] as const)('applies the duration policy for $source', async ({ maxDuration, ...overrides }) => {
     const row = createPendingRow(overrides)
     expect(isWorkflowPendingExecution(row)).toBe(
@@ -733,6 +738,30 @@ describe('wakePendingExecution', () => {
     expect(getTriggerExecutionStateMock).toHaveBeenCalledOnce()
   })
 
+  it('continues the bounded wake after permanent document rejection before reporting the error', async () => {
+    const rejected = createPendingRow({
+      id: 'doc',
+      executionType: 'document',
+      source: 'document_processing',
+    })
+    const next = createPendingRow({ id: 'next' })
+    const error = new ApiError(422, undefined, 'Invalid job', undefined)
+    triggerMock.mockRejectedValueOnce(error)
+    finalizePendingExecutionFailureMock.mockResolvedValueOnce('retired')
+    mockClaimableRow(rejected)
+    mockClaimableRow(next)
+    await expect(
+      wakePendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).rejects.toBe(error)
+    expect(triggerMock.mock.calls.map((call) => call[1].pendingExecutionId)).toEqual([
+      'doc',
+      'next',
+    ])
+    expect(finalizePendingExecutionFailureMock.mock.invocationCallOrder[0]).toBeLessThan(
+      triggerMock.mock.invocationCallOrder[1]
+    )
+  })
+
   it('returns a pre-admission claim to the queue and propagates the wake failure', async () => {
     const row = createPendingRow()
     const error = new Error('Trigger wake failed')
@@ -958,7 +987,8 @@ describe('enqueuePendingExecution', () => {
     await vi.waitFor(() =>
       expect(dispatchBackgroundExecutionMock).toHaveBeenCalledWith(
         { pendingExecutionId: 'pending-local-1', executionType: 'workflow' },
-        'local'
+        'local',
+        undefined
       )
     )
     expect(transactionMock).toHaveBeenCalledOnce()
@@ -1014,10 +1044,40 @@ describe('enqueuePendingExecution', () => {
     await vi.waitFor(() =>
       expect(dispatchBackgroundExecutionMock).toHaveBeenCalledWith(
         { pendingExecutionId: 'document-local-1', executionType: 'document' },
-        'local'
+        'local',
+        'local-nonce'
       )
     )
     expect(triggerMock).not.toHaveBeenCalled()
+  })
+
+  it('reports a permanent document admission rejection after waking its successor', async () => {
+    getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
+    const rejected = createPendingRow({
+      id: 'doc',
+      executionType: 'document',
+      source: 'document_processing',
+    })
+    const next = createPendingRow({ id: 'next' })
+    const error = new ApiError(422, undefined, 'Invalid job', undefined)
+    triggerMock.mockRejectedValueOnce(error)
+    finalizePendingExecutionFailureMock.mockResolvedValueOnce('retired')
+    txSelectLimitMock.mockResolvedValueOnce([])
+    mockClaimableRow(rejected)
+    mockClaimableRow(next)
+    await expect(
+      enqueuePendingExecution({
+        pendingExecutionId: 'doc',
+        executionType: 'document',
+        source: 'document_processing',
+        userId: 'user-1',
+        payload: {},
+      })
+    ).rejects.toBe(error)
+    expect(triggerMock.mock.calls.map((call) => call[1].pendingExecutionId)).toEqual([
+      'doc',
+      'next',
+    ])
   })
 
   it('stores the resolved billing scope when billing is enabled', async () => {

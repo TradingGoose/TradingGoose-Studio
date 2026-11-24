@@ -72,7 +72,8 @@ function getWorkflowState(row: Pick<PendingExecutionClaim, 'payload'>): Workflow
 
 export async function executePendingExecutionRun(
   payload: Exclude<BackgroundExecutionTaskPayload, { executionType: 'copilot' }>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  localDocumentNonce?: string
 ) {
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
@@ -80,8 +81,16 @@ export async function executePendingExecutionRun(
   }
 
   if (row.executionType !== payload.executionType) throw new Error('Execution task type differs')
+  if (typeof row.payload.ownerCompletedAt === 'string')
+    return { success: true, pendingExecutionId: row.id, skipped: 'owner_completed' as const }
   if (!(await recoverPendingExecutionCheckpoint(row))) {
-    await executeBackgroundExecution(row, signal)
+    if (
+      row.executionType === 'document' &&
+      ((row.billingScopeType === 'local') !== Boolean(localDocumentNonce) ||
+        row.payload.localDocumentNonce !== localDocumentNonce)
+    )
+      throw new Error('Document execution owner differs')
+    await executeBackgroundExecution(row, signal, localDocumentNonce)
     if (isWorkflowPendingExecution(row)) {
       const { reconcileWorkflowCheckpointChildren } = await import(
         '@/lib/workflows/human-in-the-loop/service'
@@ -90,7 +99,7 @@ export async function executePendingExecutionRun(
         typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
       )
     }
-    await settlePendingExecutionOwner(row, { wake: false })
+    if (row.executionType !== 'document') await settlePendingExecutionOwner(row, { wake: false })
   }
   return { success: true, pendingExecutionId: row.id }
 }
@@ -128,7 +137,7 @@ export async function finalizePendingExecutionRunFailure(
     workflowId: row.workflowId,
     error,
   })
-  if (await finalizePendingExecutionFailure(row, message, durationMs)) return undefined
+  if ((await finalizePendingExecutionFailure(row, message, durationMs)) === true) return undefined
   return message
 }
 
@@ -163,7 +172,7 @@ export async function executePendingExecution(payload: PendingExecutionTaskPaylo
     await wakePendingExecutionUntilSuccessful(payload)
     return { success: true, pendingExecutionId: row.id, skipped: 'owner_completed' as const }
   }
-  const result = await waitForBackgroundExecution(row, payload.executionMaxDuration)
+  const result = await waitForBackgroundExecution(row, payload.executionMaxDuration ?? timeout.None)
 
   const failureMessage = result.ok
     ? undefined
@@ -393,8 +402,8 @@ export async function finalizePendingExecutionFailure(
 ) {
   if (await recoverPendingExecutionCheckpoint(row)) return true
   if (row.executionType === 'document') {
-    const { markDocumentProcessingJobFailed } = await import('./knowledge-processing')
-    await markDocumentProcessingJobFailed(row.payload, message)
+    const { failDocumentAttempt } = await import('@/lib/knowledge/documents/claim')
+    return (await failDocumentAttempt({ id: row.id }, message)) ? ('retired' as const) : undefined
   }
 
   if (isWorkflowPendingExecution(row)) {

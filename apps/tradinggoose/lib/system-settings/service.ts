@@ -134,6 +134,10 @@ export async function getResolvedSystemSettings(
 export async function upsertSystemSettings(
   input: UpsertSystemSettingsInput
 ): Promise<ResolvedSystemSettings> {
+  if (hasInputKey(input, 'triggerDevEnabled')) {
+    const { recoverInterruptedLocalDocuments } = await import('@/lib/knowledge/documents/claim')
+    await recoverInterruptedLocalDocuments()
+  }
   return db.transaction(async (tx) => {
     await lockPendingExecutionMode(tx)
 

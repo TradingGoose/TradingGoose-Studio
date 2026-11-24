@@ -13,6 +13,10 @@ import {
 } from '@/app/api/__test-utils__/utils'
 
 mockKnowledgeSchemas()
+vi.mock('@/lib/knowledge/documents/claim', () => ({
+  recoverInterruptedLocalDocuments: vi.fn(async () => 0),
+}))
+
 vi.mock('@/lib/auth/hybrid', () => ({
   checkSessionOrInternalAuth: async () => {
     const { getSession } = await import('@/lib/auth')

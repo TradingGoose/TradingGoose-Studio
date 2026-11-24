@@ -1,8 +1,11 @@
 import { task } from '@trigger.dev/sdk'
-import type { BackgroundExecutionTaskPayload } from '@/lib/execution/background-execution'
+import type {
+  BackgroundExecutionTaskPayload,
+  backgroundTaskIds,
+} from '@/lib/execution/background-execution'
 
 export const copilotExecutionTask = task({
-  id: 'copilot-execution',
+  id: 'copilot-execution' satisfies typeof backgroundTaskIds.copilot,
   retry: { maxAttempts: 1 },
   run: async (
     payload: Extract<BackgroundExecutionTaskPayload, { executionType: 'copilot' }>,

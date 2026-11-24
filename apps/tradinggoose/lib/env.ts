@@ -122,9 +122,6 @@ function safeCreateEnv() {
     VERCEL_BLOB_READ_WRITE_TOKEN: z.string().optional(),                  // Custom-named Vercel Blob read-write token
     VERCEL_BLOB_ACCESS: z.enum(['public', 'private']).optional(),                  // Vercel Blob access mode
 
-    // Knowledge Base Processing Configuration - Shared across all processing methods
-    KB_CONFIG_MAX_DURATION: z.number().optional().default(600),     // Max processing duration in seconds (10 minutes)
-
     // Real-time Communication
     SOCKET_PORT: z.number().optional(),                  // Port for the realtime socket server process
     PORT: z.number().optional(),                  // Main application port

@@ -7,7 +7,7 @@ import type { PendingExecutionClaim } from '@/lib/execution/pending-execution'
 const mocks = vi.hoisted(() => ({
   cancelPendingWorkflowExecution: vi.fn(),
   executeBackgroundExecution: vi.fn(),
-  markDocumentProcessingJobFailed: vi.fn(),
+  failDocumentAttempt: vi.fn(),
   getProcessingPendingExecution: vi.fn(),
   isWorkflowPendingExecution: vi.fn(),
   listChildPendingWorkflowExecutions: vi.fn(),
@@ -112,8 +112,8 @@ vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
   reconcileWorkflowCheckpointChildren: mocks.reconcileWorkflowCheckpointChildren,
 }))
 
-vi.mock('./knowledge-processing', () => ({
-  markDocumentProcessingJobFailed: mocks.markDocumentProcessingJobFailed,
+vi.mock('@/lib/knowledge/documents/claim', () => ({
+  failDocumentAttempt: mocks.failDocumentAttempt,
 }))
 
 vi.mock('./execution-job', () => ({
@@ -210,7 +210,7 @@ describe('pending execution worker', () => {
     vi.clearAllMocks()
     mocks.cancelPendingWorkflowExecution.mockResolvedValue({ status: 'cancelling' })
     mocks.executeBackgroundExecution.mockResolvedValue({ success: true })
-    mocks.markDocumentProcessingJobFailed.mockResolvedValue(undefined)
+    mocks.failDocumentAttempt.mockResolvedValue(true)
     mocks.getProcessingPendingExecution.mockResolvedValue(null)
     mocks.isWorkflowPendingExecution.mockImplementation(
       (row) => row.executionType !== 'document' && row.source !== 'monitor:indicator:calculation'
@@ -245,7 +245,7 @@ describe('pending execution worker', () => {
       pendingExecutionId: row.id,
     })
 
-    expect(mocks.executeBackgroundExecution).toHaveBeenCalledWith(row, undefined)
+    expect(mocks.executeBackgroundExecution).toHaveBeenCalledWith(row, undefined, undefined)
     expect(mocks.reconcileWorkflowCheckpointChildren).toHaveBeenCalledWith(row.id)
     expect(mocks.reconcileWorkflowCheckpointChildren.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.settlePendingExecutionOwner.mock.invocationCallOrder[0]
@@ -261,11 +261,13 @@ describe('pending execution worker', () => {
       mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
       const signal = new AbortController().signal
       await executePendingExecutionRun({ pendingExecutionId: row.id, executionType }, signal)
-      expect(mocks.executeBackgroundExecution).toHaveBeenCalledWith(row, signal)
+      expect(mocks.executeBackgroundExecution).toHaveBeenCalledWith(row, signal, undefined)
       expect(mocks.reconcileWorkflowCheckpointChildren).not.toHaveBeenCalled()
       expect(mocks.recoverWorkflowCheckpointSegment).not.toHaveBeenCalled()
       expect(mocks.logLimit).not.toHaveBeenCalled()
-      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
+      expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledTimes(
+        executionType === 'document' ? 0 : 1
+      )
     }
   )
 
@@ -331,8 +333,8 @@ describe('pending execution worker', () => {
     expect(mocks.triggerAndWait.mock.calls[1]).toEqual(mocks.triggerAndWait.mock.calls[0])
     expect(mocks.triggerAndWait).toHaveBeenCalledWith(
       'workflow-execution',
-      { pendingExecutionId: row.id, executionType: 'workflow' },
-      { idempotencyKey: `workflow-execution:${row.id}` }
+      { pendingExecutionId: row.id },
+      { idempotencyKey: `workflow-execution:${row.id}`, maxDuration: 2_147_483_647 }
     )
     expect(mocks.wakePendingExecution).toHaveBeenCalledOnce()
   })
@@ -353,6 +355,9 @@ describe('pending execution worker', () => {
 
     expect(mocks.triggerAndWait).not.toHaveBeenCalled()
     expect(mocks.wakePendingExecution).toHaveBeenCalledOnce()
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    await expect(runExecution(row.id)).resolves.toMatchObject({ skipped: 'owner_completed' })
+    expect(mocks.executeBackgroundExecution).not.toHaveBeenCalled()
   })
 
   it('runs the supervisor without a deadline and applies the tier duration only to the child', async () => {
@@ -368,7 +373,7 @@ describe('pending execution worker', () => {
     })
     expect(mocks.triggerAndWait).toHaveBeenCalledWith(
       'workflow-execution',
-      { pendingExecutionId: 'pending-workflow-1', executionType: 'workflow' },
+      { pendingExecutionId: 'pending-workflow-1' },
       { idempotencyKey: 'workflow-execution:pending-workflow-1', maxDuration: 45 }
     )
   })
@@ -447,6 +452,20 @@ describe('pending execution worker', () => {
     expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
   })
 
+  it.each([5, 900, 2147483647])(
+    'applies %s seconds to a single document child',
+    async (maxDuration) => {
+      const row = processingRow({ executionType: 'document', source: 'document_processing' })
+      mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+      await runSupervisor(row.id, maxDuration)
+      expect(mocks.triggerAndWait).toHaveBeenCalledExactlyOnceWith(
+        'knowledge-process-document',
+        { pendingExecutionId: row.id },
+        { idempotencyKey: `knowledge-process-document:${row.id}`, maxDuration }
+      )
+    }
+  )
+
   it('records document failure before releasing capacity', async () => {
     const row = processingRow({
       id: 'pending-document-1',
@@ -461,13 +480,10 @@ describe('pending execution worker', () => {
       error: new Error('Execution failed'),
     })
     await expect(runSupervisor(row.id)).rejects.toThrow('Execution failed')
-    expect(mocks.markDocumentProcessingJobFailed).toHaveBeenCalledWith(
-      row.payload,
-      'Execution failed'
-    )
-    expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledWith(row, { wake: false })
-    expect(mocks.markDocumentProcessingJobFailed.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.settlePendingExecutionOwner.mock.invocationCallOrder[0]
+    expect(mocks.failDocumentAttempt).toHaveBeenCalledWith({ id: row.id }, 'Execution failed')
+    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+    expect(mocks.failDocumentAttempt.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.wakePendingExecution.mock.invocationCallOrder[0]
     )
     expect(mocks.recoverWorkflowCheckpointSegment).not.toHaveBeenCalled()
     expect(mocks.loggingStart).not.toHaveBeenCalled()

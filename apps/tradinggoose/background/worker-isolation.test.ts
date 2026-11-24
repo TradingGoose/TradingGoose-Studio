@@ -167,7 +167,7 @@ it('registers every task without eagerly loading application services or executi
       (relative) =>
         !definitions.includes(relative) &&
         relative !== 'background/execution-job.ts' &&
-        relative !== 'lib/knowledge/documents/config.ts',
+        relative !== 'lib/execution/background-execution.ts',
       /^(?:@tradinggoose\/db|drizzle-orm|@mastra\/|@e2b\/|e2b(?:$|\/)|pinets(?:$|\/)|next(?:$|\/)|next-runtime-env(?:$|\/))/,
       false
     )

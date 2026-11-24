@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { recoverInterruptedLocalDocuments } from '@/lib/knowledge/documents/claim'
 import {
+  DocumentRetryConflictError,
   deleteDocument,
-  failStaleDocumentProcessing,
   retryDocumentProcessing,
   updateDocument,
 } from '@/lib/knowledge/documents/service'
@@ -23,7 +25,6 @@ const UpdateDocumentSchema = z.object({
   processingStatus: z.enum(['pending', 'processing', 'completed', 'failed']).optional(),
   processingError: z.string().optional(),
   retryProcessing: z.boolean().optional(),
-  failStaleProcessing: z.boolean().optional(),
   // Tag fields
   tag1: z.string().optional(),
   tag2: z.string().optional(),
@@ -48,7 +49,12 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const accessCheck = await checkDocumentAccess(knowledgeBaseId, documentId, session.user.id)
+    let accessCheck = await checkDocumentAccess(knowledgeBaseId, documentId, session.user.id)
+    if (
+      accessCheck.hasAccess &&
+      (await recoverInterruptedLocalDocuments(knowledgeBaseId, documentId))
+    )
+      accessCheck = await checkDocumentAccess(knowledgeBaseId, documentId, session.user.id)
 
     if (!accessCheck.hasAccess) {
       if (accessCheck.notFound) {
@@ -91,7 +97,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const accessCheck = await checkDocumentWriteAccess(knowledgeBaseId, documentId, session.user.id)
+    let accessCheck = await checkDocumentWriteAccess(knowledgeBaseId, documentId, session.user.id)
 
     if (!accessCheck.hasAccess) {
       if (accessCheck.notFound) {
@@ -111,32 +117,18 @@ export async function PUT(
     try {
       const validatedData = UpdateDocumentSchema.parse(body)
 
-      if (validatedData.failStaleProcessing) {
-        const doc = accessCheck.document
-
-        if (doc.processingStatus !== 'processing') {
-          return NextResponse.json({ error: 'Document is not processing' }, { status: 400 })
-        }
-
-        const result = await failStaleDocumentProcessing(documentId, requestId)
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            documentId,
-            status: result.status,
-            message: result.message,
-          },
-        })
-      }
-
       if (validatedData.retryProcessing) {
-        const doc = accessCheck.document
-
-        if (doc.processingStatus !== 'failed') {
-          return NextResponse.json({ error: 'Document is not in failed state' }, { status: 400 })
+        if (await recoverInterruptedLocalDocuments(knowledgeBaseId, documentId)) {
+          accessCheck = await checkDocumentWriteAccess(knowledgeBaseId, documentId, session.user.id)
+          if (!accessCheck.hasAccess)
+            return NextResponse.json(
+              { error: accessCheck.reason },
+              { status: accessCheck.notFound ? 404 : 401 }
+            )
         }
-
+        const doc = accessCheck.document
+        if (doc.processingStatus !== 'failed')
+          return NextResponse.json({ error: 'Document is not in failed state' }, { status: 400 })
         const docData = {
           filename: doc.filename,
           fileUrl: doc.fileUrl,
@@ -148,7 +140,7 @@ export async function PUT(
           knowledgeBaseId,
           documentId,
           docData,
-          requestId,
+          randomUUID(),
           session.user.id
         )
 
@@ -185,6 +177,9 @@ export async function PUT(
       throw validationError
     }
   } catch (error) {
+    if (error instanceof DocumentRetryConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
     if (error instanceof TriggerExecutionUnavailableError) {
       logger.error(`[${requestId}] Document processing blocked`, { error: error.message })
       return NextResponse.json({ error: error.message }, { status: error.statusCode })

@@ -33,6 +33,10 @@ const transactionStore = {
   select: (...args: unknown[]) => mockSelect(...args),
 }
 
+vi.mock('@/lib/knowledge/documents/claim', () => ({
+  recoverInterruptedLocalDocuments: vi.fn(async () => 0),
+}))
+
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: (...args: unknown[]) => mockSelect(...args),

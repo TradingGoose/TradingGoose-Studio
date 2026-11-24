@@ -261,8 +261,6 @@ export function KnowledgeBase({
 
     const refreshInterval = setInterval(async () => {
       try {
-        // Check for dead processes before refreshing
-        await checkForDeadProcesses()
         await refreshDocuments()
       } catch (error) {
         logger.error('Error refreshing documents:', error)
@@ -271,56 +269,6 @@ export function KnowledgeBase({
 
     return () => clearInterval(refreshInterval)
   }, [documents, refreshDocuments])
-
-  // Check for documents stuck in processing due to dead processes
-  const checkForDeadProcesses = async () => {
-    const now = new Date()
-    const DEAD_PROCESS_THRESHOLD_MS = 30 * 60 * 1000
-
-    const staleDocuments = documents.filter((doc) => {
-      if (doc.processingStatus !== 'processing' || !doc.processingStartedAt) {
-        return false
-      }
-
-      const processingDuration = now.getTime() - new Date(doc.processingStartedAt).getTime()
-      return processingDuration > DEAD_PROCESS_THRESHOLD_MS
-    })
-
-    if (staleDocuments.length === 0) return
-
-    logger.warn(`Found ${staleDocuments.length} documents with dead processes`)
-
-    // Mark stale documents as failed via API to sync with database
-    const markFailedPromises = staleDocuments.map(async (doc) => {
-      try {
-        const response = await fetch(`/api/knowledge/${id}/documents/${doc.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            failStaleProcessing: true,
-          }),
-        })
-
-        if (!response.ok) {
-          // If API call fails, log but don't throw to avoid stopping other recoveries
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-          logger.error(`Failed to mark document ${doc.id} as failed: ${errorData.error}`)
-          return
-        }
-
-        const result = await response.json()
-        if (result.success) {
-          logger.info(`Successfully marked dead process as failed for document: ${doc.filename}`)
-        }
-      } catch (error) {
-        logger.error(`Error marking document ${doc.id} as failed:`, error)
-      }
-    })
-
-    await Promise.allSettled(markFailedPromises)
-  }
 
   // Calculate pagination info for display
   const totalItems = pagination?.total || 0
