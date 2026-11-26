@@ -7,7 +7,6 @@ import {
   waitForBackgroundExecution,
 } from '@/lib/execution/background-execution'
 import {
-  cancelPendingExecutionTriggerRun,
   getProcessingPendingExecution,
   isWorkflowPendingExecution,
   listChildPendingWorkflowExecutions,
@@ -84,6 +83,8 @@ export async function executePendingExecutionRun(
   if (typeof row.payload.ownerCompletedAt === 'string')
     return { success: true, pendingExecutionId: row.id, skipped: 'owner_completed' as const }
   if (!(await recoverPendingExecutionCheckpoint(row))) {
+    if (typeof row.payload.cancelRequestedAt === 'string' && isWorkflowPendingExecution(row))
+      throw new Error(PENDING_EXECUTION_CANCELLATION_ERROR)
     if (
       row.executionType === 'document' &&
       ((row.billingScopeType === 'local') !== Boolean(localDocumentNonce) ||
@@ -328,42 +329,13 @@ export async function cancelPendingExecutionDescendants(
   ]
   await mapWithConcurrency(children, DESCENDANT_CANCELLATION_CONCURRENCY, async (child) => {
     if (visited.has(child.id)) return
-    const result = await cancelPendingWorkflowExecution({
+    await cancelPendingWorkflowExecution({
       pendingExecutionId: child.id,
       userId: child.userId,
       wake: false,
       descendantCancellation: true,
     })
     await cancelPendingExecutionDescendants(child.id, visited)
-    if (result.status === 'not_found' || !result.pendingExecutionId) return
-    const processingChild = await getProcessingPendingExecution(result.pendingExecutionId)
-    if (!processingChild) return
-    let cancellation: Awaited<ReturnType<typeof cancelPendingExecutionTriggerRun>>
-    try {
-      cancellation = await cancelPendingExecutionTriggerRun(processingChild)
-    } catch (error) {
-      logger.error('Failed to cancel Trigger run for pending execution', {
-        pendingExecutionId: processingChild.id,
-        error,
-      })
-      return
-    }
-
-    if (cancellation.type === 'local' || cancellation.type === 'missing') return
-
-    if (cancellation.run.status !== 'CANCELED') {
-      if (cancellation.run.status === 'COMPLETED') {
-        await settlePendingExecutionOwner(processingChild, { wake: false })
-      }
-      return
-    }
-
-    await terminalizeWorkflowExecution(
-      processingChild,
-      cancellation.run.durationMs,
-      PENDING_EXECUTION_CANCELLATION_ERROR
-    )
-    await settlePendingExecutionOwner(processingChild, { wake: false })
   })
 }
 
