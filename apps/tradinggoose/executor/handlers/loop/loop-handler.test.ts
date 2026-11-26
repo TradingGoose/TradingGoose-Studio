@@ -5,6 +5,8 @@ import { LoopBlockHandler } from '@/executor/handlers/loop/loop-handler'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 
+vi.unmock('@/blocks/registry')
+
 describe('LoopBlockHandler', () => {
   let handler: LoopBlockHandler
   let mockContext: ExecutionContext

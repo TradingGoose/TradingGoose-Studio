@@ -40,7 +40,7 @@ import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-w
 import { workflowReadback } from '@/lib/copilot/tools/client/workflow/workflow-result'
 import { readSseData, waitToReconnect } from '@/lib/events/stream'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { reasoningSchema } from '@/lib/mastra/reasoning'
+import { reasoningEffortSchema } from '@/lib/mastra/reasoning'
 import { observeQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
 import { getQueryClient } from '@/app/query-provider'
 import { organizationKeys } from '@/hooks/queries/organization'
@@ -127,7 +127,7 @@ function createCopilotStoreInstance(channelId: string) {
     return typeof saved?.selectedModel === 'string'
       ? {
           selectedModel: saved.selectedModel,
-          reasoning: reasoningSchema.safeParse(saved.reasoning).data,
+          reasoning: reasoningEffortSchema.safeParse(saved.reasoning).data,
         }
       : {}
   }

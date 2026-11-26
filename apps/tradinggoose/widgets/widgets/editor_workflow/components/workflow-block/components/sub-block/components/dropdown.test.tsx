@@ -7,6 +7,8 @@ import { createMinimalWorkflow, createMockContext } from '@/executor/__test-util
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
 import { InputResolver } from '@/executor/resolver/resolver'
 
+vi.unmock('@/blocks/registry')
+
 const mocks = vi.hoisted(() => ({
   dataMode: '',
   data: '',

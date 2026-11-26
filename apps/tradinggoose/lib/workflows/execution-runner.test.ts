@@ -100,18 +100,7 @@ vi.mock('@/lib/workflows/variable-utils', () => ({
   normalizeVariables: vi.fn().mockReturnValue({}),
 }))
 
-vi.mock('@/serializer', () => ({
-  Serializer: vi.fn().mockImplementation(function () {
-    void new.target
-    return {
-      serializeWorkflow: vi.fn((_blocks, edges, loops, parallels) => ({
-        connections: edges,
-        loops,
-        parallels,
-      })),
-    }
-  }),
-}))
+vi.unmock('@/blocks/registry')
 
 vi.mock('@/stores/workflows/server-utils', () => ({
   mergeSubblockState: vi.fn((blocks) => blocks),
@@ -137,6 +126,8 @@ const blueprint: WorkflowExecutionBlueprint = {
   workflowData: {
     blocks: {
       trigger: {
+        id: 'trigger',
+        type: 'input_trigger',
         subBlocks: {},
       },
     },
@@ -283,14 +274,47 @@ describe('runPreparedWorkflowExecution', () => {
     expect(result.result.output).toEqual({ result: 'ok' })
   })
 
-  it('persists encrypted environment references with the terminal workflow log', async () => {
+  it('executes declared Agent and HTTP inputs and logs the encrypted environment references', async () => {
     mocks.getPersonalAndWorkspaceEnv.mockResolvedValueOnce({
       personalEncrypted: { PERSONAL_KEY: 'encrypted-personal' },
       workspaceEncrypted: { WORKSPACE_KEY: 'encrypted-workspace' },
     })
 
-    await runPreparedWorkflowExecution(baseRunParams)
+    const blocks = {
+      ...blueprint.workflowData.blocks,
+      agent: {
+        id: 'agent',
+        type: 'agent',
+        subBlocks: {
+          model: { value: 'openai/gpt-4.1' },
+          apiKey: { value: '{{PERSONAL_KEY}}' },
+          userPrompt: { value: '{{PERSONAL_KEY}}' },
+          temperature: { value: '{{RETIRED_AGENT_SETTING}}' },
+        },
+      },
+      api: {
+        id: 'api',
+        type: 'api',
+        subBlocks: {
+          url: { value: '{{WORKSPACE_KEY}}' },
+          method: { value: 'GET' },
+          retired: { value: '{{RETIRED_HTTP_SETTING}}' },
+        },
+      },
+    }
+    const result = await runPreparedWorkflowExecution({
+      ...baseRunParams,
+      blueprint: { ...blueprint, workflowData: { ...blueprint.workflowData, blocks } },
+    })
 
+    expect(result.result.success, result.result.error).toBe(true)
+    const { currentBlockStates } = mocks.executorConstructor.mock.calls[0][0]
+    expect(currentBlockStates.agent).toEqual({
+      model: 'openai/gpt-4.1',
+      apiKey: 'encrypted-personal',
+      userPrompt: 'encrypted-personal',
+    })
+    expect(currentBlockStates.api).toEqual({ method: 'GET', url: 'encrypted-workspace' })
     expect(mocks.complete).toHaveBeenCalledWith(
       expect.objectContaining({
         variables: {

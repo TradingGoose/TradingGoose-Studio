@@ -639,8 +639,8 @@ export async function loadWorkflowFromNormalizedTables(
     blocksMap[block.id] = assembled
   })
 
-  const { sanitizeAgentToolsInBlocks } = await import('@/lib/workflows/validation')
-  const { blocks: sanitizedBlocks } = sanitizeAgentToolsInBlocks(blocksMap)
+  const { sanitizeAgentBlocks } = await import('@/lib/workflows/validation')
+  const { blocks: sanitizedBlocks } = sanitizeAgentBlocks(blocksMap)
 
   const edgesArray: Edge[] = edges.map((edge) => ({
     id: edge.id,
@@ -713,8 +713,8 @@ export async function saveWorkflowToNormalizedTables(
     const { variables, ...graphState } = state
     const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, graphState)
     const stateWithUniqueEdgeIds = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
-    const { sanitizeAgentToolsInBlocks } = await import('@/lib/workflows/validation')
-    const { blocks } = sanitizeAgentToolsInBlocks(stateWithUniqueEdgeIds.blocks || {})
+    const { sanitizeAgentBlocks } = await import('@/lib/workflows/validation')
+    const { blocks } = sanitizeAgentBlocks(stateWithUniqueEdgeIds.blocks || {})
     const normalizedState = { ...stateWithUniqueEdgeIds, blocks }
     const savedAt = new Date(state.lastSaved ?? Date.now())
 

@@ -1,11 +1,14 @@
+import { pick } from 'lodash'
 import {
   getCustomToolEntityIdFromRuntimeId,
   isCustomToolRuntimeId,
 } from '@/lib/custom-tools/schema'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getAllowedSubBlockIds } from '@/lib/workflows/block-config-canonicalization'
 import { extractEnvironmentReferences, extractReferencePrefixes } from '@/lib/workflows/references'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { buildConfiguredSubBlockParams, isSubBlockInMode } from '@/lib/workflows/subblock-values'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { getBlock } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
@@ -25,7 +28,7 @@ function isValidAgentCustomTool(tool: any): boolean {
   }
 }
 
-export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
+export function sanitizeAgentBlocks(blocks: Record<string, any>): {
   blocks: Record<string, any>
   warnings: string[]
 } {
@@ -37,7 +40,8 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
   for (const [blockId, block] of Object.entries(sanitizedBlocks)) {
     try {
       if (!block || block.type !== 'agent') continue
-      const subBlocks = block.subBlocks || {}
+      const subBlocks = pick(block.subBlocks, [...getAllowedSubBlockIds(AgentBlock.subBlocks)])
+      sanitizedBlocks[blockId] = { ...block, subBlocks }
       const toolsSubBlock = subBlocks.tools
       if (!toolsSubBlock) continue
 
@@ -73,8 +77,6 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
       }
 
       toolsSubBlock.value = cleaned
-      // Reassign in case caller uses object identity
-      sanitizedBlocks[blockId] = { ...block, subBlocks: { ...subBlocks, tools: toolsSubBlock } }
     } catch (cause) {
       logger.error('Workflow agent tool sanitation failed', { blockId }, cause)
       toolSanitizationWarnings.push(`Block ${blockId}: tools sanitation could not be completed.`)
@@ -243,16 +245,11 @@ export function validateWorkflowState(
         }
       }
 
-      // Special validation for agent blocks
-      if (block.type === 'agent' && block.subBlocks?.tools?.value) {
-        const toolsSanitization = sanitizeAgentToolsInBlocks({ [blockId]: block })
-        workflowWarnings.push(...toolsSanitization.warnings)
-        if (toolsSanitization.warnings.length > 0) {
-          sanitizedBlocks[blockId] = toolsSanitization.blocks[blockId]
-          hasChanges = true
-        } else {
-          sanitizedBlocks[blockId] = block
-        }
+      if (block.type === 'agent') {
+        const agent = sanitizeAgentBlocks({ [blockId]: block })
+        workflowWarnings.push(...agent.warnings)
+        sanitizedBlocks[blockId] = agent.blocks[blockId]
+        hasChanges = true
       } else {
         sanitizedBlocks[blockId] = block
       }

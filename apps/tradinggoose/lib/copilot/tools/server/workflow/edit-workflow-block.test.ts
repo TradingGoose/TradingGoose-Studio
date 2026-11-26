@@ -113,7 +113,7 @@ describe('editWorkflowBlockServerTool', () => {
 
   it('allows unrelated edits beside valid conditional fields and runtime values', async () => {
     current.blocks.whisper = block('whisper', 'stt', { provider: 'whisper', model: 'whisper-1' })
-    current.blocks.agent = block('agent', 'agent', { model: 'gpt-4.1', temperature: 1.5 })
+    current.blocks.agent = block('agent', 'agent', { model: 'openai/gpt-4.1', userPrompt: 'Hi' })
     current.blocks.market = block('market', 'polymarket', {
       operation: 'get_price_history',
       startTs: '<variable.startTime>',
@@ -147,20 +147,6 @@ describe('editWorkflowBlockServerTool', () => {
       upsert: { value: false },
       multi: { value: true },
     })
-  })
-
-  it('allows unrelated edits after a model switch retains an out-of-range temperature', async () => {
-    current.blocks.agent = block('agent', 'agent', { model: 'gpt-4.1', temperature: 1.5 })
-    current.blocks.agent.subBlocks.model.value = 'claude-haiku-4-5'
-
-    const result = await editWorkflowBlockServerTool.execute(
-      { entityId: 'wf-1', blockId: 'fn1', subBlocks: { code: 'return 42' } },
-      { userId: 'user-1', accessLevel: 'limited' }
-    )
-
-    expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return 42')
-    expect(result.workflowState.blocks.agent).toEqual(current.blocks.agent)
-    expect(result.preview.blockDiff).toEqual({ added: [], removed: [], updated: ['fn1'] })
   })
 
   it.each([
