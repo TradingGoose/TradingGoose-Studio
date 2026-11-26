@@ -7,6 +7,7 @@ const {
   transactionMock,
   triggerMock,
   runsListMock,
+  runsRetrieveMock,
   runsCancelMock,
   idempotencyCreateMock,
   dispatchBackgroundExecutionMock,
@@ -31,6 +32,7 @@ const {
   transactionMock: vi.fn(),
   triggerMock: vi.fn(),
   runsListMock: vi.fn(),
+  runsRetrieveMock: vi.fn(),
   runsCancelMock: vi.fn(),
   idempotencyCreateMock: vi.fn(),
   dispatchBackgroundExecutionMock: vi.fn(),
@@ -146,6 +148,7 @@ vi.mock('@trigger.dev/sdk', async (importOriginal) => ({
   runs: {
     cancel: runsCancelMock,
     list: runsListMock,
+    retrieve: runsRetrieveMock,
   },
   timeout: {
     None: 2_147_483_647,
@@ -180,7 +183,8 @@ vi.mock('@/lib/trigger/settings', () => ({
   },
 }))
 
-vi.mock('@/lib/execution/background-execution', () => ({
+vi.mock('@/lib/execution/background-execution', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/execution/background-execution')>()),
   dispatchBackgroundExecution: dispatchBackgroundExecutionMock,
 }))
 
@@ -257,6 +261,7 @@ const createTriggerRun = (
   isCompleted: boolean,
   overrides: Partial<{
     durationMs: number
+    startedAt: Date
   }> = {}
 ) => ({
   status,
@@ -283,6 +288,7 @@ beforeEach(() => {
   selectLimitMock.mockReset().mockResolvedValue([])
   selectChain.orderBy.mockReset().mockResolvedValue([])
   runsListMock.mockReset().mockResolvedValue({ data: [] })
+  runsRetrieveMock.mockReset()
   runsCancelMock.mockReset().mockResolvedValue(undefined)
   finalizePendingExecutionFailureMock.mockReset()
   getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
@@ -751,7 +757,112 @@ describe('wakePendingExecution', () => {
 })
 
 describe('processing-row reconciliation', () => {
-  it('cancels and reconciles a processing row even when the queue has no pending candidate', async () => {
+  const startedSupervisor = {
+    ...createTriggerRun('CANCELED', true, { startedAt: new Date(), durationMs: 0 }),
+    id: 'supervisor-for-stopped-job',
+  }
+  const cancelledChild = {
+    ...createTriggerRun('CANCELED', true, { durationMs: 0 }),
+    id: 'workload',
+    taskIdentifier: 'workflow-execution',
+    triggerFunction: 'triggerAndWait',
+  }
+
+  it.each(['supervisor', 'child'])('releases a stopped slot before %s startup', async (stage) => {
+    const stopped = createPendingRow({
+      id: 'stopped',
+      status: 'processing',
+      processingStartedAt: new Date(),
+      payload: { cancelRequestedAt: new Date().toISOString() },
+    })
+    const active = [stopped]
+    const next = createPendingRow()
+    resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({ concurrencyLimit: 1 })
+    mockClaimableRow(next)
+    txSelectLimitMock.mockResolvedValue([next])
+    txSelectRowsMock.mockImplementation(async () => active)
+    selectChain.orderBy.mockResolvedValueOnce(active)
+    runsListMock.mockResolvedValue({
+      data: [
+        stage === 'child'
+          ? startedSupervisor
+          : createTriggerRun('CANCELED', true, { durationMs: 0 }),
+      ],
+    })
+    finalizePendingExecutionFailureMock.mockImplementationOnce((row) =>
+      settlePendingExecutionOwner(row, { wake: false })
+    )
+    deleteReturningMock.mockImplementationOnce(async () => active.splice(0))
+
+    if (stage === 'child') {
+      runsRetrieveMock.mockResolvedValueOnce({
+        relatedRuns: { children: [{ ...cancelledChild, status: 'QUEUED', isCompleted: false }] },
+      })
+      await expect(dispatchNextPendingExecution(userBillingScope)).resolves.toEqual({
+        status: 'capacity_blocked',
+        pendingExecutionId: next.id,
+      })
+      expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
+      expect(deleteWhereMock).not.toHaveBeenCalled()
+      selectChain.orderBy.mockResolvedValueOnce(active)
+      runsRetrieveMock.mockResolvedValueOnce({ relatedRuns: { children: [cancelledChild] } })
+    }
+    await expect(dispatchNextPendingExecution(userBillingScope)).resolves.toEqual({
+      status: 'dispatched',
+      pendingExecutionId: next.id,
+    })
+    expect(finalizePendingExecutionFailureMock).toHaveBeenCalledExactlyOnceWith(
+      stopped,
+      'Workflow execution was cancelled',
+      0
+    )
+    expect(deleteWhereMock).toHaveBeenCalledExactlyOnceWith({
+      field: 'pendingExecution.id',
+      value: stopped.id,
+    })
+    expect(triggerMock).toHaveBeenCalledExactlyOnceWith(
+      'pending-execution',
+      createSupervisorPayload(next, TIMEOUT_NONE),
+      expect.anything()
+    )
+    expect(runsRetrieveMock.mock.calls).toEqual(
+      stage === 'child' ? [[startedSupervisor.id], [startedSupervisor.id]] : []
+    )
+    selectChain.where.mockResolvedValueOnce(active)
+    readWorkflowCheckpointChildrenMock.mockResolvedValueOnce([])
+    await waitForPendingWorkflowExecutionDrain(
+      {
+        pendingExecutionId: stopped.id,
+        userId: stopped.userId,
+        workspaceId: stopped.workspaceId!,
+        workflowId: stopped.workflowId!,
+      },
+      { status: 'cancelling', pendingExecutionId: stopped.id },
+      AbortSignal.timeout(2000)
+    )
+  })
+
+  it.each([
+    { state: 'executing', run: createTriggerRun('EXECUTING', false) },
+    {
+      state: 'awaiting worker acknowledgement',
+      run: startedSupervisor,
+      children: [
+        cancelledChild,
+        { ...cancelledChild, id: 'started-workload', startedAt: new Date() },
+      ],
+    },
+    { state: 'awaiting child discovery', run: startedSupervisor, children: [] },
+    {
+      state: 'only unrelated child runs are visible',
+      run: startedSupervisor,
+      children: [
+        { ...cancelledChild, taskIdentifier: 'another-task' },
+        { ...cancelledChild, triggerFunction: 'trigger' },
+      ],
+    },
+    { state: 'awaiting admission', run: undefined },
+  ])('retains a cancelling owner while $state', async ({ run, children }) => {
     const cancelled = createPendingRow({
       id: 'cancelled-1',
       status: 'processing',
@@ -759,9 +870,8 @@ describe('processing-row reconciliation', () => {
       payload: { cancelRequestedAt: '2026-08-23T12:00:00.000Z' },
     })
     selectChain.orderBy.mockResolvedValueOnce([cancelled])
-    runsListMock.mockResolvedValueOnce({
-      data: [{ id: 'run-cancelled-1', status: 'EXECUTING', isCompleted: false, durationMs: 2_000 }],
-    })
+    runsListMock.mockResolvedValueOnce({ data: run ? [run] : [] })
+    if (children) runsRetrieveMock.mockResolvedValueOnce({ relatedRuns: { children } })
 
     await expect(dispatchNextPendingExecution(userBillingScope)).resolves.toEqual({
       status: 'empty',
@@ -772,13 +882,30 @@ describe('processing-row reconciliation', () => {
       taskIdentifier: 'pending-execution',
       limit: 1,
     })
-    expect(runsCancelMock).toHaveBeenCalledWith('run-cancelled-1')
-    expect(finalizePendingExecutionFailureMock).toHaveBeenCalledWith(
-      cancelled,
-      'Workflow execution was cancelled',
-      2_000
-    )
-    expect(triggerMock).not.toHaveBeenCalled()
+    expect(runsCancelMock).not.toHaveBeenCalled()
+    expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
+    expect(deleteReturningMock).not.toHaveBeenCalled()
+    if (run) expect(triggerMock).not.toHaveBeenCalled()
+    else
+      expect(triggerMock).toHaveBeenCalledExactlyOnceWith(
+        'pending-execution',
+        createSupervisorPayload(cancelled, TIMEOUT_NONE),
+        { idempotencyKey: 'idempotency-key', tags: [idempotencyCreateMock.mock.calls[0][0]] }
+      )
+
+    selectChain.orderBy.mockResolvedValueOnce([
+      {
+        ...cancelled,
+        payload: { ...cancelled.payload, ownerCompletedAt: new Date().toISOString() },
+      },
+    ])
+    runsListMock.mockResolvedValueOnce({ data: run ? [run] : [] })
+    await dispatchNextPendingExecution(userBillingScope)
+    expect(deleteWhereMock).toHaveBeenCalledExactlyOnceWith({
+      field: 'pendingExecution.id',
+      value: cancelled.id,
+    })
+    expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
   })
 })
 

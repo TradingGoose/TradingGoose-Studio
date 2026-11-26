@@ -4,7 +4,10 @@ import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema
 import { ApiError, idempotencyKeys, runs, tasks, timeout } from '@trigger.dev/sdk'
 import { and, asc, eq, lte, ne, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
-import { dispatchBackgroundExecution } from '@/lib/execution/background-execution'
+import {
+  backgroundTaskIds,
+  dispatchBackgroundExecution,
+} from '@/lib/execution/background-execution'
 import {
   resolveServerExecutionBillingContext,
   resolveServerExecutionBillingTierForScope,
@@ -176,35 +179,6 @@ export function isWorkflowPendingExecution(
 function getPendingExecutionTriggerKey(pendingExecutionId: string) {
   const digest = createHash('sha256').update(pendingExecutionId).digest('hex')
   return `${PENDING_EXECUTION_TASK_ID}:${digest}`
-}
-
-type PendingExecutionTriggerRun = {
-  status: string
-  durationMs: number
-  isCompleted: boolean
-}
-
-type PendingExecutionTriggerRunResult =
-  | { type: 'local' }
-  | { type: 'missing' }
-  | { type: 'run'; run: PendingExecutionTriggerRun }
-
-export async function cancelPendingExecutionTriggerRun(
-  row: Pick<PendingExecutionClaim, 'id' | 'billingScopeType'>
-): Promise<PendingExecutionTriggerRunResult> {
-  if (row.billingScopeType === 'local') return { type: 'local' }
-
-  const page = await runs.list({
-    tag: getPendingExecutionTriggerKey(row.id),
-    taskIdentifier: PENDING_EXECUTION_TASK_ID,
-    limit: 1,
-  })
-  const run = page.data[0]
-  if (!run) return { type: 'missing' }
-  if (run.isCompleted) return { type: 'run', run }
-
-  await runs.cancel(run.id)
-  return { type: 'run', run: { status: 'CANCELED', durationMs: run.durationMs, isCompleted: true } }
 }
 
 async function triggerPendingExecution(row: PendingExecutionClaim) {
@@ -723,54 +697,26 @@ async function releasedPendingExecutionCapacity(capacityOwnerId: string) {
   return (await getProcessingPendingExecution(capacityOwnerId)) === null
 }
 
-async function finalizeReconciledPendingExecution(
-  row: PendingExecutionClaim,
-  capacityOwnerId: string,
-  message: string,
-  durationMs: number
-) {
-  const { finalizePendingExecutionFailure } = await import('@/background/pending-execution-worker')
-  await finalizePendingExecutionFailure(row, message, durationMs)
-  return releasedPendingExecutionCapacity(capacityOwnerId)
-}
-
 async function reconcileProcessingPendingExecution(
   row: PendingExecutionClaim,
   capacityOwnerId: string
 ) {
-  const cancellationRequested = typeof row.payload.cancelRequestedAt === 'string'
-  let run: PendingExecutionTriggerRun | undefined
+  if (row.billingScopeType === 'local') return false
+  const page = await runs.list({
+    tag: getPendingExecutionTriggerKey(row.id),
+    taskIdentifier: PENDING_EXECUTION_TASK_ID,
+    limit: 1,
+  })
+  const run = page.data[0]
 
-  if (cancellationRequested) {
-    const cancellation = await cancelPendingExecutionTriggerRun(row)
-    if (cancellation.type === 'local') return false
-    if (cancellation.type === 'missing') {
-      if (!row.processingStartedAt) {
-        throw new Error(`Processing pending execution ${row.id} has no processingStartedAt`)
-      }
-      const durationMs = Math.max(1, Date.now() - row.processingStartedAt.getTime())
-      return finalizeReconciledPendingExecution(
-        row,
-        capacityOwnerId,
-        PENDING_EXECUTION_CANCELLATION_ERROR,
-        durationMs
-      )
-    }
-    run = cancellation.run
-  } else {
-    const page = await runs.list({
-      tag: getPendingExecutionTriggerKey(row.id),
-      taskIdentifier: PENDING_EXECUTION_TASK_ID,
-      limit: 1,
-    })
-    run = page.data[0]
+  if (
+    typeof row.payload.ownerCompletedAt === 'string' ||
+    (run?.isCompleted && run.status === 'COMPLETED')
+  ) {
+    await settlePendingExecutionOwner(row, { wake: false })
+    return releasedPendingExecutionCapacity(capacityOwnerId)
   }
-
   if (!run) {
-    if (typeof row.payload.ownerCompletedAt === 'string') {
-      await settlePendingExecutionOwner(row, { wake: false })
-      return releasedPendingExecutionCapacity(capacityOwnerId)
-    }
     const rejection = await triggerPendingExecution(row)
     if (rejection?.status === 'finalization_failed') throw rejection.error
     if (
@@ -781,10 +727,23 @@ async function reconcileProcessingPendingExecution(
     return false
   }
   if (!run.isCompleted) return false
-
-  if (run.status === 'COMPLETED') {
-    await settlePendingExecutionOwner(row, { wake: false })
-    return releasedPendingExecutionCapacity(capacityOwnerId)
+  if (
+    run.status === 'CANCELED' &&
+    run.startedAt &&
+    typeof row.payload.cancelRequestedAt === 'string'
+  ) {
+    // A cancelled supervisor cannot acknowledge Stop for a workload that never started.
+    const { relatedRuns } = await runs.retrieve(run.id)
+    const workloads = relatedRuns.children?.filter(
+      (child) =>
+        child.taskIdentifier === backgroundTaskIds[row.executionType] &&
+        child.triggerFunction === 'triggerAndWait'
+    )
+    if (
+      !workloads?.length ||
+      workloads.some((child) => child.status !== 'CANCELED' || child.startedAt)
+    )
+      return false
   }
 
   const message =
@@ -793,7 +752,9 @@ async function reconcileProcessingPendingExecution(
       : run.status === 'CANCELED'
         ? PENDING_EXECUTION_CANCELLATION_ERROR
         : PENDING_EXECUTION_FAILURE_ERROR
-  return finalizeReconciledPendingExecution(row, capacityOwnerId, message, run.durationMs)
+  const { finalizePendingExecutionFailure } = await import('@/background/pending-execution-worker')
+  await finalizePendingExecutionFailure(row, message, run.durationMs)
+  return releasedPendingExecutionCapacity(capacityOwnerId)
 }
 
 async function reconcilePendingExecutionCapacity(
