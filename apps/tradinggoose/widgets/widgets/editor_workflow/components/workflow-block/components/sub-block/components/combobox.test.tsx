@@ -18,16 +18,15 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@xyflow/react', () => ({ useReactFlow: () => null }))
-vi.mock('@/components/ui/env-var-dropdown', () => ({
-  EnvVarDropdown: () => null,
-  checkEnvVarTrigger: () => ({ show: false, searchTerm: '' }),
+vi.mock('@/hooks/queries/environment', () => ({
+  usePersonalEnvironment: () => ({ data: {} }),
+  useWorkspaceEnvironment: () => ({ data: { workspace: { MODEL: 'fixture' } } }),
 }))
 vi.mock('@/components/ui/tag-dropdown', () => ({
   TagDropdown: () => null,
   checkTagTrigger: () => ({ show: false }),
 }))
 vi.mock('@/components/ui/formatted-text', () => ({ formatDisplayText: (value: string) => value }))
-vi.mock('@/hooks/use-tag-selection', () => ({ useTagSelection: () => vi.fn() }))
 vi.mock('@/hooks/workflow/use-accessible-reference-prefixes', () => ({
   useAccessibleReferencePrefixes: () => null,
 }))
@@ -148,10 +147,11 @@ describe('late registry defaults and registry feedback', () => {
     expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe(saved)
     act(() => input.focus())
     expect(input.value).toBe(saved)
-    expect(container.querySelector('[data-option-index] .lucide-check')).not.toBeNull()
-    act(() => container.querySelector<HTMLButtonElement>('[aria-label="opencode"]')!.click())
-    expect(container.querySelector('[data-option-index] .lucide-check')).toBeNull()
-    act(() => container.querySelector<HTMLButtonElement>('[data-option-index]')!.click())
+    expect(container.querySelector('[data-option-index]')).toBeNull()
+    expect(document.querySelector('[data-option-index] .lucide-check')).not.toBeNull()
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="opencode"]')!.click())
+    expect(document.querySelector('[data-option-index] .lucide-check')).toBeNull()
+    act(() => document.querySelector<HTMLButtonElement>('[data-option-index]')!.click())
     expect(input.value).toBe('deepseek-v4-pro')
     expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe(
       'opencode/deepseek-v4-pro'
@@ -159,8 +159,8 @@ describe('late registry defaults and registry feedback', () => {
   })
   it('refreshes provider group names and icons when the registry arrives after opening', () => {
     mount('')
-    act(() => container.querySelector('input')!.focus())
-    expect(container.querySelector('[aria-label="OpenAI"]')).toBeNull()
+    act(() => document.querySelector('input')!.focus())
+    expect(document.querySelector('[aria-label="OpenAI"]')).toBeNull()
     act(() =>
       useModelRegistry.setState({
         providers: [
@@ -175,21 +175,39 @@ describe('late registry defaults and registry feedback', () => {
     )
 
     for (const name of ['OpenAI', 'Anthropic']) {
-      const group = container.querySelector(`button[aria-label="${name}"]`)
+      const group = document.querySelector(`button[aria-label="${name}"]`)
       expect(group).not.toBeNull()
       expect(group!.querySelector('svg, img')).not.toBeNull()
     }
-    expect(container.querySelector('[data-option-index] > span.truncate')!.textContent).toBe(
+    expect(document.querySelector('[data-option-index] > span.truncate')!.textContent).toBe(
       'gpt-4.1'
     )
     act(() =>
-      container
+      document
         .querySelector('button[aria-label="Anthropic"]')!
         .dispatchEvent(new MouseEvent('click', { bubbles: true }))
     )
-    expect(container.querySelector('[data-option-index] > span.truncate')!.textContent).toBe(
+    expect(document.querySelector('[data-option-index] > span.truncate')!.textContent).toBe(
       'claude-sonnet-5-5'
     )
+  })
+  it('closes the ordinary options so a workspace reference can be picked', () => {
+    mount('')
+    loadModels()
+    const input = container.querySelector('input')!
+    act(() => input.focus())
+    expect(document.querySelector('[role="dialog"][data-open]')).not.toBeNull()
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '{{MO')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const variable = container.querySelector<HTMLButtonElement>('[data-env-var-index="0"]')!
+    expect(variable.textContent).toBe('MODEL')
+    expect(document.querySelector('[role="dialog"][data-open]')).toBeNull()
+    act(() => variable.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })))
+    expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe('{{MODEL}}')
+    expect(container.querySelector('[data-env-var-index]')).toBeNull()
+    expect(document.querySelector('[role="dialog"][data-open]')).toBeNull()
   })
   it('inserts dropped references into the stored value instead of a shortened label offset', async () => {
     mount('openai/gpt-4.1')
@@ -202,6 +220,7 @@ describe('late registry defaults and registry feedback', () => {
     })
     await act(async () => input.dispatchEvent(drop))
     expect(readWorkflowSnapshot(doc)!.blocks.agent.subBlocks.model.value).toBe('openai/gpt-4.1<')
+    expect(document.querySelector('[role="dialog"][data-open]')).toBeNull()
   })
   it('announces loading and errors and retries through the existing registry action', () => {
     const load = vi.fn(async () => {})

@@ -51,9 +51,8 @@ describe('model editor credentials', () => {
     'clears mismatched credentials after $unresolved model edits (reopen=$reopen)',
     async ({ unresolved, reopen }) => {
       const tuning = {
-        temperature: { id: 'temperature', type: 'short-input' as const, value: '0' },
         responseFormat: { id: 'responseFormat', type: 'code' as const, value: '{}' },
-        maxTokens: { id: 'maxTokens', type: 'short-input' as const, value: '4096' },
+        memories: { id: 'memories', type: 'short-input' as const, value: '<memory.memories>' },
       }
       const { useModelRegistry } = await import('@/stores/model-registry')
       useModelRegistry.setState({

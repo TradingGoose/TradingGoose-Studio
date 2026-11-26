@@ -2,6 +2,7 @@
 
 import { AGENT_CONTROL_TOPIC, AgentControlEventTypes } from '@mastra/core/agent/durable'
 import { EventEmitterPubSub } from '@mastra/core/events'
+import { parseModelString } from '@mastra/core/llm'
 import { Mastra } from '@mastra/core/mastra'
 import {
   InMemoryStore,
@@ -27,7 +28,7 @@ import { nativeConversationIdentity, nativeToolCallId } from '@/lib/copilot/nati
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { readSseData } from '@/lib/events/stream'
 import type { BackgroundExecutionTaskPayload } from '@/lib/execution/background-execution'
-import { resolveConfiguredModel } from '@/lib/mastra/connections'
+import { createNativeModel } from '@/lib/mastra/native-reasoning'
 import * as runtime from '@/lib/mastra/runtime'
 import { type NativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
 import { POST as handleWorkerRequest } from '@/app/api/copilot/native/tool/route'
@@ -94,24 +95,9 @@ vi.mock('@/lib/mastra/runtime', () => ({
     }
   ),
 }))
-vi.mock('@mastra/core/llm', async (original) => ({
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
   ...(await original<object>()),
-  ModelRouterLanguageModel: class {
-    constructor(config: unknown) {
-      // biome-ignore lint/correctness/noConstructorReturn: Return the real Mastra SDK test model.
-      return Object.assign(m.model, {
-        config,
-        resolveApiProviderId: async () => 'openai.responses',
-      })
-    }
-  },
-}))
-vi.mock('@/lib/mastra/connections', () => ({
-  resolveConfiguredModel: vi.fn(async (_model: string, apiKey?: string) => ({
-    providerId: 'configured',
-    modelId: 'model',
-    apiKey,
-  })),
+  createNativeModel: vi.fn((config) => Object.assign(m.model, { config })),
 }))
 vi.mock('@/lib/execution/background-execution', () => ({
   dispatchBackgroundExecution: (...args: unknown[]) => m.dispatch(...args),
@@ -399,10 +385,10 @@ async function pending(threadId: string) {
 beforeEach(async () => {
   vi.clearAllMocks()
   m.route.mockReset()
-  m.resolve.mockReset().mockImplementation(async (model: string) => ({
-    model,
-    apiKey: 'admin-key',
-  }))
+  m.resolve.mockReset().mockImplementation(async (model: string) => {
+    const { provider, modelId } = parseModelString(model)
+    return { providerId: provider, modelId, apiKey: 'admin-key' }
+  })
   m.contacts.length = 0
   m.receipts.clear()
   m.jobs.clear()
@@ -615,7 +601,7 @@ describe('Copilot background execution and native history', () => {
 
       const count = success ? 1 : 0
       expect.soft(m.resolve).toHaveBeenCalledTimes(count)
-      expect.soft(resolveConfiguredModel).toHaveBeenCalledTimes(count)
+      expect.soft(createNativeModel).toHaveBeenCalledTimes(count)
       expect.soft(m.contacts).toHaveLength(count)
       expect.soft(m.admit).toHaveBeenCalledTimes(count)
       expect.soft(m.accept).toHaveBeenCalledTimes(count)
@@ -1314,7 +1300,7 @@ describe('Copilot background execution and native history', () => {
       expect(m.contacts).toHaveLength(0)
       expect(await threadClaims()).toHaveLength(0)
       expect(m.admit).not.toHaveBeenCalled()
-      expect(resolveConfiguredModel).not.toHaveBeenCalled()
+      expect(createNativeModel).not.toHaveBeenCalled()
     }
   )
   it('retains the next prompt but refuses inference after key removal even when the Agent is warm', async () => {
@@ -1327,7 +1313,7 @@ describe('Copilot background execution and native history', () => {
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
     const admissions = m.admit.mock.calls.length
     const charges = m.accept.mock.calls.length
-    const models = vi.mocked(resolveConfiguredModel).mock.calls.length
+    const models = vi.mocked(createNativeModel).mock.calls.length
     m.resolve.mockRejectedValue(new NativeTargetError('The Copilot API key is not configured', 409))
 
     expect((await message({ threadId: initial.threadId })).result).toMatchObject({
@@ -1337,7 +1323,7 @@ describe('Copilot background execution and native history', () => {
     expect(m.agent).toBe(agent)
     expect(m.resolve).toHaveBeenCalledTimes(2)
     expect(m.contacts).toHaveLength(1)
-    expect(resolveConfiguredModel).toHaveBeenCalledTimes(models)
+    expect(createNativeModel).toHaveBeenCalledTimes(models)
     expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(m.route).not.toHaveBeenCalled()
@@ -1479,9 +1465,13 @@ describe('Copilot background execution and native history', () => {
         )
       expect(JSON.stringify(m.contacts)).not.toContain('Database failure with admin-key')
       expect(await threadClaims()).toHaveLength(0)
-      expect(resolveConfiguredModel).toHaveBeenCalledExactlyOnceWith(
-        'configured/model',
-        'admin-key'
+      expect(createNativeModel).toHaveBeenCalledExactlyOnceWith(
+        {
+          providerId: 'configured',
+          modelId: 'model',
+          apiKey: 'admin-key',
+        },
+        undefined
       )
       expect(m.fetch).not.toHaveBeenCalled()
       if (result.status !== 'success') throw new Error(JSON.stringify(result))
@@ -1592,30 +1582,9 @@ describe('Copilot background execution and native history', () => {
     expect(m.route).not.toHaveBeenCalled()
   })
 
-  it('fails an exhausted native tool loop while retaining every step charge and releasing the conversation', async () => {
+  it('can run fifty Studio tools and settle each step through the native final answer', async () => {
     setModel(
       ...Array.from({ length: 50 }, (_, index) => ({
-        tool: 'list_workflows',
-        args: { workspaceId: 'workspace' },
-        toolCallId: `loop-call-${index}`,
-      }))
-    )
-    m.route.mockResolvedValue({ entityKind: 'workflow', entities: [], count: 0 })
-    const { result } = await message({ accessLevel: 'full' })
-    expect(result).toMatchObject({
-      status: 'failed',
-      error: { code: 'GENERATION_FAILED' },
-      usage: { inputTokens: 150, outputTokens: 100, totalTokens: 250 },
-    })
-    expect(m.contacts).toHaveLength(50)
-    expect(m.route).toHaveBeenCalledTimes(49)
-    expect(m.accept).toHaveBeenCalledTimes(50)
-    expect(await threadClaims()).toHaveLength(0)
-  }, 30_000)
-
-  it('reserves the last native step for an answer using existing tool results', async () => {
-    setModel(
-      ...Array.from({ length: 49 }, (_, index) => ({
         tool: 'list_workflows',
         args: { workspaceId: 'workspace' },
         toolCallId: `answer-call-${index}`,
@@ -1627,12 +1596,12 @@ describe('Copilot background execution and native history', () => {
     expect(result).toMatchObject({
       status: 'success',
       text: 'No workflows are available.',
-      usage: { inputTokens: 150, outputTokens: 100, totalTokens: 250 },
+      usage: { inputTokens: 153, outputTokens: 102, totalTokens: 255 },
     })
-    expect(m.contacts).toHaveLength(50)
-    expect(m.contacts.at(-1)).toMatchObject({ toolChoice: { type: 'none' } })
-    expect(m.route).toHaveBeenCalledTimes(49)
-    expect(m.accept).toHaveBeenCalledTimes(50)
+    expect(m.contacts).toHaveLength(51)
+    expect(m.contacts.at(-1)).toMatchObject({ toolChoice: { type: 'auto' } })
+    expect(m.route).toHaveBeenCalledTimes(50)
+    expect(m.accept).toHaveBeenCalledTimes(51)
     expect(await threadClaims()).toHaveLength(0)
   }, 30_000)
 
@@ -2393,11 +2362,8 @@ describe('Copilot background execution and native history', () => {
     const originalCredential = 'first-synthetic-credential'
     const rotatedCredential = 'replacement-synthetic-credential'
     const reasoning = { type: 'effort', value: 'high' } as const
-    const providerOptions = { openai: { reasoningEffort: 'high' } }
-    m.resolve.mockImplementation(async (model: string) => ({
-      model,
-      apiKey: originalCredential,
-    }))
+    const connection = { providerId: 'openai', modelId: 'gpt-5' }
+    m.resolve.mockResolvedValue({ ...connection, apiKey: originalCredential })
     const args = { entityId: 'workflow', name: 'Renamed' }
     const preview = { requiresReview: true, reviewBaseStateHash: 'original-base' }
     setModel({ tool: 'rename_workflow', args }, { text: 'Renamed successfully' })
@@ -2424,7 +2390,13 @@ describe('Copilot background execution and native history', () => {
       ).result
     )
     expect(initial.pending[0].stage).toBe('approval')
-    expect(m.contacts[0]).toMatchObject({ providerOptions })
+    expect(createNativeModel).toHaveBeenLastCalledWith(
+      {
+        ...connection,
+        apiKey: originalCredential,
+      },
+      reasoning.value
+    )
     expect(m.route).not.toHaveBeenCalled()
     const workflows = (await m.storage.getStore('workflows'))!
     expect(JSON.stringify(m.model).includes(originalCredential)).toBe(true)
@@ -2436,7 +2408,7 @@ describe('Copilot background execution and native history', () => {
         originalCredential
       )
     ).toBe(false)
-    m.resolve.mockImplementation(async (model: string) => ({ model, apiKey: rotatedCredential }))
+    m.resolve.mockResolvedValue({ ...connection, apiKey: rotatedCredential })
     restart()
     expect(await readCopilotRun(scope, initial.threadId, initial.runId)).toMatchObject({
       scope,
@@ -2458,7 +2430,10 @@ describe('Copilot background execution and native history', () => {
     const approved = suspended((await command(approval)).result)
     expect((await command(approval)).result).toMatchObject(approved)
     expect(m.resolve).toHaveBeenLastCalledWith('openai/gpt-5', reasoning)
-    expect(resolveConfiguredModel).toHaveBeenLastCalledWith('openai/gpt-5', rotatedCredential)
+    expect(createNativeModel).toHaveBeenLastCalledWith(
+      { ...connection, apiKey: rotatedCredential },
+      reasoning.value
+    )
     expect(JSON.stringify(m.model).includes(rotatedCredential)).toBe(true)
     const resumedSnapshot = JSON.stringify(
       await workflows.getWorkflowRunById({ runId: initial.runId })
@@ -2505,7 +2480,10 @@ describe('Copilot background execution and native history', () => {
     })
     expect(m.route).toHaveBeenCalledTimes(2)
     expectWorkspaceScope(m.contacts[1], scope.workspaceId)
-    expect(m.contacts[1]).toMatchObject({ providerOptions })
+    expect(createNativeModel).toHaveBeenLastCalledWith(
+      { ...connection, apiKey: rotatedCredential },
+      reasoning.value
+    )
     expect(JSON.stringify(m.contacts[1])).toContain(privateContext)
     expect(m.route).toHaveBeenLastCalledWith(
       'rename_workflow',
@@ -2543,8 +2521,14 @@ describe('Copilot background execution and native history', () => {
       m.route.mockResolvedValueOnce({ status: 200, data: 'Read' })
       const reasoning = { type: 'effort', value: 'high' } as const
       const initial = suspended(
-        (await message({ toolContext, accessLevel: 'limited', model: 'openai/gpt-5', reasoning }))
-          .result
+        (
+          await message({
+            toolContext,
+            accessLevel: 'limited',
+            model: 'google/gemini-2.5-flash',
+            reasoning,
+          })
+        ).result
       )
       const expected = toolContext ?? { workspaceId: scope.workspaceId }
       expect(initial.pending[0]).toMatchObject({ stage: 'approval', context: expected })
@@ -2576,8 +2560,8 @@ describe('Copilot background execution and native history', () => {
         ).result
       ).toMatchObject({ status: 'success', text: 'Done' })
       expect(m.contacts).toHaveLength(3)
-      for (const contact of m.contacts)
-        expect(contact).toMatchObject({ providerOptions: { openai: { reasoningEffort: 'high' } } })
+      for (const [, level] of vi.mocked(createNativeModel).mock.calls)
+        expect(level).toBe(reasoning.value)
     }
   )
 
@@ -2588,7 +2572,8 @@ describe('Copilot background execution and native history', () => {
       { text: 'No edit applied' }
     )
     const initial = suspended(
-      (await message({ accessLevel: 'limited', model: 'openai/gpt-5', reasoning })).result
+      (await message({ accessLevel: 'limited', model: 'google/gemini-2.5-flash', reasoning }))
+        .result
     )
     restart()
     const { result } = await command({
@@ -2599,8 +2584,8 @@ describe('Copilot background execution and native history', () => {
     expect(result).toMatchObject({ status: 'success', text: 'No edit applied' })
     expect(m.route).not.toHaveBeenCalled()
     expect(m.contacts).toHaveLength(2)
-    for (const contact of m.contacts)
-      expect(contact).toMatchObject({ providerOptions: { openai: { reasoningEffort: 'low' } } })
+    for (const [, level] of vi.mocked(createNativeModel).mock.calls)
+      expect(level).toBe(reasoning.value)
   })
 
   it.each(['reject', 'stale'] as const)(
@@ -3131,7 +3116,7 @@ describe('Copilot background execution and native history', () => {
     m.resolve.mockImplementationOnce(async () => {
       entered.resolve()
       await preflight.promise
-      return { apiKey: 'admin-key' }
+      return { providerId: 'configured', modelId: 'model', apiKey: 'admin-key' }
     })
     const continuing = command({
       command: 'tool.approve',
@@ -3168,7 +3153,7 @@ describe('Copilot background execution and native history', () => {
     m.resolve.mockImplementation(async () => {
       ready.resolve()
       await preflight.promise
-      return { apiKey: 'admin-key' }
+      return { providerId: 'configured', modelId: 'model', apiKey: 'admin-key' }
     })
     m.route.mockImplementationOnce(async () => {
       executing.resolve()
@@ -3355,7 +3340,7 @@ describe('Copilot background execution and native history', () => {
     const charges = m.accept.mock.calls.length
     const dispatches = m.route.mock.calls.length
     const receipts = m.receipts.size
-    const models = vi.mocked(resolveConfiguredModel).mock.calls.length
+    const models = vi.mocked(createNativeModel).mock.calls.length
     const error = new NativeTargetError(
       status === 409 ? 'The Copilot API key is not configured' : 'Copilot model unavailable',
       status
@@ -3379,7 +3364,7 @@ describe('Copilot background execution and native history', () => {
     expect(m.route).toHaveBeenCalledTimes(dispatches)
     expect(m.receipts.size).toBe(receipts + 1)
     expect(m.contacts).toHaveLength(1)
-    expect(resolveConfiguredModel).toHaveBeenCalledTimes(models)
+    expect(createNativeModel).toHaveBeenCalledTimes(models)
     expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(await pending(initial.threadId)).toEqual(initial.pending)

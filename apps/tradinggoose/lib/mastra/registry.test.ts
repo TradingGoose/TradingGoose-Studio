@@ -10,7 +10,8 @@ const provider = vi.hoisted(() => ({
   url: 'https://private.invalid',
   headers: { Authorization: 'secret' },
 }))
-vi.mock('@mastra/core/llm', () => ({
+vi.mock('@mastra/core/llm', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@mastra/core/llm')>()),
   GatewayRegistry: { getInstance: () => ({ getProviders: () => ({ configured: provider }) }) },
   EMBEDDING_MODELS: [
     {
@@ -28,17 +29,6 @@ vi.mock('@mastra/core/llm', () => ({
   }),
   modelSupportsTemperature: (id: string) => (id.endsWith('/listed') ? false : undefined),
   modelSupportsStructuredOutput: () => true,
-  getModelReasoningOptions: (id: string) =>
-    id === 'alibaba/bounded'
-      ? [
-          { type: 'effort', values: ['low', 'medium', 'high'] },
-          { type: 'budget_tokens', min: 2000, max: 6000 },
-        ]
-      : id.endsWith('/listed')
-        ? [{ type: 'effort', values: ['low', 'high'] }]
-        : id.endsWith('/no-reasoning')
-          ? []
-          : undefined,
 }))
 
 import {
@@ -92,7 +82,6 @@ describe('public Mastra registry transport', () => {
               id: 'configured/listed',
               temperature: false,
               structuredOutput: true,
-              reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }],
             },
             { id: 'configured/other', structuredOutput: true },
           ],
@@ -132,10 +121,11 @@ describe('public Mastra registry transport', () => {
 })
 
 it('distinguishes native reasoning controls, known absence, and missing metadata', () => {
-  expect(getNativeModel('configured/listed')).toMatchObject({
-    reasoningOptions: [{ type: 'effort', values: ['low', 'high'] }],
-  })
-  expect(getNativeModel('configured/no-reasoning')).toMatchObject({
+  expect(
+    getNativeModel('openai/gpt-5').reasoningOptions?.find((option) => option.type === 'effort')
+      ?.values
+  ).toEqual(expect.arrayContaining(['low', 'high']))
+  expect(getNativeModel('openai/gpt-4o')).toMatchObject({
     reasoningOptions: [],
   })
   expect(getNativeModel('configured/unknown').reasoningOptions).toBeUndefined()
@@ -168,11 +158,4 @@ it('rejects embedding models removed from the native registry', async () => {
   await expect(assertListedEmbeddingModel('configured/embedding')).rejects.toThrow(
     'Select a listed provider/model'
   )
-})
-
-it('offers only Alibaba efforts whose adapter budgets fit the selected model bounds', () => {
-  expect(getNativeModel('alibaba/bounded').reasoningOptions).toEqual([
-    { type: 'effort', values: ['medium'] },
-    { type: 'budget_tokens', min: 2000, max: 6000 },
-  ])
 })

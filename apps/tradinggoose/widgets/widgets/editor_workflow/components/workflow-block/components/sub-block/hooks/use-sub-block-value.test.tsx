@@ -3,7 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { requestableReasoningOptions } from '@/lib/mastra/native-reasoning'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 import { useModelRegistry } from '@/stores/model-registry'
 import { useSubBlockValue } from './use-sub-block-value'
 
@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   write: vi.fn(),
 }))
 vi.mock('@/lib/yjs/use-workflow-doc', () => ({
+  useWorkflowMutations: () => ({
+    setSubBlockValue: mocks.write,
+  }),
   useBlock: () => ({
     type: 'agent',
     subBlocks: Object.fromEntries(
@@ -22,17 +25,22 @@ vi.mock('@/lib/yjs/use-workflow-doc', () => ({
   }),
   useSubBlockValue: (_blockId: string, field: string) => mocks.values[field],
 }))
-vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
-  useWorkflowEditorActions: () => ({ collaborativeSetSubblockValue: mocks.write }),
+vi.mock('@/lib/yjs/workflow-session-host', () => ({
+  useWorkflowSession: () => ({ readWorkflowSnapshot: () => ({ blocks: {} }) }),
+}))
+vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () => ({
+  useOptionalWorkflowRoute: () => null,
 }))
 
 let root: Root
-let setModel: (model: string) => void
+let setValue: (value: string) => void
+let displayed: string | null
+let activeField: string
 let activeBlockId: string
 const actEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 const previousActEnvironment = actEnvironment.IS_REACT_ACT_ENVIRONMENT
 function Harness() {
-  ;[, setModel] = useSubBlockValue<string>(activeBlockId, 'model')
+  ;[displayed, setValue] = useSubBlockValue<string>(activeBlockId, activeField)
   return null
 }
 function render(model: string, blockId = 'agent') {
@@ -42,11 +50,12 @@ function render(model: string, blockId = 'agent') {
 }
 function type(model: string) {
   act(() => {
-    setModel(model)
+    setValue(model)
     root.render(<Harness />)
   })
 }
 beforeEach(() => {
+  activeField = 'model'
   useModelRegistry.setState({
     providers: [
       {
@@ -56,7 +65,7 @@ beforeEach(() => {
           { id: 'openai/gpt-5.6-sol' },
           ...['openai/gpt-5', 'openai/gpt-5.1', 'openai/gpt-4.1'].map((id) => ({
             id,
-            reasoningOptions: requestableReasoningOptions(id),
+            reasoningOptions: getReasoningOptions(id),
           })),
         ],
       },
@@ -158,19 +167,21 @@ it.each(['anthropic/claude-sonnet-5-5', 'openai/gpt-5.6-sol', '<upstream.model>'
   }
 )
 
-function renderReasoning(mode = 'effort', effort = 'high') {
-  mocks.values.reasoningMode = mode
-  mocks.values.reasoningEffort = effort
-  render('openai/gpt-5')
-}
+it.each(['high', '<variable.level>'])('writes the selected effort %s to the block', (effort) => {
+  activeField = 'reasoningEffort'
+  render('google/gemini-2.5-flash')
+  type(effort)
+  expect(mocks.write).toHaveBeenCalledExactlyOnceWith('agent', 'reasoningEffort', effort)
+  expect(displayed).toBe(effort)
+})
 
 it('keeps effort/high while typing a compatible model one character at a time', () => {
-  renderReasoning()
+  mocks.values.reasoningEffort = 'high'
+  render('openai/gpt-5')
   type('openai/gpt-5.')
   type('openai/gpt-5.1')
   expect(mocks.values).toMatchObject({
     model: 'openai/gpt-5.1',
-    reasoningMode: 'effort',
     reasoningEffort: 'high',
   })
   expect(mocks.write.mock.calls).toEqual([
@@ -180,18 +191,15 @@ it('keeps effort/high while typing a compatible model one character at a time', 
 })
 
 it.each([
-  ['', 'effort', 'high', 'effort'],
-  ['openai/unlisted-model', 'effort', 'high', 'effort'],
-  ['<variable.model>', 'effort', 'high', 'effort'],
-  ['openai/gpt-5.1', 'effort', '<variable.effort>', 'effort'],
-  ['openai/gpt-4.1', '<variable.mode>', 'high', '<variable.mode>'],
-  ['openai/gpt-5.1', 'effort', 'minimal', ''],
-  ['openai/gpt-4.1', 'effort', 'high', ''],
-])(
-  'changing the model to "%s" with %s/%s leaves reasoning mode "%s"',
-  (model, mode, effort, expected) => {
-    renderReasoning(mode, effort)
-    type(model)
-    expect(mocks.values).toMatchObject({ model, reasoningMode: expected, reasoningEffort: effort })
-  }
-)
+  ['', 'high', 'high'],
+  ['openai/unlisted-model', 'high', 'high'],
+  ['<variable.model>', 'high', 'high'],
+  ['openai/gpt-4.1', '<variable.effort>', '<variable.effort>'],
+  ['openai/gpt-5.1', 'max', ''],
+  ['openai/gpt-4.1', 'high', ''],
+])('changing to "%s" with effort "%s" leaves "%s"', (model, effort, expected) => {
+  mocks.values.reasoningEffort = effort
+  render('openai/gpt-5')
+  type(model)
+  expect(mocks.values).toMatchObject({ model, reasoningEffort: expected })
+})

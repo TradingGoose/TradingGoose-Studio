@@ -5,6 +5,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CopilotModelOption } from '@/lib/copilot/settings'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -13,6 +15,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 let mockStoreState: any
 let mockUserInputProps: any
+let mockModels: CopilotModelOption[]
 const scrollToMock = vi.fn()
 
 vi.mock('@/components/ui/button', () => ({
@@ -47,6 +50,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   }),
+}))
+
+vi.mock('@/hooks/queries/copilot-models', () => ({
+  useCopilotModels: () => ({ data: { models: mockModels } }),
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
@@ -138,6 +145,7 @@ describe('Copilot auto-scroll', () => {
     vi.useFakeTimers()
     scrollToMock.mockReset()
     mockUserInputProps = null
+    mockModels = [{ id: 'openai/gpt-4o', label: 'openai/gpt-4o' }]
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: scrollToMock,
@@ -162,7 +170,7 @@ describe('Copilot auto-scroll', () => {
       abortMessage: vi.fn(),
       setDraft: vi.fn(),
       loadChats: vi.fn(async () => {}),
-      selectedModel: 'openai/gpt-5.6-sol',
+      selectedModel: mockModels[0].id,
       toolCallsById: {},
     }
   })
@@ -179,6 +187,35 @@ describe('Copilot auto-scroll', () => {
     vi.useRealTimers()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
+
+  it.each([
+    ['openai/gpt-5', undefined, true],
+    ['openai/gpt-5', { type: 'effort', value: 'invented' }, true],
+    ['openai/gpt-5', { type: 'effort', value: 'high' }, false],
+    ['google/gemini-2.5-pro', undefined, true],
+    ['google/gemini-2.5-flash', undefined, true],
+    ['google/gemini-2.5-flash', { type: 'effort', value: 'low' }, false],
+    ['openai/gpt-4o', undefined, false],
+    ['openai/gpt-4o', { type: 'effort', value: 'high' }, true],
+  ] as const)(
+    'validates the published controls for %s with %j',
+    async (id, reasoning, disabled) => {
+      mockModels = [
+        {
+          id,
+          label: id,
+          reasoningOptions: getReasoningOptions(id),
+        },
+      ]
+      mockStoreState.selectedModel = id
+      mockStoreState.reasoning = reasoning
+      mockStoreState.isSendingMessage = false
+      await renderCopilot()
+      expect(mockUserInputProps.submitDisabled).toBe(disabled)
+      await mockUserInputProps.onSubmit('Hello')
+      expect(mockStoreState.sendMessage).toHaveBeenCalledTimes(disabled ? 0 : 1)
+    }
+  )
 
   it('forwards submission acceptance without waiting for the streaming response to finish', async () => {
     mockStoreState.isSendingMessage = false

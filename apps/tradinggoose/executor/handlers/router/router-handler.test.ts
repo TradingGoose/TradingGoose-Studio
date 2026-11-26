@@ -1,8 +1,9 @@
 import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
+import type { NativeModelConnection } from '@/lib/mastra/connections'
 
-vi.mock('@/lib/mastra/connections', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/connections')>()),
-  createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/native-reasoning')>()),
+  createNativeModel: (connection: NativeModelConnection) => connection,
 }))
 vi.mock('@/lib/mastra/usage-processors', () => ({
   usageProcessors: async (scope: unknown) => {
@@ -98,7 +99,11 @@ describe('Router native generation', () => {
       cost,
     })
     expect(result).toMatchObject({ tokens: { total: 7 } })
-    expect(native.configurations[0].model).toEqual({ id: 'openai/gpt-4.1', apiKey: 'local-key' })
+    expect(native.configurations[0].model).toEqual({
+      providerId: 'openai',
+      modelId: 'gpt-4.1',
+      apiKey: 'local-key',
+    })
     expect(native.generate.mock.calls[0][1].modelSettings.temperature).toBe(0)
   })
   it('rejects dangling target connections before inference', async () => {

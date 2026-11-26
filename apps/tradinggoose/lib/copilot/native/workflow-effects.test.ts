@@ -93,7 +93,7 @@ beforeEach(() => {
   m.scope.mockResolvedValue(scope)
   m.pending.mockImplementation(async () => pending())
   m.run.mockReset().mockResolvedValue(run)
-  m.model.mockReset().mockResolvedValue({ model: run.model, apiKey: 'admin-key' })
+  m.model.mockReset().mockResolvedValue(undefined)
 })
 describe('native business effect admission', () => {
   it('requires native context before admitting Copilot effects', async () => {

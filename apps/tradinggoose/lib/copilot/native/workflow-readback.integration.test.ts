@@ -103,7 +103,11 @@ vi.mock('@/lib/copilot/agent/context', () => ({
 }))
 vi.mock('@/lib/copilot/settings.server', () => ({
   validateCopilotModel: async (model: string) => model,
-  resolveCopilotModel: async (model: string) => ({ model, apiKey: 'admin-key' }),
+  resolveCopilotModel: async () => ({
+    providerId: 'openai',
+    modelId: 'admin-model',
+    apiKey: 'admin-key',
+  }),
 }))
 vi.mock('@/lib/copilot/agent/receipts', () => ({
   assertCopilotRunActive: async () => undefined,

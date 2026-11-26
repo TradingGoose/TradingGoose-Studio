@@ -55,9 +55,8 @@ describe('getBlocksMetadataServerTool', () => {
       'Response Format must be a JSON object containing a JSON Schema in its schema field.'
     )
     for (const [id, capability] of [
-      ['temperature', 'temperature'],
       ['responseFormat', 'structuredOutput'],
-      ['reasoningMode', 'reasoning'],
+      ['reasoningEffort', 'effort'],
     ]) {
       expect(agent?.subBlocks?.find((field) => field.id === id)?.condition).toEqual({
         field: 'model',
@@ -65,31 +64,9 @@ describe('getBlocksMetadataServerTool', () => {
         value: capability,
       })
     }
-    const outputTokens = agent?.subBlocks?.find((field) => field.id === 'maxTokens')
-    expect(outputTokens).toMatchObject({
-      type: 'short-input',
-      inputType: 'number',
-      min: 1,
-      integer: true,
-    })
-    expect(outputTokens?.condition).toBeUndefined()
-    expect(agent?.subBlocks?.find((field) => field.id === 'maxSteps')).toMatchObject({
-      type: 'short-input',
-      inputType: 'number',
-      min: 1,
-      integer: true,
-    })
-    for (const [id, type] of [
-      ['reasoningEffort', 'effort'],
-      ['reasoningBudget', 'budget_tokens'],
-      ['reasoningToggle', 'toggle'],
-    ])
-      expect(agent?.subBlocks?.find((field) => field.id === id)?.condition).toMatchObject({
-        field: 'model',
-        operator: 'modelCapability',
-        value: type,
-        and: { field: 'reasoningMode', value: type },
-      })
+    const fieldIds = agent?.subBlocks?.map(({ id }) => id)
+    for (const id of ['temperature', 'maxTokens', 'maxSteps', 'reasoningBudget'])
+      expect(fieldIds).not.toContain(id)
   })
 
   it('keeps Agent, Router and Evaluator metadata within a bounded context', async () => {

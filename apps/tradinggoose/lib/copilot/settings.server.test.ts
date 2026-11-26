@@ -29,8 +29,12 @@ vi.mock('@/lib/system-services/service', () => ({
   resolveSystemServiceConfig: mockResolveSystemServiceConfig,
 }))
 
-import { getModelReasoningOptions } from '@mastra/core/llm'
-import { getPublicCopilotModels, resolveCopilotModel } from './settings.server'
+import { getCatalogThinkingLevels } from '@mastra/code-sdk/thinking-catalog'
+import {
+  getPublicCopilotModels,
+  resolveCopilotModel,
+  validateCopilotModel,
+} from './settings.server'
 
 const configured: CopilotSettings = {
   models: [
@@ -48,7 +52,8 @@ describe('server Copilot settings', () => {
 
   it('resolves the first configured model with its existing credential', async () => {
     await expect(resolveCopilotModel()).resolves.toEqual({
-      model: 'openai/new-model',
+      providerId: 'openai',
+      modelId: 'new-model',
       apiKey: 'openai-key',
     })
     expect(mockResolveSystemServiceConfig).toHaveBeenCalledWith('openai')
@@ -57,7 +62,8 @@ describe('server Copilot settings', () => {
     })
     mockResolveSystemServiceConfig.mockResolvedValue({ apiKey: 'anthropic-key' })
     await expect(resolveCopilotModel()).resolves.toEqual({
-      model: 'anthropic/other-model',
+      providerId: 'anthropic',
+      modelId: 'other-model',
       apiKey: 'anthropic-key',
     })
     expect(mockResolveSystemServiceConfig).toHaveBeenLastCalledWith('anthropic')
@@ -69,11 +75,13 @@ describe('server Copilot settings', () => {
       .mockResolvedValueOnce({ apiKey: 'rotated-key' })
 
     await expect(resolveCopilotModel('anthropic/other-model')).resolves.toEqual({
-      model: 'anthropic/other-model',
+      providerId: 'anthropic',
+      modelId: 'other-model',
       apiKey: 'first-key',
     })
     await expect(resolveCopilotModel('anthropic/other-model')).resolves.toEqual({
-      model: 'anthropic/other-model',
+      providerId: 'anthropic',
+      modelId: 'other-model',
       apiKey: 'rotated-key',
     })
     expect(mockResolveSystemServiceConfig).toHaveBeenNthCalledWith(2, 'anthropic')
@@ -98,7 +106,8 @@ describe('server Copilot settings', () => {
     })
     mockResolveSystemServiceConfig.mockResolvedValue({ apiKey: 'native-key' })
     await expect(resolveCopilotModel()).resolves.toEqual({
-      model: 'new-native-provider/namespace/future-model',
+      providerId: 'new-native-provider',
+      modelId: 'namespace/future-model',
       apiKey: 'native-key',
     })
     expect(mockResolveSystemServiceConfig).toHaveBeenCalledExactlyOnceWith('new-native-provider')
@@ -194,7 +203,7 @@ describe('server Copilot settings', () => {
     })
   })
 
-  it('projects native reasoning controls without changing provider option names or model order', async () => {
+  it('projects the selected model’s Mastra thinking levels in admin order', async () => {
     const models = [
       { provider: 'openai', model: 'gpt-5.4' },
       { provider: 'google', model: 'gemini-2.5-pro' },
@@ -205,24 +214,32 @@ describe('server Copilot settings', () => {
     expect(result.models.map(({ id }) => id)).toEqual(
       models.map(({ provider, model }) => `${provider}/${model}`)
     )
-    for (const model of result.models) {
-      const native = getModelReasoningOptions(model.id)
-      expect(model.reasoningOptions).toEqual(native)
+    for (const { id, reasoningOptions } of result.models) {
+      expect(reasoningOptions?.[0]?.values).toEqual(
+        getCatalogThinkingLevels(id).filter((level) => level !== 'off')
+      )
     }
+    await expect(
+      validateCopilotModel('google/gemini-2.5-pro', { type: 'effort', value: 'low' })
+    ).resolves.toBe('google/gemini-2.5-pro')
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
 
-  it('checks selections against the authorized model before credential lookup', async () => {
+  it('requires a supported level for the authorized model before credential lookup', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: { models: [{ provider: 'openai', model: 'gpt-5' }] },
     })
+    await expect(validateCopilotModel('openai/gpt-5')).rejects.toMatchObject({ status: 422 })
     await expect(
-      resolveCopilotModel('openai/gpt-5', { type: 'toggle', value: false })
+      validateCopilotModel('openai/gpt-5', { type: 'effort', value: 'max' })
     ).rejects.toMatchObject({ status: 422 })
     await expect(
-      resolveCopilotModel('openai/stale', { type: 'effort', value: 'low' })
+      validateCopilotModel('openai/stale', { type: 'effort', value: 'low' })
     ).rejects.toMatchObject({ status: 422 })
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
+    await expect(
+      resolveCopilotModel('openai/gpt-5', { type: 'effort', value: 'high' })
+    ).resolves.toMatchObject({ providerId: 'openai', modelId: 'gpt-5' })
   })
   it('reports an unconfigured Copilot with no built-in fallback', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({ copilot: DEFAULT_COPILOT_SETTINGS })

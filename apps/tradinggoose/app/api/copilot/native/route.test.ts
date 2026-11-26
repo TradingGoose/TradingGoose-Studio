@@ -201,11 +201,8 @@ describe('built-in Copilot authenticated boundary', () => {
     expect((await post({ ...listing, ...extra })).status).toBe(422)
     expect(mocks.execute).not.toHaveBeenCalled()
   })
-  it.each([
-    { type: 'effort', value: 'low' },
-    { type: 'toggle', value: false },
-    { type: 'budget_tokens', value: 0 },
-  ])('preserves native reasoning options %j with model/access selection', async (reasoning) => {
+  it('preserves native effort with model/access selection', async () => {
+    const reasoning = { type: 'effort', value: 'low' }
     const body = {
       command: 'message',
       requestId: crypto.randomUUID(),

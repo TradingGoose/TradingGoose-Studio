@@ -44,7 +44,11 @@ function stream(frames: unknown[], split = false) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.session.mockResolvedValue({ user: { id: 'actual-actor' } })
-  mocks.resolve.mockResolvedValue({ model: 'openai/first-admin-model', apiKey: 'admin-key' })
+  mocks.resolve.mockResolvedValue({
+    providerId: 'openai',
+    modelId: 'first-admin-model',
+    apiKey: 'admin-key',
+  })
   mocks.native.mockImplementation(async () =>
     stream([{ chunk: 'Preview🔥' }, { done: true, result: result() }], true)
   )

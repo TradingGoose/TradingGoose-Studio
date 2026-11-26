@@ -49,11 +49,6 @@ let mockBlockConfig: any = {
       placeholder: 'Type or select a model...',
     },
     {
-      id: 'temperature',
-      title: 'Temperature',
-      type: 'slider',
-    },
-    {
       id: 'tools',
       title: 'Tools',
       type: 'tool-input',
@@ -226,11 +221,6 @@ describe('NodeEditorPanel', () => {
           placeholder: 'Type or select a model...',
         },
         {
-          id: 'temperature',
-          title: 'Temperature',
-          type: 'slider',
-        },
-        {
           id: 'tools',
           title: 'Tools',
           type: 'tool-input',
@@ -303,14 +293,12 @@ describe('NodeEditorPanel', () => {
     expect(markup).toContain('Prompt del sistema')
     expect(markup).toContain('Prompt del usuario')
     expect(markup).toContain('Modelo')
-    expect(markup).toContain('Temperatura')
     expect(markup).toContain('Herramientas')
     expect(markup).toContain('Habilidades')
     expect(markup).toContain('Clave API')
     expect(markup).toContain('Formato de respuesta')
     expect(markup).not.toContain('System Prompt')
     expect(markup).not.toContain('User Prompt')
-    expect(markup).not.toContain('Temperature')
     expect(markup).not.toContain('API Key')
     expect(markup).not.toContain('Response Format')
   })
@@ -415,7 +403,7 @@ describe('NodeEditorPanel', () => {
       mockSelectedBlock.advancedMode = advancedMode
       mockBlockConfig.subBlocks = [
         { id: 'model', title: 'Model', type: 'combobox' },
-        { id: 'maxSteps', title: 'Max Steps', type: 'short-input', additional: true },
+        { id: 'memories', title: 'Memories', type: 'short-input', additional: true },
       ]
       reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
       container = document.createElement('div')
@@ -445,10 +433,10 @@ describe('NodeEditorPanel', () => {
     'shows configured additional fields when protected=%s',
     (protectedBlock) => {
       mockBlockProtection = protectedBlock
-      mockSelectedBlock.subBlocks = { maxSteps: { value: 5 } }
+      mockSelectedBlock.subBlocks = { memories: { value: '<memory.memories>' } }
       mockBlockConfig.subBlocks = [
         { id: 'model', title: 'Model', type: 'combobox' },
-        { id: 'maxSteps', title: 'Max Steps', type: 'short-input', additional: true },
+        { id: 'memories', title: 'Memories', type: 'short-input', additional: true },
       ]
 
       const markup = renderToStaticMarkup(

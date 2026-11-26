@@ -34,21 +34,21 @@ it('refreshes mounted preview fields from registry metadata without rewriting sa
     model: { value: 'example/model' },
     responseFormat: { value: '{"schema":{"type":"object"}}' },
     temperature: { value: '0.4' },
-    maxTokens: { value: 42 },
+    memories: { value: '<memory.memories>' },
   }
   const saved = structuredClone(values)
-  const publish = (structuredOutput: boolean, temperature: boolean) =>
+  const publish = (structuredOutput: boolean) =>
     useModelRegistry.setState({
       providers: [
         {
           id: 'example',
           name: 'Example',
-          models: [{ id: 'example/model', structuredOutput, temperature }],
+          models: [{ id: 'example/model', structuredOutput }],
         },
       ],
     })
   try {
-    publish(false, false)
+    publish(false)
     act(() =>
       root.render(
         <PreviewNode
@@ -61,14 +61,14 @@ it('refreshes mounted preview fields from registry metadata without rewriting sa
     )
     expect(container.textContent).not.toContain('Response Format')
     expect(container.textContent).not.toContain('Temperature')
-    act(() => publish(true, true))
+    act(() => publish(true))
     expect(container.textContent).toContain('Response Format')
-    expect(container.textContent).toContain('Temperature')
-    expect(container.textContent).toContain('Max Output Tokens')
-    act(() => publish(false, false))
+    expect(container.textContent).not.toContain('Temperature')
+    expect(container.textContent).toContain('Memories')
+    act(() => publish(false))
     expect(container.textContent).not.toContain('Response Format')
     expect(container.textContent).not.toContain('Temperature')
-    expect(container.textContent).toContain('Max Output Tokens')
+    expect(container.textContent).toContain('Memories')
     expect(values).toEqual(saved)
   } finally {
     act(() => root.unmount())

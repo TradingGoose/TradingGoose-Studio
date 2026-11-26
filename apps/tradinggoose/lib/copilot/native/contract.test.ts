@@ -1,13 +1,14 @@
 import { expect, it } from 'vitest'
 import { CopilotRequestSchema } from './contract'
 
-it('accepts the browser command with ordered native content parts', () => {
+it('accepts a selected level with ordered native content parts', () => {
+  const reasoning = { type: 'effort', value: 'high' }
   const input = {
     command: 'message',
     requestId: crypto.randomUUID(),
     workspaceId: 'workspace',
     model: 'openai/gpt-4.1',
-    reasoning: { type: 'effort', value: 'high' },
+    reasoning,
     input: {
       content: [
         { type: 'text', text: 'Inspect this' },
@@ -50,9 +51,9 @@ it.each([
   },
   { providerOptions: { openai: { reasoningEffort: 'high' } } },
   { reasoningEffort: 'low' },
-  { reasoning: { type: 'effort', value: 'invented' } },
-  { reasoning: { type: 'toggle', value: false, apiKey: 'extra' } },
-  { reasoning: { type: 'budget_tokens', value: 1.5 } },
+  { reasoning: { type: 'effort', value: '' } },
+  { reasoning: { type: 'effort', value: 4 } },
+  { reasoning: { type: 'effort', value: 'high', providerOptions: {} } },
   { fileAttachments: [{ key: 'old-object-reference' }] },
 ])('rejects additional authority and retired transport fields: %j', (fields) => {
   expect(() =>

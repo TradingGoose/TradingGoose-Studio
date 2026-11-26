@@ -1,7 +1,9 @@
-import '@/lib/mastra/__test-utils__/managed-services'
-vi.mock('@/lib/mastra/connections', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/connections')>()),
-  createConfiguredLanguageModel: vi.fn(() => state.model),
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
+
+vi.mock('@/lib/mastra/connections', { spy: true })
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/native-reasoning')>()),
+  createNativeModel: vi.fn(() => state.model),
 }))
 vi.mock('@/lib/mastra/usage-processors', () => ({
   usageProcessors: vi.fn(async () => ({
@@ -16,7 +18,7 @@ vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
 
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { resultAccounting } from '@/lib/mastra/usage'
 import { usageProcessors } from '@/lib/mastra/usage-processors'
@@ -44,6 +46,7 @@ vi.mock('@mastra/core/agent', async (original) => {
   }
 })
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-key' }
   vi.clearAllMocks()
   state.result = undefined
   state.usage = {}
@@ -151,7 +154,7 @@ describe('canonical settings and processor usage before financial refusal', () =
         (error: unknown) => error
       )
       expect(failure).toBeInstanceOf(Error)
-      expect(createConfiguredLanguageModel).toHaveBeenCalledWith('openai/gpt-4.1', undefined)
+      expect(resolveConfiguredModel).toHaveBeenCalledWith('openai/gpt-4.1', undefined)
       expect(usageProcessors).toHaveBeenCalledWith(
         expect.objectContaining({ funding: 'account', actorUserId: 'actor' }),
         expect.objectContaining({

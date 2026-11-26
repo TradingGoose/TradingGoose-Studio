@@ -812,10 +812,10 @@ describe('canonical browser conversation transport', () => {
     expect(store().getState().isSendingMessage).toBe(false)
   })
 
-  it('restores model and reasoning only within the saved actor and workspace', () => {
-    vi.stubGlobal('window', { localStorage: sessionStorage })
+  it('restores the selected model and level only within the saved actor and workspace', () => {
     const selectedModel = 'openai/gpt-5'
     const reasoning = { type: 'effort', value: 'high' } as const
+    vi.stubGlobal('window', { localStorage: sessionStorage })
     store().getState().setSelectedModel(selectedModel)
     store().getState().setReasoning(reasoning)
     resetCopilotStoreRegistry()

@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import '@/lib/mastra/__test-utils__/managed-services'
+
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import type { SQL } from 'drizzle-orm'
@@ -9,6 +9,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { generateInternalToken, verifyInternalTokenDetailed } from '@/lib/auth/internal-token'
 import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import { createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
@@ -83,9 +84,9 @@ vi.mock('@/lib/billing/workspace-billing', () => {
   return { resolveWorkspaceBillingContext: resolve, resolveWorkflowBillingContext: resolve }
 })
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
-vi.mock('@/lib/mastra/connections', async (original) => ({
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
   ...(await original<object>()),
-  createConfiguredLanguageModel: () =>
+  createNativeModel: () =>
     new MastraLanguageModelV2Mock({
       doGenerate: async () => {
         boundary.contact()
@@ -118,6 +119,7 @@ const context: ExecutionContext = {
   activeExecutionPath: new Set(),
 }
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-key' }
   vi.stubEnv('INTERNAL_API_SECRET', 'test-internal-signing-secret-123456')
   vi.clearAllMocks()
   boundary.requests.length = 0

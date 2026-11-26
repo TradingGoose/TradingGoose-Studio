@@ -1,8 +1,9 @@
-import '@/lib/mastra/__test-utils__/managed-services'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
+import type { NativeModelConnection } from '@/lib/mastra/connections'
 
-vi.mock('@/lib/mastra/connections', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/connections')>()),
-  createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/native-reasoning')>()),
+  createNativeModel: (connection: NativeModelConnection) => connection,
 }))
 vi.mock('@/lib/mastra/usage-processors', () => ({
   usageProcessors: async (scope: unknown) => {
@@ -46,6 +47,7 @@ const result = {
   steps: [],
 }
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-key' }
   vi.clearAllMocks()
   native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
   native.usage.mockReset().mockReturnValue(result.totalUsage)
@@ -99,7 +101,8 @@ describe('native AI HTTP handler', () => {
       authUserId: 'actor',
     })
     expect(native.configurations[0].model).toEqual({
-      id: 'anthropic/claude-sonnet-4-5',
+      providerId: 'anthropic',
+      modelId: 'claude-sonnet-4-5',
       apiKey: 'tenant-key',
     })
     expect(native.generate.mock.calls[0][1].modelSettings.maxOutputTokens).toBe(51)

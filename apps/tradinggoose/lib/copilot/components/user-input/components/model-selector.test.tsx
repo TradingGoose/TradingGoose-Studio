@@ -4,6 +4,7 @@ import { act, cloneElement } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 
 let state: any
 let catalog: any
@@ -25,51 +26,22 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
     },
     reasoning: {
       label: 'Thinking / Reasoning',
-      providerDefault: 'Provider default',
-      on: 'On',
-      off: 'Off',
-      providerOptions: 'Provider Options (JSON)',
-      effort: 'Published effort values',
-      budget: 'Thinking-token budget',
-      minimum: 'minimum',
-      maximum: 'maximum',
-      toggle: 'On/off thinking control',
-      unsupported: 'No reasoning controls',
-      invalid: 'Invalid Provider Options JSON',
-      apply: 'Apply',
+      selectLevel: 'Choose a level',
     },
   }),
 }))
-vi.mock('@/components/ui', async () => {
-  const { createContext, useContext } = await import('react')
-  const OptionsContext = createContext<any>(null)
-  return {
-    Button: ({ variant: _variant, size: _size, ...props }: any) => <button {...props} />,
-    DropdownMenu: ({ children }: any) => <div>{children}</div>,
-    DropdownMenuTrigger: ({ render, children, ...props }: any) =>
-      cloneElement(render, props, children),
-    DropdownMenuContent: ({ align: _align, side: _side, ...props }: any) => <div {...props} />,
-    DropdownMenuItem: (props: any) => <button {...props} />,
-    TooltipProvider: ({ children }: any) => children,
-    Tooltip: ({ children }: any) => children,
-    TooltipTrigger: ({ render }: any) => render,
-    TooltipContent: () => null,
-    Popover: ({ children, open, onOpenChange }: any) => (
-      <OptionsContext.Provider value={{ open, onOpenChange }}>{children}</OptionsContext.Provider>
-    ),
-    PopoverTrigger: ({ render, children, ...props }: any) => {
-      const context = useContext(OptionsContext)
-      return cloneElement(
-        render,
-        { ...props, onClick: () => context.onOpenChange(!context.open) },
-        children
-      )
-    },
-    PopoverContent: ({ align: _align, side: _side, children, ...props }: any) =>
-      useContext(OptionsContext).open ? <div {...props}>{children}</div> : null,
-    Input: (props: any) => <input {...props} />,
-  }
-})
+vi.mock('@/components/ui', () => ({
+  Button: ({ variant: _variant, size: _size, ...props }: any) => <button {...props} />,
+  DropdownMenu: ({ children }: any) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ render, children, ...props }: any) =>
+    cloneElement(render, props, children),
+  DropdownMenuContent: ({ align: _align, side: _side, ...props }: any) => <div {...props} />,
+  DropdownMenuItem: (props: any) => <button {...props} />,
+  TooltipProvider: ({ children }: any) => children,
+  Tooltip: ({ children }: any) => children,
+  TooltipTrigger: ({ render }: any) => render,
+  TooltipContent: () => null,
+}))
 
 import { AccessLevelSelector } from './access-level-selector'
 import { ModelSelector } from './model-selector'
@@ -81,7 +53,7 @@ const render = () =>
   act(() =>
     root.render(
       <QueryClientProvider client={queryClient}>
-        <ModelSelector isNearTop={false} panelWidth={400} />
+        <ModelSelector isNearTop={false} />
         <AccessLevelSelector isNearTop={false} />
       </QueryClientProvider>
     )
@@ -208,63 +180,45 @@ it('preserves a valid selection and replaces a removed selection on catalog refr
   expect(state.setSelectedModel).toHaveBeenLastCalledWith(null)
 })
 
-it('offers only supported choices and locks an open editor while busy', () => {
-  state.selectedModel = 'openai/gpt-5'
-  catalog.data = {
-    models: [
-      {
-        id: state.selectedModel,
-        label: state.selectedModel,
-        reasoningOptions: [
-          { type: 'effort', values: ['low', 'high'] },
-          { type: 'budget_tokens', min: 0, max: 12 },
-          { type: 'toggle' },
-        ],
-      },
-    ],
-  }
-  render()
-  act(() =>
-    container.querySelector<HTMLButtonElement>('[aria-label="Thinking / Reasoning"]')!.click()
-  )
-  const select = container.querySelector('select')!
-  expect([...select.options].map((o) => o.value)).toEqual([
-    'auto',
-    'low',
-    'high',
-    'budget_tokens',
-    'true',
-    'false',
-  ])
-  act(() => {
-    select.value = 'false'
-    select.dispatchEvent(new Event('change', { bubbles: true }))
-  })
-  act(() =>
-    [...container.querySelectorAll('button')].find((b) => b.textContent === 'Apply')!.click()
-  )
-  expect(state.setReasoning).toHaveBeenCalledExactlyOnceWith({ type: 'toggle', value: false })
-  act(() =>
-    container.querySelector<HTMLButtonElement>('[aria-label="Thinking / Reasoning"]')!.click()
-  )
-  state.isSendingMessage = true
-  render()
-  expect(container.querySelector('select')).toBeDisabled()
-})
-
-it.each([{}, { reasoningOptions: [] }])(
-  'hides reasoning without public choices and clears stale preferences %j',
-  (metadata) => {
-    state.selectedModel = 'openai/text-model'
-    state.reasoning = { type: 'effort', value: 'high' }
-    catalog.data = {
-      models: [{ id: state.selectedModel, label: state.selectedModel, ...metadata }],
-    }
+it.each(['google/gemini-2.5-flash', 'openai/gpt-5'])(
+  'shows %s levels and the applied choice',
+  (id) => {
+    const reasoningOptions = getReasoningOptions(id)
+    state.selectedModel = id
+    catalog.data = { models: [{ id, label: id, reasoningOptions }] }
     render()
-    expect(container.querySelector('[aria-label="Thinking / Reasoning"]')).toBeNull()
-    expect(state.setReasoning).toHaveBeenCalledWith(undefined)
+    const trigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Thinking / Reasoning"]'
+    )!
+    expect(trigger.textContent).toBe('Choose a level')
+    expect(trigger.querySelector('svg.lucide-brain')).toHaveAttribute('aria-hidden', 'true')
+    expect(trigger).toHaveAccessibleName('Thinking / Reasoning · Choose a level')
+    const levels = [...trigger.parentElement!.querySelectorAll('button')].slice(1)
+    expect(levels.map((button) => button.textContent)).toEqual(['low', 'medium', 'high'])
+    expect(levels.every((button) => !button.querySelector('svg'))).toBe(true)
+    const high = levels.find((button) => button.textContent === 'high')!
+    act(() => high.click())
+    const selection = { type: 'effort', value: 'high' }
+    expect(state.setReasoning).toHaveBeenCalledExactlyOnceWith(selection)
+    state.reasoning = selection
+    render()
+    expect(trigger.textContent).toBe('high')
+    expect(trigger).toHaveAccessibleName('Thinking / Reasoning · high')
+    state.isSendingMessage = true
+    render()
+    expect(trigger).toBeDisabled()
+    expect(high).toBeDisabled()
   }
 )
+
+it('hides the level selector when the model has no effort levels', () => {
+  state.selectedModel = 'openai/gpt-4o'
+  catalog.data = {
+    models: [{ id: state.selectedModel, label: state.selectedModel, reasoningOptions: [] }],
+  }
+  render()
+  expect(container.querySelector('button[aria-label^="Thinking / Reasoning"]')).toBeNull()
+})
 
 it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(
   'locks access and model and hides a removed route during %s',

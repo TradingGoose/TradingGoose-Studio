@@ -65,9 +65,8 @@ async function generate(
     },
   })
   const request = await prepareNativeModelRequest(scope, {
-    model,
+    model: { providerId: 'openai', modelId: 'gpt-4.1', apiKey: 'fixture' },
     accounting: createModelUsageAccounting(scope),
-    maxSteps: 1,
   })
   const agent = new Agent({
     id: 'usage-test',
