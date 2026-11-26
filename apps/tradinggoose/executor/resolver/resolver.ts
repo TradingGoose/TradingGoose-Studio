@@ -1,6 +1,6 @@
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { supportsReasoning, workflowReasoning } from '@/lib/mastra/reasoning'
+import { reasoningSelectionError } from '@/lib/mastra/reasoning'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import {
   extractEnvironmentReferences,
@@ -80,8 +80,9 @@ export class InputResolver {
     context: ExecutionContext,
     getModel?: Parameters<typeof evaluateSubBlockCondition>[2]
   ): Record<string, any> {
-    const inputs = { ...block.config.params }
-    const subBlocks = block.metadata?.id ? (getBlock(block.metadata.id)?.subBlocks ?? []) : []
+    const config = block.metadata?.id ? getBlock(block.metadata.id) : undefined
+    const inputs = block.config.params
+    const subBlocks = config?.subBlocks ?? []
     const result: Record<string, any> = {}
     const resolved = new Map<string, unknown>()
     const resolving = new Set<string>()
@@ -112,32 +113,19 @@ export class InputResolver {
       }
     }
 
-    if (block.metadata?.id === 'agent' && inputs.reasoningMode != null) {
-      const model = resolveField('model')
-      const mode = this.resolveInputValue('reasoningMode', inputs.reasoningMode, block, context)
+    Object.keys(config?.inputs ?? block.inputs).forEach(resolveField)
+    for (const field of subBlocks) resolveField(field.canonicalParamId ?? field.id)
+    if (block.metadata?.id === 'agent') {
+      const { model } = result
       const options =
         typeof model === 'string'
           ? (getModel ?? getRegistryModel)(model)?.reasoningOptions
           : undefined
-      if (
-        mode != null &&
-        mode !== '' &&
-        mode !== 'auto' &&
-        !options?.some((option) => option.type === mode)
-      )
-        throw new Error(`Reasoning mode "${mode}" is unsupported for ${model}`)
-    }
-    Object.keys(inputs).forEach(resolveField)
-    if (block.metadata?.id === 'agent' && result.reasoningMode) {
-      const selection = workflowReasoning(result)
-      if (
-        selection &&
-        !supportsReasoning(
-          (getModel ?? getRegistryModel)(result.model)?.reasoningOptions,
-          selection
-        )
-      )
-        throw new Error(`Selected reasoning value is unsupported for ${result.model}`)
+      const effort =
+        result.reasoningEffort ??
+        this.resolveInputValue('reasoningEffort', inputs.reasoningEffort, block, context)
+      const error = reasoningSelectionError(model, options, effort)
+      if (error) throw new Error(error)
     }
     return result
   }

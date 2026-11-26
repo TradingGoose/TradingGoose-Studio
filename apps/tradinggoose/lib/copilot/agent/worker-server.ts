@@ -16,8 +16,6 @@ import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-e
 import { resolveCopilotModel } from '@/lib/copilot/settings.server'
 import { getCopilotToolPolicy, isWorkspaceAgnosticServerTool } from '@/lib/copilot/tool-policy'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { resolveConfiguredModel } from '@/lib/mastra/connections'
-import { nativeReasoningSettings } from '@/lib/mastra/native-reasoning'
 import { createModelUsageAccounting } from '@/lib/mastra/request'
 import { getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { type CopilotDecision, readCopilotRun } from './context'
@@ -123,8 +121,7 @@ async function prepare(job: CopilotJob, signal?: AbortSignal): Promise<CopilotWo
           toolContexts: job.toolContexts,
         }
       : await readCopilotRun(scope, job.threadId, job.runId)
-  const selected = await resolveCopilotModel(run.model, run.reasoning)
-  const model = await resolveConfiguredModel(run.model, selected.apiKey)
+  const model = await resolveCopilotModel(run.model, run.reasoning)
   let pending: CopilotWorkerPrepared['pending']
   if (request.command === 'tool.approve' || request.command === 'tool.decline') {
     if (!(await readCopilotAdmission(run, request)))
@@ -160,7 +157,6 @@ async function prepare(job: CopilotJob, signal?: AbortSignal): Promise<CopilotWo
     pending,
     contexts,
     model,
-    reasoning: run.reasoning && nativeReasoningSettings(run.model, run.reasoning),
   }
 }
 

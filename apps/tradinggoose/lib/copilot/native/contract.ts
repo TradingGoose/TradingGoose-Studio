@@ -3,7 +3,7 @@ import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { MAX_COPILOT_CONTEXTS_PER_TURN } from '@/lib/copilot/context-limits'
 import { REVIEW_ENTITY_KINDS } from '@/lib/copilot/review-sessions/types'
 import type { NativeHistoryMessage } from '@/lib/mastra/messages'
-import { reasoningSchema } from '@/lib/mastra/reasoning'
+import { reasoningEffortSchema } from '@/lib/mastra/reasoning'
 import type { NativeUsage } from '@/lib/mastra/usage'
 
 export type Json = null | boolean | number | string | Json[] | JsonObject
@@ -72,7 +72,7 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
       messageId: id.optional(),
       input: InputSchema,
       model: id,
-      reasoning: reasoningSchema.optional(),
+      reasoning: reasoningEffortSchema.optional(),
       accessLevel: z.enum(['limited', 'full']).optional(),
       toolContext: ToolContextSchema.optional(),
     })

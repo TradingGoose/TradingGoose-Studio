@@ -1,13 +1,18 @@
 import { providers } from '@opencode-ai/models/snapshot'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 import { getModelProviders } from '@/lib/mastra/providers'
-import { type Reasoning, supportsReasoning } from '@/lib/mastra/reasoning'
-import { getNativeModel, isLanguageModel } from '@/lib/mastra/registry'
+import { type Reasoning, reasoningSelectionError } from '@/lib/mastra/reasoning'
+import { isLanguageModel } from '@/lib/mastra/registry'
 import { getCopilotSettings } from '@/lib/system-settings/service'
 import { NativeTargetError } from './native/errors'
 import { type CopilotModelOption, getCopilotModelId } from './settings'
 
-export async function validateCopilotModel(modelId?: string, reasoning?: Reasoning) {
+export async function validateCopilotModel(
+  modelId?: string,
+  reasoning?: Reasoning,
+  requireSelection = true
+) {
   const settings = await getCopilotSettings()
   const first = settings.models[0]
   if (!first) {
@@ -22,19 +27,20 @@ export async function validateCopilotModel(modelId?: string, reasoning?: Reasoni
   ) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
   }
-  if (reasoning && !supportsReasoning(getNativeModel(selected).reasoningOptions, reasoning))
-    throw new NativeTargetError(
-      'Selected reasoning control is unsupported for this Copilot model',
-      422
-    )
+  const error = reasoningSelectionError(
+    selected,
+    getReasoningOptions(selected),
+    reasoning?.value,
+    requireSelection
+  )
+  if (error) throw new NativeTargetError(error, 422)
   return selected
 }
 
 export async function resolveCopilotModel(modelId?: string, reasoning?: Reasoning) {
-  const selected = await validateCopilotModel(modelId, reasoning)
+  const selected = await validateCopilotModel(modelId, reasoning, false)
   try {
-    const { apiKey } = await resolveConfiguredModel(selected)
-    return { model: selected, apiKey }
+    return await resolveConfiguredModel(selected)
   } catch {
     throw new NativeTargetError(
       'The system connection for the selected Copilot model is not configured',
@@ -55,13 +61,12 @@ export async function getPublicCopilotModels(): Promise<{
     )
     .map((row) => {
       const id = getCopilotModelId(row)
-      const { reasoningOptions } = getNativeModel(id)
       return {
         id,
         label:
           providers[row.provider]?.models?.[row.model]?.canonical_model_id ??
           (row.model.includes('/') ? row.model : id),
-        reasoningOptions,
+        reasoningOptions: getReasoningOptions(id),
       }
     })
   return { models }

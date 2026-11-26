@@ -61,18 +61,6 @@ export class AgentBlockHandler implements BlockHandler {
     const model = inputs.model
     if (!model) throw new Error('Agent model is required')
     await assertListedModel(model, true)
-    const maxSteps =
-      inputs.maxSteps == null ||
-      (typeof inputs.maxSteps === 'string' && inputs.maxSteps.trim() === '')
-        ? undefined
-        : Number(inputs.maxSteps)
-    if (
-      maxSteps !== undefined &&
-      (!['number', 'string'].includes(typeof inputs.maxSteps) ||
-        !Number.isSafeInteger(maxSteps) ||
-        maxSteps < 1)
-    )
-      throw new Error('Max Steps must be a positive integer')
     const responseFormat = this.parseResponseFormat(inputs.responseFormat)
     const formattedTools = await this.formatTools(inputs.tools || [], context)
     const skillInputs = Array.isArray(inputs.skills)
@@ -125,10 +113,7 @@ export class AgentBlockHandler implements BlockHandler {
       },
       {
         apiKey: inputs.apiKey,
-        maxSteps,
-        modelSettings: { temperature: inputs.temperature, maxOutputTokens: inputs.maxTokens },
-        reasoning: workflowReasoning(inputs),
-        forceTool: formattedTools.some((tool) => tool.usageControl === 'force'),
+        reasoning: workflowReasoning(inputs.reasoningEffort),
       }
     )
     const agent = new Agent({
@@ -168,7 +153,7 @@ export class AgentBlockHandler implements BlockHandler {
       },
       prepareStep: async (step) => {
         await cancellation.check()
-        return { ...policy.prepareStep(step), ...work.options.prepareStep(step) }
+        return policy.prepareStep(step)
       },
     }
     const cancellation = watchExecutionCancellation(context.shouldCancelExecution, abortController)

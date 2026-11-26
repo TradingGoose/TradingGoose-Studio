@@ -1,6 +1,8 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
-import type { NativeReasoningSettings } from './native-reasoning'
+import type { NativeModelConnection } from './connections'
+import { createNativeModel, getReasoningOptions } from './native-reasoning'
 import { trustedModelSettings } from './options'
+import { type Reasoning, reasoningSelectionError } from './reasoning'
 import { assertNativeCompletion } from './result'
 import { resultAccounting } from './usage'
 import {
@@ -10,32 +12,25 @@ import {
 } from './usage-processors'
 
 /** Native request execution is independent of Studio's connection and accounting transport. */
-export async function prepareNativeModelRequest<TModel>(
-  scope: NativeUsageScope & { model: string; workspaceId?: string | null },
+export async function prepareNativeModelRequest(
+  scope: NativeUsageScope & { model: string; purpose?: string; workspaceId?: string | null },
   settings: {
-    model: TModel
+    model: NativeModelConnection
     accounting: NativeUsageAccounting
-    maxSteps?: number
     modelSettings?: unknown
-    reasoning?: NativeReasoningSettings
+    reasoning?: Reasoning
   }
 ) {
   const modelSettings = trustedModelSettings(settings.modelSettings)
-  const native = settings.reasoning
-  if (native) {
-    const router = settings.model
-    if (
-      !router ||
-      typeof router !== 'object' ||
-      !('resolveApiProviderId' in router) ||
-      typeof router.resolveApiProviderId !== 'function' ||
-      (await router.resolveApiProviderId()) !== native.api
-    )
-      throw new Error(
-        `Selected reasoning control is unsupported by the current route for ${scope.model}`
-      )
-  }
-  const maxSteps = settings.maxSteps ?? 5
+  const { reasoning } = settings
+  const error = reasoningSelectionError(
+    scope.model,
+    getReasoningOptions(scope.model),
+    reasoning?.value,
+    scope.purpose === 'workflow-agent' || scope.purpose === 'copilot'
+  )
+  if (error) throw new Error(error)
+  const model = await createNativeModel(settings.model, reasoning?.value)
   const usage = await usageProcessors(scope, settings.accounting)
   const options = {
     runId: scope.runId,
@@ -43,24 +38,7 @@ export async function prepareNativeModelRequest<TModel>(
     abortSignal: scope.signal,
     inputProcessors: usage.inputProcessors,
     outputProcessors: usage.outputProcessors,
-    modelSettings: { ...modelSettings, ...native?.modelSettings },
-    providerOptions: native?.providerOptions,
-    maxSteps,
-    prepareStep: ({ stepNumber, systemMessages }) =>
-      stepNumber >= maxSteps - 1
-        ? {
-            toolChoice: 'none',
-            tools: {},
-            systemMessages: [
-              ...systemMessages,
-              {
-                role: 'system',
-                content:
-                  'No model steps remain after this one. Do not use tools. Give your final answer using available results; explain missing information instead of inventing it.',
-              },
-            ],
-          }
-        : {},
+    modelSettings,
     tracingOptions: {
       metadata: {
         userId: scope.actorUserId,
@@ -71,7 +49,7 @@ export async function prepareNativeModelRequest<TModel>(
   } satisfies AgentExecutionOptions
   const accounting = () => resultAccounting(usage.getUsage(), usage.getCost())
   return {
-    model: settings.model,
+    model,
     usage,
     options,
     accounting,

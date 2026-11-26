@@ -15,12 +15,12 @@ function matchesConditionValue(
     condition.operator === 'modelCapability'
       ? typeof fieldValue === 'string' &&
         Boolean(fieldValue) &&
-        (condition.value === 'temperature' || condition.value === 'structuredOutput'
-          ? getModel(fieldValue)?.[condition.value] !== false
+        (condition.value === 'structuredOutput'
+          ? getModel(fieldValue)?.structuredOutput !== false
           : !!(
               containsWorkflowReference(fieldValue) ||
               getModel(fieldValue)?.reasoningOptions?.some(
-                (option) => condition.value === 'reasoning' || option.type === condition.value
+                (option) => option.type === condition.value
               )
             ))
       : Array.isArray(condition.value)

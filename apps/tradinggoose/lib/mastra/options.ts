@@ -25,7 +25,9 @@ const MODEL_SETTINGS = z
   })
   .strict()
 
-export function trustedModelSettings(value?: unknown): AgentExecutionOptions['modelSettings'] {
+export function trustedModelSettings(
+  value?: unknown
+): NonNullable<AgentExecutionOptions['modelSettings']> {
   const settings = MODEL_SETTINGS.parse(value === undefined ? {} : value)
   return Object.fromEntries(Object.entries(settings).filter(([, setting]) => setting !== undefined))
 }

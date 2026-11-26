@@ -45,8 +45,6 @@ export function assertNativeCompletion(result: {
   finishReason?: string
   usedFallbackValue?: boolean
 }) {
-  if (result.finishReason === 'tool-calls')
-    throw new Error('Native generation reached its step limit before producing a final answer.')
   if (
     result.error ||
     result.tripwire ||

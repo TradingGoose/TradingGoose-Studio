@@ -87,13 +87,7 @@ export type SubBlockCondition = {
   | { operator?: never; value: string | number | boolean | Array<string | number | boolean> }
   | {
       operator: 'modelCapability'
-      value:
-        | 'temperature'
-        | 'structuredOutput'
-        | 'reasoning'
-        | 'effort'
-        | 'budget_tokens'
-        | 'toggle'
+      value: 'structuredOutput' | 'effort'
     }
 )
 

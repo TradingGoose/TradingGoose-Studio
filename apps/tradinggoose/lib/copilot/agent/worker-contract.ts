@@ -79,11 +79,10 @@ export const StudioToolFrameSchema = z.union([
 export type StudioToolHandback = Exclude<z.infer<typeof StudioToolFrameSchema>, { failure: string }>
 export type CopilotWorkerToolResult = z.infer<typeof CopilotWorkerToolResultSchema>
 export interface CopilotWorkerPrepared {
-  reasoning?: import('@/lib/mastra/native-reasoning').NativeReasoningSettings
   run: CopilotRun
   pending?: ServerPending
   contexts: Awaited<ReturnType<typeof processContextsServer>>
-  model: { providerId: string; modelId: string; apiKey: string }
+  model: import('@/lib/mastra/connections').NativeModelConnection
 }
 export interface CopilotWorkerOperations {
   prepare: { input: { fence: RunFence }; output: CopilotWorkerPrepared }

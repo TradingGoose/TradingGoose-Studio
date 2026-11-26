@@ -1,4 +1,4 @@
-import { ModelRouterLanguageModel, parseModelString } from '@mastra/core/llm'
+import { parseModelString } from '@mastra/core/llm'
 import { getModelProviders } from '@/lib/mastra/providers'
 import { getSystemServiceDefinition } from '@/lib/system-services/catalog'
 import { resolveSystemServiceConfig } from '@/lib/system-services/service'
@@ -28,7 +28,4 @@ export async function resolveConfiguredModel(model: string, apiKey?: string) {
   return { providerId: provider, modelId, apiKey: key }
 }
 
-/** Mastra owns routing, provider adapters and request formatting. */
-export async function createConfiguredLanguageModel(model: string, apiKey?: string) {
-  return new ModelRouterLanguageModel(await resolveConfiguredModel(model, apiKey))
-}
+export type NativeModelConnection = Awaited<ReturnType<typeof resolveConfiguredModel>>

@@ -1,6 +1,5 @@
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import { publishAbortRequest } from '@mastra/core/agent/durable'
-import { ModelRouterLanguageModel } from '@mastra/core/llm'
 import type { InputProcessor } from '@mastra/core/processors'
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { COPILOT_CONTEXT_PART, type Scope, type Target } from '@/lib/copilot/native/contract'
@@ -168,12 +167,12 @@ export async function executeCopilotJob(
         workspaceId: run.scope.workspaceId,
         runId: run.runId,
         funding: 'account',
+        purpose: 'copilot',
         signal,
       },
       {
-        model: new ModelRouterLanguageModel(preparedRun.model),
-        reasoning: preparedRun.reasoning,
-        maxSteps: 50,
+        model: preparedRun.model,
+        reasoning: run.reasoning,
         accounting: {
           assertAllowed: () => studio.call('usage.allow', { fence: ownership!.fence }, signal),
           // The native thread claim already owns Copilot attempts; no workflow log admission.
@@ -216,15 +215,12 @@ export async function executeCopilotJob(
         }
       },
     })
-    let contactedSteps = 0
+    let madeModelRequest = false
     const guard: InputProcessor = {
       id: 'studio-copilot-ownership',
       processInputStep: assertOwnership,
-      processLLMRequest({ prompt, messageList, retryCount }) {
-        if (!retryCount && ++contactedSteps > prepared.options.maxSteps)
-          throw new Error(
-            'Native generation reached its step limit before producing a final answer.'
-          )
+      processLLMRequest({ prompt, messageList }) {
+        madeModelRequest = true
         const references = (messageList?.get.all.db() ?? []).flatMap((item) =>
           item.role === 'user'
             ? item.content.parts.flatMap((part) =>
@@ -249,11 +245,6 @@ export async function executeCopilotJob(
     const options: AgentExecutionOptions = {
       ...prepared.options,
       requestContext,
-      prepareStep: (args) =>
-        prepared.options.prepareStep({
-          ...args,
-          stepNumber: Math.max(args.stepNumber, contactedSteps),
-        }),
       onAbort: () => cancellation.abort(),
       ...(contexts.length
         ? {
@@ -326,13 +317,11 @@ export async function executeCopilotJob(
       )
       if (!call) {
         privatePending = false
-        if (contactedSteps) await prepared.usage.verifyComplete()
+        if (madeModelRequest) await prepared.usage.verifyComplete()
         outcome = { status: 'suspended' }
         break
       }
       privatePending = true
-      if (contactedSteps >= prepared.options.maxSteps)
-        throw new Error('Native generation reached its step limit before producing a final answer.')
       if (!call.toolCallId || !call.toolName)
         throw new NativeTargetError('Suspended Copilot tool is unavailable', 409)
       await transferTool(

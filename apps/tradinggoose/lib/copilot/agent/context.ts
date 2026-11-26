@@ -1,4 +1,4 @@
-import type { ModelRouterLanguageModel } from '@mastra/core/llm'
+import type { GatewayLanguageModel } from '@mastra/core/llm'
 import { RequestContext } from '@mastra/core/request-context'
 import type { JsonObject, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
@@ -16,7 +16,7 @@ export type CopilotDecision =
 
 export interface CopilotExecution {
   run: CopilotRun
-  model: ModelRouterLanguageModel
+  model: GatewayLanguageModel
   signal: AbortSignal
   assertOwnership: () => Promise<void>
   executeTool: (

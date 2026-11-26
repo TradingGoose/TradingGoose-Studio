@@ -14,13 +14,7 @@ export interface AgentInputs {
   systemPrompt?: string | object
   userPrompt?: string | object
   memories?: any
-  temperature?: number
-  maxTokens?: number
-  maxSteps?: number | string
-  reasoningMode?: string
   reasoningEffort?: string
-  reasoningBudget?: number | string
-  reasoningToggle?: boolean | string
   apiKey?: string
 }
 
