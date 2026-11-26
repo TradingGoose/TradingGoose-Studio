@@ -1,7 +1,5 @@
 import { AgentIcon } from '@/components/icons/icons'
-import { efforts } from '@/lib/mastra/reasoning'
-import { containsWorkflowReference } from '@/lib/workflows/references'
-import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
+import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
   getModelOptions,
@@ -24,25 +22,13 @@ interface AgentResponse extends ToolResponse {
   }
 }
 
-const reasoningModes = {
-  effort: 'Effort',
-  budget_tokens: 'Thinking-token budget',
-  toggle: 'On / Off',
-} as const
-const reasoningControl = (kind: keyof typeof reasoningModes) =>
-  ({
-    field: 'model',
-    operator: 'modelCapability',
-    value: kind,
-    and: { field: 'reasoningMode', value: kind },
-  }) satisfies SubBlockConfig['condition']
 export const AgentBlock: BlockConfig<AgentResponse> = {
   type: 'agent',
   name: 'Agent',
   description: 'Build an agent',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, model-supported temperature, and native thinking/reasoning options without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
+    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Open Additional Fields for the selected model’s reasoning controls, memory, and response format. Choose a thinking level when Mastra Code offers one for the selected model. Mastra manages the agent loop. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
@@ -133,101 +119,22 @@ Create a system prompt appropriately detailed for the request, using clear langu
       placeholder: 'Connect memory block output...',
       additional: true,
     },
-    { ...modelField, options: () => getModelOptions(true) },
-    {
-      id: 'temperature',
-      title: 'Temperature',
-      type: 'short-input',
-      inputType: 'number',
-      layout: 'half',
-      placeholder: 'Use the provider default',
-      additional: true,
-      condition: { field: 'model', operator: 'modelCapability', value: 'temperature' },
-    },
-    {
-      id: 'reasoningMode',
-      title: 'Thinking / Reasoning',
-      type: 'combobox',
-      layout: 'half',
-      additional: true,
-      placeholder: 'Provider default',
-      autoSelectFirstOption: false,
-      condition: { field: 'model', operator: 'modelCapability', value: 'reasoning' },
-      options: (params) => {
-        const model = params?.model?.id ?? params?.model ?? ''
-        const modes = containsWorkflowReference(model)
-          ? (Object.keys(reasoningModes) as (keyof typeof reasoningModes)[])
-          : (getRegistryModel(model)?.reasoningOptions ?? []).map((o) => o.type)
-        return [
-          { id: 'auto', label: 'Provider default' },
-          ...modes.map((id) => ({ id, label: reasoningModes[id] })),
-        ]
-      },
-    },
+    { ...modelField, layout: 'full', options: () => getModelOptions(true) },
     {
       id: 'reasoningEffort',
       title: 'Reasoning Effort',
+      placeholder: 'Choose a level',
       type: 'combobox',
-      layout: 'half',
+      layout: 'full',
       additional: true,
+      required: true,
       autoSelectFirstOption: false,
-      condition: reasoningControl('effort'),
+      condition: { field: 'model', operator: 'modelCapability', value: 'effort' },
       options: (params) => {
         const model = params?.model?.id ?? params?.model ?? ''
-        const values = containsWorkflowReference(model)
-          ? efforts
-          : (getRegistryModel(model)?.reasoningOptions?.find((option) => option.type === 'effort')
-              ?.values ?? [])
+        const values = getRegistryModel(model)?.reasoningOptions?.[0]?.values ?? []
         return values.map((id) => ({ id, label: id }))
       },
-    },
-    {
-      id: 'reasoningBudget',
-      title: 'Thinking-token Budget',
-      type: 'short-input',
-      inputType: 'number',
-      layout: 'half',
-      additional: true,
-      integer: true,
-      min: 0,
-      condition: reasoningControl('budget_tokens'),
-    },
-    {
-      id: 'reasoningToggle',
-      title: 'Enable Thinking',
-      type: 'combobox',
-      layout: 'half',
-      additional: true,
-      autoSelectFirstOption: false,
-      options: [
-        { id: 'true', label: 'On' },
-        { id: 'false', label: 'Off' },
-      ],
-      condition: reasoningControl('toggle'),
-    },
-    {
-      id: 'maxTokens',
-      title: 'Max Output Tokens',
-      type: 'short-input',
-      inputType: 'number',
-      layout: 'half',
-      placeholder: 'Use the provider default',
-      min: 1,
-      integer: true,
-      additional: true,
-    },
-    {
-      id: 'maxSteps',
-      title: 'Max Steps',
-      type: 'short-input',
-      inputType: 'number',
-      layout: 'half',
-      placeholder: 'Use the default step budget',
-      description:
-        'Maximum model-generation steps, including tool-call rounds and the final answer. The last step disables tools and answers from available results. Unset uses the shared default step budget. An unfinished response still fails.',
-      min: 1,
-      integer: true,
-      additional: true,
     },
     modelApiKeyField,
     {
@@ -348,13 +255,7 @@ Example 3 (Array Input):
     memories: { type: 'json', description: 'Agent memory data' },
     model: { type: 'string', description: 'AI model to use' },
     apiKey: { type: 'string', description: 'Provider API key' },
-    reasoningMode: {
-      type: 'string',
-      description: 'Provider default (auto), effort, budget_tokens or toggle',
-    },
     reasoningEffort: { type: 'string', description: 'Selected model reasoning effort' },
-    reasoningBudget: { type: 'number', description: 'Selected model thinking-token budget' },
-    reasoningToggle: { type: 'boolean', description: 'Enable or disable thinking' },
     responseFormat: {
       type: 'json',
       description: 'JSON object containing a JSON Schema in its schema field',
@@ -393,12 +294,6 @@ Example 3 (Array Input):
         },
         required: ['schema'],
       },
-    },
-    temperature: { type: 'number', description: 'Response randomness level' },
-    maxTokens: { type: 'number', description: 'Maximum output tokens' },
-    maxSteps: {
-      type: 'number',
-      description: 'Maximum model-generation steps, including the final answer',
     },
     tools: { type: 'json', description: 'Available tools configuration' },
     skills: { type: 'json', description: 'Selected skills configuration' },

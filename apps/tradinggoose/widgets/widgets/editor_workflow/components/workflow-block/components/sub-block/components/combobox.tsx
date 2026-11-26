@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent } from '@/components/ui/popover'
 import {
   type SidebarDropdownGroup,
   type SidebarDropdownItem,
@@ -30,6 +31,7 @@ interface ComboBoxProps {
   defaultValue?: string
   blockId: string
   subBlockId: string
+  inputId?: string
   value?: string
   disabled?: boolean
   placeholder?: string
@@ -60,6 +62,7 @@ export function ComboBox({
   defaultValue,
   blockId,
   subBlockId,
+  inputId,
   value: propValue,
   disabled,
   placeholder,
@@ -75,10 +78,9 @@ export function ComboBox({
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
-  const [open, setOpen] = useState(false)
+  const [menu, setMenu] = useState<'options' | 'environment' | 'tags' | null>(null)
+  const open = menu === 'options'
   const [focused, setFocused] = useState(false)
-  const [showEnvVars, setShowEnvVars] = useState(false)
-  const [showTags, setShowTags] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
@@ -89,6 +91,7 @@ export function ComboBox({
   const emitTagSelection = useTagSelection(blockId, subBlockId)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
+  const anchorRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -232,14 +235,11 @@ export function ComboBox({
 
     setCursorPosition(newCursorPosition)
 
-    // Check for environment variables trigger
     const envVarTrigger = checkEnvVarTrigger(newValue, newCursorPosition)
-    setShowEnvVars(envVarTrigger.show)
-    setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
-
-    // Check for tag trigger
-    const tagTrigger = checkTagTrigger(newValue, newCursorPosition)
-    setShowTags(tagTrigger.show)
+    setSearchTerm(envVarTrigger.searchTerm)
+    if (envVarTrigger.show) setMenu('environment')
+    else if (checkTagTrigger(newValue, newCursorPosition).show) setMenu('tags')
+    else setMenu('options')
   }
 
   const handleSelect = (selectedValue: string) => {
@@ -247,7 +247,7 @@ export function ComboBox({
       setStoreValue(selectedValue)
     }
     setHasTyped(false)
-    setOpen(false)
+    setMenu(null)
     setHighlightedIndex(-1)
     inputRef.current?.blur()
   }
@@ -256,7 +256,7 @@ export function ComboBox({
     e.preventDefault()
     e.stopPropagation()
     if (!disabled) {
-      setOpen((prev) => !prev)
+      setMenu(open ? null : 'options')
       if (!open) {
         inputRef.current?.focus()
       }
@@ -265,40 +265,29 @@ export function ComboBox({
 
   const handleFocus = () => {
     setFocused(true)
-    setOpen(true)
+    setMenu('options')
     setHighlightedIndex(-1)
   }
 
-  const handleBlur = () => {
+  const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
     setFocused(false)
-    setShowEnvVars(false)
-    setShowTags(false)
     setHasTyped(false)
-
-    // Delay closing to allow dropdown selection
-    setTimeout(() => {
-      const activeElement = document.activeElement
-      if (!activeElement || !activeElement.closest('.absolute.top-full')) {
-        setOpen(false)
-        setHighlightedIndex(-1)
-      }
-    }, 150)
+    if (!dropdownRef.current?.contains(event.relatedTarget)) setMenu(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
-      setShowEnvVars(false)
-      setShowTags(false)
-      setOpen(false)
+      setMenu(null)
       setHighlightedIndex(-1)
       return
     }
+    if (menu === 'environment' || menu === 'tags') return
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       const optionCount = usesSidebarMode ? activeSidebarItems.length : filteredOptions.length
       if (!open) {
-        setOpen(true)
+        setMenu('options')
         setHighlightedIndex(0)
       } else {
         setHighlightedIndex((prev) => (prev < optionCount - 1 ? prev + 1 : 0))
@@ -356,7 +345,7 @@ export function ComboBox({
       Promise.resolve().then(() => {
         setStoreValue(newValue)
         setCursorPosition(dropPosition + 1)
-        setShowTags(true)
+        setMenu('tags')
 
         if (data.connectionData?.sourceBlockId) {
           setActiveSourceBlockId(data.connectionData.sourceBlockId)
@@ -420,11 +409,6 @@ export function ComboBox({
     return true
   }
 
-  // Environment variable and tag selection handler
-  const handleEnvVarSelect = (newValue: string) => {
-    emitTagSelection(newValue)
-  }
-
   // Effects
   useEffect(() => {
     if (inputRef.current && overlayRef.current) {
@@ -457,34 +441,14 @@ export function ComboBox({
     }
   }, [highlightedIndex])
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (
-        inputRef.current &&
-        !inputRef.current.contains(target) &&
-        !target.closest('.absolute.top-full')
-      ) {
-        setOpen(false)
-        setHighlightedIndex(-1)
-      }
-    }
-
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [open])
-
   const SelectedIcon = selectedOption ? getOptionIcon(selectedOption) : null
 
   // Render component
   return (
     <div className='relative w-full'>
-      <div className='relative'>
+      <div ref={anchorRef} className='relative'>
         <Input
+          id={inputId}
           ref={inputRef}
           className={cn(
             'allow-scroll w-full overflow-auto pr-10 text-transparent caret-foreground placeholder:text-muted-foreground/50',
@@ -494,8 +458,10 @@ export function ComboBox({
             SelectedIcon ? 'pl-8' : ''
           )}
           placeholder={placeholderText}
+          aria-label={config.title || placeholderText}
           value={displayValue}
           onChange={handleChange}
+          onClick={() => setMenu((current) => current ?? 'options')}
           onFocus={handleFocus}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
@@ -562,98 +528,99 @@ export function ComboBox({
       )}
 
       {/* Dropdown */}
-      {open && (
-        <div
+      <Popover
+        open={open}
+        onOpenChange={(next, details) => {
+          if (
+            details.reason === 'outside-press' &&
+            anchorRef.current &&
+            details.event.composedPath().includes(anchorRef.current)
+          )
+            return details.cancel()
+          setMenu(next ? 'options' : null)
+        }}
+      >
+        <PopoverContent
+          ref={dropdownRef}
+          anchor={anchorRef}
+          align='start'
+          initialFocus={false}
+          finalFocus={false}
+          onMouseLeave={() => setHighlightedIndex(-1)}
           className={cn(
-            'absolute top-full left-0 z-[100] mt-1 w-full overflow-visible',
-            usesSidebarMode ? 'min-w-80' : 'min-w-60'
+            'allow-scroll max-w-[var(--available-width)] overflow-y-auto [scrollbar-width:thin]',
+            usesSidebarMode
+              ? 'max-h-[var(--available-height)] w-[max(20rem,var(--anchor-width))] p-0'
+              : 'max-h-[min(12rem,var(--available-height))] w-[max(15rem,var(--anchor-width))] p-1'
           )}
         >
-          <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
-            <div
-              ref={dropdownRef}
-              className={cn(
-                'allow-scroll',
-                usesSidebarMode ? 'overflow-hidden p-0' : 'max-h-48 overflow-y-auto p-1'
-              )}
-              style={{ scrollbarWidth: 'thin' }}
-              onMouseLeave={() => setHighlightedIndex(-1)}
-            >
-              {usesSidebarMode ? (
-                <SidebarDropdownMenuContent
-                  groups={sidebarGroups}
-                  items={sidebarItems}
-                  activeGroupId={resolvedActiveSidebarGroupId}
-                  highlightedItemId={activeSidebarItems[highlightedIndex]?.id ?? null}
-                  onActiveGroupChange={(groupId) => {
-                    setActiveSidebarGroupId(groupId)
-                    setHighlightedIndex(-1)
-                  }}
-                  onHighlightItem={(_item, index) => setHighlightedIndex(index)}
-                  onSelectItem={(item) => handleSelect(item.id)}
-                  loadingContent={null}
-                  emptyContent={translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
-                />
-              ) : filteredOptions.length === 0 ? (
-                <div className='py-6 text-center text-muted-foreground text-sm'>
-                  {translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
-                </div>
-              ) : (
-                filteredOptions.map((option, index) => {
-                  const optionValue = getOptionValue(option)
-                  const optionLabel = getOptionLabel(option)
-                  const OptionIcon = getOptionIcon(option)
-                  const isSelected = value === optionValue
-                  const isHighlighted = index === highlightedIndex
-
-                  return (
-                    <div
-                      key={optionValue}
-                      data-option-index={index}
-                      onClick={() => handleSelect(optionValue)}
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        handleSelect(optionValue)
-                      }}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      className={cn(
-                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
-                        isHighlighted && 'bg-accent text-accent-foreground'
-                      )}
-                    >
-                      {OptionIcon && <OptionIcon className='mr-2 h-3 w-3' />}
-                      <span className='flex-1 truncate'>{optionLabel}</span>
-                      {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
-                    </div>
-                  )
-                })
-              )}
+          {usesSidebarMode ? (
+            <SidebarDropdownMenuContent
+              groups={sidebarGroups}
+              items={sidebarItems}
+              activeGroupId={resolvedActiveSidebarGroupId}
+              highlightedItemId={activeSidebarItems[highlightedIndex]?.id ?? null}
+              onActiveGroupChange={(groupId) => {
+                setActiveSidebarGroupId(groupId)
+                setHighlightedIndex(-1)
+              }}
+              onHighlightItem={(_item, index) => setHighlightedIndex(index)}
+              onSelectItem={(item) => handleSelect(item.id)}
+              loadingContent={null}
+              emptyContent={translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
+            />
+          ) : filteredOptions.length === 0 ? (
+            <div className='py-6 text-center text-muted-foreground text-sm'>
+              {translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
             </div>
-          </div>
-        </div>
-      )}
+          ) : (
+            filteredOptions.map((option, index) => {
+              const optionValue = getOptionValue(option)
+              const optionLabel = getOptionLabel(option)
+              const OptionIcon = getOptionIcon(option)
+              const isSelected = value === optionValue
+              const isHighlighted = index === highlightedIndex
+
+              return (
+                <div
+                  key={optionValue}
+                  data-option-index={index}
+                  onClick={() => handleSelect(optionValue)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  className={cn(
+                    'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
+                    isHighlighted && 'bg-accent text-accent-foreground'
+                  )}
+                >
+                  {OptionIcon && <OptionIcon className='mr-2 h-3 w-3' />}
+                  <span className='flex-1 truncate'>{optionLabel}</span>
+                  {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
+                </div>
+              )
+            })
+          )}
+        </PopoverContent>
+      </Popover>
 
       <EnvVarDropdown
-        visible={showEnvVars}
-        onSelect={handleEnvVarSelect}
+        visible={menu === 'environment'}
+        onSelect={emitTagSelection}
         searchTerm={searchTerm}
         inputValue={displayValue}
         cursorPosition={cursorPosition}
         workspaceId={workspaceId}
-        onClose={() => {
-          setShowEnvVars(false)
-          setSearchTerm('')
-        }}
+        onClose={() => setMenu(null)}
       />
       <TagDropdown
-        visible={showTags}
-        onSelect={handleEnvVarSelect}
+        visible={menu === 'tags'}
+        onSelect={emitTagSelection}
         blockId={blockId}
         activeSourceBlockId={activeSourceBlockId}
         inputValue={displayValue}
         cursorPosition={cursorPosition}
         onClose={() => {
-          setShowTags(false)
+          setMenu(null)
           setActiveSourceBlockId(null)
         }}
       />

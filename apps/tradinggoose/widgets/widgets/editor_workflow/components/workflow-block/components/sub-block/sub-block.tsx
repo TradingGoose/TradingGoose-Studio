@@ -1,5 +1,5 @@
 import type React from 'react'
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { AlertTriangle, Info, X } from 'lucide-react'
 import { MarketProviderSelector } from '@/components/market-selector/provider-selector'
@@ -488,6 +488,7 @@ export const SubBlock = memo(
     disabled = false,
     contextValues,
   }: SubBlockProps) {
+    const inputId = useId()
     const [isValidJson, setIsValidJson] = useState(true)
     const editorCopy = useWorkflowInspectorCopy().workflowEditor
 
@@ -514,6 +515,7 @@ export const SubBlock = memo(
             <ShortInput
               blockId={blockId}
               subBlockId={config.id}
+              inputId={inputId}
               placeholder={config.placeholder}
               password={config.password}
               isConnecting={isConnecting}
@@ -565,6 +567,7 @@ export const SubBlock = memo(
               <ComboBox
                 blockId={blockId}
                 subBlockId={config.id}
+                inputId={inputId}
                 options={
                   typeof config.options === 'function'
                     ? config.options(valueContext)
@@ -908,7 +911,12 @@ export const SubBlock = memo(
     return (
       <div className={cn('space-y-[6px] pt-[2px]')} onMouseDown={handleMouseDown}>
         {showLabel && (
-          <Label className='flex items-center gap-1'>
+          <Label
+            htmlFor={
+              config.type === 'combobox' || config.type === 'short-input' ? inputId : undefined
+            }
+            className='flex items-center gap-1'
+          >
             {config.title}
             {required && (
               <Tooltip>

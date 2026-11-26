@@ -8,7 +8,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type { ImagePart } from '@/lib/copilot/native/contract'
 import { createLogger } from '@/lib/logs/console/logger'
+import { reasoningSelectionError } from '@/lib/mastra/reasoning'
 import { normalizeOptionalString } from '@/lib/utils'
+import { useCopilotModels } from '@/hooks/queries/copilot-models'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { buildPlanTodosFromMessages } from '@/stores/copilot/store-messages'
@@ -65,6 +67,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     messages,
     isAborting,
     selectedModel,
+    reasoning,
     accessLevel,
     draft,
     sendMessage,
@@ -73,6 +76,10 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     loadChats,
     error,
   } = state
+  const { data } = useCopilotModels()
+  const model = data?.models.find(({ id }) => id === selectedModel)
+  const submitDisabled =
+    !model || !!reasoningSelectionError(model.id, model.reasoningOptions, reasoning?.value)
   const planTodos = useMemo(() => buildPlanTodosFromMessages(messages), [messages])
   const isTurnInProgress = isCopilotBusy(state)
 
@@ -292,7 +299,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
       contexts?: ChatContext[],
       onAccepted?: () => void
     ) => {
-      if (!query || isTurnInProgress) return false
+      if (!query || isTurnInProgress || submitDisabled) return false
 
       try {
         const completed = await sendMessage(query, {
@@ -309,7 +316,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
         return false
       }
     },
-    [isTurnInProgress, sendMessage, sendRuntimeContext]
+    [isTurnInProgress, sendMessage, sendRuntimeContext, submitDisabled]
   )
 
   const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -345,7 +352,11 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
               >
                 {messages.length === 0 && !isTurnInProgress && !editingMessageId ? (
                   <div className='flex h-full items-center justify-center p-4'>
-                    <CopilotWelcome onQuestionClick={handleSubmit} accessLevel={accessLevel} />
+                    <CopilotWelcome
+                      onQuestionClick={handleSubmit}
+                      accessLevel={accessLevel}
+                      disabled={submitDisabled}
+                    />
                   </div>
                 ) : (
                   messages.map((message, index) => {
@@ -363,6 +374,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
                         key={message.id}
                         message={message}
                         runtimeContext={sendRuntimeContext}
+                        submitDisabled={submitDisabled}
                         isStreaming={
                           isTurnInProgress && message.id === messages[messages.length - 1]?.id
                         }
@@ -411,7 +423,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
               onSubmit={handleSubmit}
               onAbort={abortMessage}
               isLoading={isTurnInProgress}
-              submitDisabled={!selectedModel}
+              submitDisabled={submitDisabled}
               isAborting={isAborting}
               draft={draft}
               onDraftChange={setDraft}

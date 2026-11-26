@@ -107,11 +107,20 @@ interface CopilotMessageProps {
   isStreaming: boolean
   panelWidth: number
   isDimmed: boolean
+  submitDisabled?: boolean
   onEditModeChange: (isEditing: boolean) => void
 }
 
 const CopilotMessage: FC<CopilotMessageProps> = memo(
-  ({ message, runtimeContext, isStreaming, panelWidth, isDimmed, onEditModeChange }) => {
+  ({
+    message,
+    runtimeContext,
+    isStreaming,
+    panelWidth,
+    isDimmed,
+    submitDisabled,
+    onEditModeChange,
+  }) => {
     const copilotCopy = useCopilotMessages()
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
@@ -512,6 +521,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 placeholder={copilotCopy.message.editPlaceholder}
                 panelWidth={panelWidth}
                 clearOnSubmit={false}
+                submitDisabled={submitDisabled}
                 isLoading={isAborting}
               />
             </div>
@@ -633,7 +643,13 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
               if (!isLastMessage || !options || !isOptionsReady) return null
 
-              return <OptionsSelector options={options} onSelect={handleOptionSelect} />
+              return (
+                <OptionsSelector
+                  options={options}
+                  onSelect={handleOptionSelect}
+                  disabled={submitDisabled}
+                />
+              )
             })()}
           </div>
         </div>

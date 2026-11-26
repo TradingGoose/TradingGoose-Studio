@@ -164,7 +164,6 @@ export function useWorkflowEditorActions() {
 
   const collaborativeSetSubblockValue = useCallback(
     (blockId: string, subblockId: string, value: any, options?: { _visited?: Set<string> }) => {
-      // Write directly to Yjs doc
       mutations.setSubBlockValue(blockId, subblockId, value)
 
       // Declarative clearing: clear sub-blocks that depend on this subblockId
