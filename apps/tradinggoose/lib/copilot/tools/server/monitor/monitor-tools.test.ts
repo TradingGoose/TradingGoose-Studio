@@ -1,3 +1,4 @@
+import type { webhook } from '@tradinggoose/db/schema'
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,7 +15,11 @@ import {
   type ListingResolved,
 } from '@/lib/listing/identity'
 import { normalizePortfolioMonitorConfig } from '@/lib/monitors/portfolio-config'
-import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import {
+  INDICATOR_MONITOR_PROVIDER,
+  type MonitorProviderConfigEnvelope,
+  PORTFOLIO_MONITOR_PROVIDER,
+} from '@/lib/monitors/sources'
 import { getMonitorReviewBaseHash, updateMonitorForUser } from '@/app/api/monitors/update-service'
 
 const mocks = vi.hoisted(() => ({
@@ -99,6 +104,7 @@ const MONITOR_DOCUMENT = serializeMonitorDocument({
 const MONITOR_ROW = {
   webhook: {
     id: MONITOR_RECORD.monitorId,
+    path: 'indicator',
     provider: MONITOR_RECORD.source,
     workflowId: MONITOR_RECORD.workflowId,
     blockId: null,
@@ -116,7 +122,7 @@ const MONITOR_ROW = {
           secretVersion: 1,
         },
       },
-    },
+    } satisfies MonitorProviderConfigEnvelope,
   },
   workflow: { id: MONITOR_RECORD.workflowId, workspaceId: 'workspace-1' },
 }
@@ -130,7 +136,9 @@ const expectIdentityOnlyDocument = (document: string) => {
 }
 
 describe('Copilot monitor presentation resolution', () => {
-  let current = MONITOR_ROW.webhook
+  let current: Omit<typeof webhook.$inferSelect, 'providerConfig'> & {
+    providerConfig: MonitorProviderConfigEnvelope
+  }
   beforeEach(() => {
     vi.clearAllMocks()
     current = structuredClone(MONITOR_ROW.webhook)
@@ -151,14 +159,16 @@ describe('Copilot monitor presentation resolution', () => {
               current.provider,
               current.workflowId,
             ])
-            if (query.sql.includes('"is_active" =') && !query.params.includes(current.isActive))
-              return []
-            if (
-              query.sql.includes('"provider_config"::jsonb') &&
-              !query.params.includes(JSON.stringify(current.providerConfig))
-            )
-              return []
-            current = { ...current, ...patch }
+            if (query.sql.includes('"is_active" =')) {
+              expect(query.sql).toContain(`"provider_config"->'monitor')::jsonb =`)
+              if (
+                !query.params.includes(current.isActive) ||
+                !query.params.includes(JSON.stringify(current.providerConfig.monitor))
+              )
+                return []
+            }
+            const { providerConfig = current.providerConfig, ...fields } = patch
+            current = { ...current, ...fields, providerConfig }
             return [current]
           },
         }),
@@ -276,7 +286,10 @@ describe('Copilot monitor presentation resolution', () => {
     expect(mocks.reconcile).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps a portfolio monitor review valid when only polling progress changes', () => {
+  it.each([
+    ['a pause', 60],
+    ['a new poll interval', 120],
+  ] as const)('applies an approved edit (%s) after a poll', async (_edit, pollIntervalSeconds) => {
     const providerConfig = normalizePortfolioMonitorConfig({
       triggerBlockId: 'block-1',
       providerId: 'robinhood',
@@ -291,19 +304,50 @@ describe('Copilot monitor presentation resolution', () => {
         },
       },
     })
-    const row = {
-      ...MONITOR_ROW.webhook,
-      path: 'portfolio',
+    current = {
+      ...current,
       provider: PORTFOLIO_MONITOR_PROVIDER,
-      providerConfig,
+      providerConfig: { ...providerConfig, runtimeState: { wasTrue: false } },
     }
-    const reviewed = getMonitorReviewBaseHash(row)
-    expect(
-      getMonitorReviewBaseHash({
-        ...row,
-        providerConfig: { ...providerConfig, runtimeState: { wasTrue: true } },
+    const context = { userId: 'user-1', accessLevel: 'full' as const }
+    const { monitorDocument } = await readMonitorServerTool.execute(
+      { monitorId: current.id },
+      context
+    )
+    const args = {
+      monitorId: current.id,
+      monitorDocument: serializeMonitorDocument({
+        ...JSON.parse(monitorDocument),
+        isActive: false,
+        pollIntervalSeconds,
+      }),
+    }
+    const preview = await editMonitorServerTool.execute(args, {
+      ...context,
+      accessLevel: 'limited',
+    })
+    const progress = { wasTrue: true, lastFiredAt: '2026-11-26T00:01:00Z' }
+    mocks.workflow.mockImplementationOnce(async () => {
+      current = {
+        ...current,
+        providerConfig: { ...current.providerConfig, runtimeState: progress },
+      }
+      expect(getMonitorReviewBaseHash(current)).toBe(preview.reviewBaseStateHash)
+      return { isDeployed: true }
+    })
+
+    await expect(
+      editMonitorServerTool.execute(args, {
+        ...context,
+        acceptedReviewBaseStateHash: preview.reviewBaseStateHash,
       })
-    ).toBe(reviewed)
+    ).resolves.toMatchObject({ success: true })
+    expect(current.isActive).toBe(false)
+    expect(current.providerConfig.monitor.pollIntervalSeconds).toBe(pollIntervalSeconds)
+    expect(current.providerConfig.runtimeState).toEqual(
+      pollIntervalSeconds === providerConfig.monitor.pollIntervalSeconds ? progress : undefined
+    )
+    expect(mocks.reconcile).toHaveBeenCalledOnce()
   })
 
   it('requires a fresh approval to replace monitor credentials rotated since preview', async () => {

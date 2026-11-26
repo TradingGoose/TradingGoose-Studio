@@ -175,7 +175,7 @@ export async function updateMonitorForUser({
           ? and(
               eq(webhook.isActive, row.webhook.isActive),
               sql`${webhook.blockId} IS NOT DISTINCT FROM ${row.webhook.blockId}`,
-              sql`${webhook.providerConfig}::jsonb = ${JSON.stringify(existingConfig)}::jsonb`
+              sql`(${webhook.providerConfig}->'monitor')::jsonb = ${JSON.stringify(existingMonitor)}::jsonb`
             )
           : undefined
       )
@@ -212,16 +212,15 @@ async function buildProviderConfigForUpdate({
 }) {
   if (source === PORTFOLIO_MONITOR_PROVIDER) {
     const portfolioPayload = payload as PortfolioUpdatePayload
-    const portfolioConfig = existingConfig as PortfolioMonitorProviderConfig
     if (
       portfolioPayload.isActive === false &&
       Object.keys(portfolioPayload).every((key) =>
         ['workspaceId', 'source', 'isActive'].includes(key)
       )
     ) {
-      return portfolioConfig
+      return
     }
-    const existingMonitor = portfolioConfig.monitor
+    const existingMonitor = (existingConfig as PortfolioMonitorProviderConfig).monitor
     const nextProviderId = portfolioPayload.providerId ?? existingMonitor.providerId
     const nextCredentialId = portfolioPayload.credentialId ?? existingMonitor.credentialId
     const nextAccountId = portfolioPayload.accountId ?? existingMonitor.accountId
@@ -266,14 +265,8 @@ async function buildProviderConfigForUpdate({
       pollIntervalSeconds:
         portfolioPayload.pollIntervalSeconds ?? existingMonitor.pollIntervalSeconds,
     })
-    const shouldPreserveRuntimeState = isDeepStrictEqual(
-      providerConfig.monitor,
-      portfolioConfig.monitor
-    )
-    if (shouldPreserveRuntimeState && portfolioConfig.runtimeState !== undefined) {
-      providerConfig.runtimeState = portfolioConfig.runtimeState
-    }
-    return providerConfig
+    // Omitting an unchanged definition preserves polling progress written during validation.
+    return isDeepStrictEqual(providerConfig.monitor, existingMonitor) ? undefined : providerConfig
   }
 
   const indicatorPayload = payload as IndicatorUpdatePayload
