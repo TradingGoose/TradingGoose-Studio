@@ -41,6 +41,7 @@ import {
 import { resolveSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
+const MASTRA_DEFAULT_MAX_STEPS = 5
 
 /**
  * Handler for Agent blocks that process LLM requests with optional tools.
@@ -153,6 +154,8 @@ export class AgentBlockHandler implements BlockHandler {
       },
       prepareStep: async (step) => {
         await cancellation.check()
+        if (step.stepNumber === MASTRA_DEFAULT_MAX_STEPS - 1)
+          return { tools: {}, toolChoice: 'none' }
         return policy.prepareStep(step)
       },
     }

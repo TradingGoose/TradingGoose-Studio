@@ -1263,9 +1263,8 @@ describe('native forced sequence failures and completion accounting', () => {
     }
   )
   it.each([false, true])(
-    'lets the model finish after tool calls with its original instructions (stream=%s)',
+    'reserves the final native step for an answer when the model keeps calling tools (stream=%s)',
     async (stream) => {
-      let callsStarted = 0
       const steps = 5
       const toolCall = () => ({
         type: 'tool-call' as const,
@@ -1274,8 +1273,8 @@ describe('native forced sequence failures and completion accounting', () => {
         input: '{"query":"keep searching"}',
       })
       state.model = new MastraLanguageModelV2Mock({
-        doGenerate: async () => {
-          const final = ++callsStarted === steps
+        doGenerate: async (options) => {
+          const final = options.toolChoice?.type === 'none'
           return {
             content: final
               ? [{ type: 'text', text: 'Final answer from available results' }]
@@ -1285,10 +1284,10 @@ describe('native forced sequence failures and completion accounting', () => {
             warnings: [],
           }
         },
-        doStream: async () => ({
+        doStream: async (options) => ({
           stream: new ReadableStream({
             start(controller) {
-              const final = ++callsStarted === steps
+              const final = options.toolChoice?.type === 'none'
               controller.enqueue({ type: 'text-start', id: 'text' })
               controller.enqueue({
                 type: 'text-delta',
@@ -1332,10 +1331,10 @@ describe('native forced sequence failures and completion accounting', () => {
       const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
       expect(calls).toHaveLength(steps)
       expect(executeTool).toHaveBeenCalledTimes(steps - 1)
+      expect(calls.at(-1)).toMatchObject({ toolChoice: { type: 'none' }, tools: undefined })
       expect(JSON.stringify(calls.at(-1).prompt)).toContain('Respect the original policy')
-      for (const call of calls) {
+      for (const call of calls.slice(0, -1)) {
         expect(call.tools).toContainEqual(expect.objectContaining({ name: 'custom_lookup' }))
-        expect(JSON.stringify(call.prompt)).not.toContain('No model steps remain after this one')
       }
     }
   )
