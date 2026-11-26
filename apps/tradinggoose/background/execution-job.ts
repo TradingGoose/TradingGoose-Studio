@@ -49,7 +49,8 @@ export function createBackgroundExecutionTask(
             await requestCancelledWorkflowSettlement(
               payload.pendingExecutionId,
               payload,
-              Math.max(0, Date.now() - ctx.attempt.startedAt.getTime())
+              Math.max(0, Date.now() - ctx.attempt.startedAt.getTime()),
+              ctx.run.id
             )
           }
         : undefined,

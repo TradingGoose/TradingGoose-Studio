@@ -734,14 +734,35 @@ export async function withPendingWorkflowExecution<T>(
   }
 }
 
-export function requestCancelledWorkflowSettlement(
+export async function requestCancelledWorkflowSettlement(
   pendingExecutionId: string,
   {
     billingScopeId,
     billingScopeType,
   }: Pick<PendingExecutionClaim, 'billingScopeId' | 'billingScopeType'>,
-  cancelledWorkflowDurationMs: number
+  cancelledWorkflowDurationMs: number,
+  drainedWorkloadRunId?: string
 ) {
+  if (drainedWorkloadRunId) {
+    // A failed dispatch can be retried from the worker's acknowledgement after its hook exits.
+    await db
+      .update(pendingExecution)
+      .set({
+        payload: sql`jsonb_set(${pendingExecution.payload}, '{drainedWorkflowRuns}',
+          coalesce(${pendingExecution.payload}->'drainedWorkflowRuns', '{}'::jsonb)
+          || jsonb_build_object(${drainedWorkloadRunId}::text, ${cancelledWorkflowDurationMs}::bigint))`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(pendingExecution.id, pendingExecutionId),
+          eq(pendingExecution.status, 'processing'),
+          eq(pendingExecution.executionType, 'workflow'),
+          eq(pendingExecution.billingScopeId, billingScopeId),
+          eq(pendingExecution.billingScopeType, billingScopeType)
+        )
+      )
+  }
   // An independent run can retry the scope wake after both original tasks and the row are gone.
   return new TriggerClient().tasks.trigger(
     PENDING_EXECUTION_TASK_ID,
@@ -795,8 +816,6 @@ async function hasWorkflowSettlementReceipt(
   pendingExecutionId: string,
   signal?: AbortSignal
 ): Promise<boolean> {
-  // Trigger can finalize CANCELED on heartbeat expiry while the workload is still executing.
-  if (workload.status === 'CANCELED') return false
   if (workload.status === 'COMPLETED') {
     const run = await runs.retrieve(workload.id)
     return (
@@ -868,6 +887,7 @@ async function reconcileProcessingPendingExecution(
     return false
   }
   if (!run.isCompleted) return false
+  let cancelledWorkflowDurationMs = run.durationMs
   if (
     run.status === 'CANCELED' &&
     run.startedAt &&
@@ -883,17 +903,20 @@ async function reconcileProcessingPendingExecution(
     if (!workloads?.length || workloads.some((child) => !child.isCompleted)) return false
     for (const child of workloads) {
       if (child.startedAt) {
-        if (
-          row.executionType !== 'workflow' ||
-          !(await hasWorkflowSettlementReceipt(child, row.id, stopSignal))
-        )
-          return false
+        if (row.executionType !== 'workflow') return false
+        if (child.status === 'CANCELED') {
+          // Trigger can finalize cancellation on heartbeat expiry while the workload is still executing.
+          const receipts = row.payload.drainedWorkflowRuns
+          const duration = isPendingExecutionPayload(receipts) ? receipts[child.id] : undefined
+          if (typeof duration !== 'number') return false
+          cancelledWorkflowDurationMs = duration
+        } else if (!(await hasWorkflowSettlementReceipt(child, row.id, stopSignal))) return false
       } else if (child.status !== 'CANCELED') return false
     }
   }
   if (run.status === 'CANCELED' && row.executionType === 'workflow') {
     stopSignal?.throwIfAborted()
-    await requestCancelledWorkflowSettlement(row.id, row, run.durationMs)
+    await requestCancelledWorkflowSettlement(row.id, row, cancelledWorkflowDurationMs)
     return releasedPendingExecutionCapacity(capacityOwnerId)
   }
 

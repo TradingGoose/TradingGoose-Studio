@@ -127,7 +127,7 @@ describe('background execution job', () => {
     const controller = new AbortController()
     const runPromise = task.run(payload, { signal: controller.signal })
     await vi.waitFor(() => expect(mocks.executePendingExecutionRun).toHaveBeenCalledOnce())
-    const ctx = { attempt: { startedAt: new Date() } }
+    const ctx = { run: { id: 'workflow-run' }, attempt: { startedAt: new Date() } }
     controller.abort()
     const cancellation = task.onCancel({ payload, ctx, runPromise })
     await Promise.resolve()
@@ -142,7 +142,8 @@ describe('background execution job', () => {
     expect(mocks.requestCancelledWorkflowSettlement).toHaveBeenCalledExactlyOnceWith(
       'stopped',
       payload,
-      expect.any(Number)
+      expect.any(Number),
+      ctx.run.id
     )
   })
 
