@@ -43,66 +43,17 @@ Selecciona un identificador `proveedor/modelo` de la lista de modelos disponible
             "id": "model",
             "type": "combobox",
             "title": "Model",
-            "layout": "half",
+            "layout": "full",
             "placeholder": "Type or select a model...",
             "required": true
         },
         {
-            "id": "temperature",
-            "type": "short-input",
-            "title": "Temperature",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "description": "Available in Additional Fields. Shown when model supports temperature."
-        },
-        {
-            "id": "reasoningMode",
-            "type": "combobox",
-            "title": "Thinking / Reasoning",
-            "layout": "half",
-            "placeholder": "Provider default",
-            "description": "Available in Additional Fields. Shown when model supports reasoning."
-        },
-        {
             "id": "reasoningEffort",
             "type": "combobox",
-            "title": "Reasoning Effort",
-            "layout": "half",
-            "description": "Available in Additional Fields. Shown when model supports effort and reasoningMode is 'effort'."
-        },
-        {
-            "id": "reasoningBudget",
-            "type": "short-input",
-            "title": "Thinking-token Budget",
-            "layout": "half",
-            "min": 0,
-            "description": "Available in Additional Fields. Shown when model supports budget_tokens and reasoningMode is 'budget_tokens'."
-        },
-        {
-            "id": "reasoningToggle",
-            "type": "combobox",
-            "title": "Enable Thinking",
-            "layout": "half",
-            "options": [
-                {
-                    "id": "true",
-                    "label": "On"
-                },
-                {
-                    "id": "false",
-                    "label": "Off"
-                }
-            ],
-            "description": "Available in Additional Fields. Shown when model supports toggle and reasoningMode is 'toggle'."
-        },
-        {
-            "id": "maxTokens",
-            "type": "short-input",
-            "title": "Max Output Tokens",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "min": 1,
-            "description": "Available in Additional Fields."
+            "title": "Nivel de razonamiento",
+            "placeholder": "Elige un nivel",
+            "layout": "full",
+            "description": "Disponible en Campos adicionales. Se muestra si el modelo admite niveles de razonamiento."
         },
         {
             "id": "apiKey",
@@ -140,9 +91,9 @@ Selecciona un identificador `proveedor/modelo` de la lista de modelos disponible
 
 ## Uso y salidas
 
-Configura los mensajes del sistema y del usuario, las herramientas, las habilidades y el historial. En Campos adicionales puedes configurar el formato de respuesta, el máximo de tokens de salida y los ajustes nativos disponibles. Dejar un ajuste vacío conserva el valor predeterminado del proveedor. Los metadatos publicados del modelo se muestran como orientación.
+Configura los mensajes del sistema y del usuario, las herramientas y las habilidades. En Campos adicionales puedes conectar el historial y configurar el formato de respuesta.
 
-En Campos adicionales, **Thinking / Reasoning** permite elegir el esfuerzo, el presupuesto de tokens o la activación del razonamiento según el modelo. Dejar el campo vacío utiliza el valor predeterminado del proveedor.
+Elige un nivel de razonamiento en **Campos adicionales** cuando Mastra ofrece niveles para el modelo seleccionado.
 
 Auto permite que el modelo elija una herramienta; Force exige cada herramienta marcada en el orden configurado y después vuelve a Auto; None excluye la herramienta. Una combinación no admitida o una secuencia forzada incompleta produce un error. Se conservan los argumentos fijos y el contexto autorizado del flujo.
 

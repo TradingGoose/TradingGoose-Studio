@@ -3782,6 +3782,12 @@
           }
         },
         "subBlocks": {
+          "agent": {
+            "reasoningEffort": {
+              "title": "Reasoning Effort",
+              "placeholder": "Choose a level"
+            }
+          },
           "loop": {
             "loopType": {
               "title": "Loop Type",
@@ -22317,12 +22323,7 @@
       "copilot": {
         "reasoning": {
           "label": "Thinking / Reasoning",
-          "providerDefault": "Provider default",
-          "effort": "Effort",
-          "budget": "Thinking-token budget",
-          "on": "On",
-          "off": "Off",
-          "apply": "Apply"
+          "selectLevel": "Choose a level"
         },
         "models": {
           "loading": "Loading models…",

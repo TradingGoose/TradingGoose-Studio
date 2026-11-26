@@ -3782,6 +3782,12 @@
           }
         },
         "subBlocks": {
+          "agent": {
+            "reasoningEffort": {
+              "title": "Nivel de razonamiento",
+              "placeholder": "Elige un nivel"
+            }
+          },
           "loop": {
             "loopType": {
               "title": "Tipo de bucle",
@@ -22317,12 +22323,7 @@
       "copilot": {
         "reasoning": {
           "label": "Pensamiento / Razonamiento",
-          "providerDefault": "Predeterminado del proveedor",
-          "effort": "Esfuerzo",
-          "budget": "Presupuesto de tokens de razonamiento",
-          "on": "Activado",
-          "off": "Desactivado",
-          "apply": "Aplicar"
+          "selectLevel": "Elige un nivel"
         },
         "models": {
           "loading": "Cargando modelos…",

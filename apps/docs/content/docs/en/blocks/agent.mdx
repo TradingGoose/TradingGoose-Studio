@@ -49,75 +49,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "model",
             "type": "combobox",
             "title": "Model",
-            "layout": "half",
+            "layout": "full",
             "placeholder": "Type or select a model...",
             "required": true
-        },
-        {
-            "id": "temperature",
-            "type": "short-input",
-            "title": "Temperature",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "description": "Available in Additional Fields. Shown when model supports temperature."
-        },
-        {
-            "id": "reasoningMode",
-            "type": "combobox",
-            "title": "Thinking / Reasoning",
-            "layout": "half",
-            "placeholder": "Provider default",
-            "description": "Available in Additional Fields. Shown when model supports reasoning."
         },
         {
             "id": "reasoningEffort",
             "type": "combobox",
             "title": "Reasoning Effort",
-            "layout": "half",
-            "description": "Available in Additional Fields. Shown when model supports effort and reasoningMode is 'effort'."
-        },
-        {
-            "id": "reasoningBudget",
-            "type": "short-input",
-            "title": "Thinking-token Budget",
-            "layout": "half",
-            "min": 0,
-            "description": "Available in Additional Fields. Shown when model supports budget_tokens and reasoningMode is 'budget_tokens'."
-        },
-        {
-            "id": "reasoningToggle",
-            "type": "combobox",
-            "title": "Enable Thinking",
-            "layout": "half",
-            "options": [
-                {
-                    "id": "true",
-                    "label": "On"
-                },
-                {
-                    "id": "false",
-                    "label": "Off"
-                }
-            ],
-            "description": "Available in Additional Fields. Shown when model supports toggle and reasoningMode is 'toggle'."
-        },
-        {
-            "id": "maxTokens",
-            "type": "short-input",
-            "title": "Max Output Tokens",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "min": 1,
-            "description": "Available in Additional Fields."
-        },
-        {
-            "id": "maxSteps",
-            "type": "short-input",
-            "title": "Max Steps",
-            "layout": "half",
-            "placeholder": "Use the default step budget",
-            "description": "Maximum model-generation steps, including tool-call rounds and the final answer. The last step disables tools and answers from available results. Unset uses the shared default step budget. An unfinished response still fails. Available in Additional Fields.",
-            "min": 1
+            "layout": "full",
+            "placeholder": "Choose a level",
+            "description": "Available in Additional Fields. Shown when model supports effort."
         },
         {
             "id": "apiKey",
@@ -187,14 +129,8 @@ Send a chat completion request to any supported LLM provider
 | `memories` | json | No | Agent memory data |
 | `model` | string | Yes | AI model to use |
 | `apiKey` | string | No | Provider API key |
-| `reasoningMode` | string | No | Provider default \(auto\), effort, budget_tokens or toggle. Shown when model supports reasoning. |
-| `reasoningEffort` | string | No | Selected model reasoning effort. Shown when model supports effort and reasoningMode is 'effort'. |
-| `reasoningBudget` | number | No | Selected model thinking-token budget. Shown when model supports budget_tokens and reasoningMode is 'budget_tokens'. |
-| `reasoningToggle` | boolean | No | Enable or disable thinking. Shown when model supports toggle and reasoningMode is 'toggle'. |
+| `reasoningEffort` | string | No | Selected model reasoning effort. Shown when model supports effort. |
 | `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field. Shown when model supports structured output. |
-| `temperature` | number | No | Response randomness level. Shown when model supports temperature. |
-| `maxTokens` | number | No | Maximum output tokens |
-| `maxSteps` | number | No | Maximum model-generation steps, including the final answer |
 | `tools` | json | No | Available tools configuration |
 | `skills` | json | No | Selected skills configuration |
 
@@ -210,7 +146,7 @@ Send a chat completion request to any supported LLM provider
 
 ## Usage Instructions
 
-Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, model-supported temperature, and native thinking/reasoning options without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
+Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Open Additional Fields for the selected model’s reasoning controls, memory, and response format. Choose a thinking level when Mastra Code offers one for the selected model. Mastra manages the agent loop. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
 
 
 

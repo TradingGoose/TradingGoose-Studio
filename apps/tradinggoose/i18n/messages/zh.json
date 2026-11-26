@@ -3769,6 +3769,12 @@
           }
         },
         "subBlocks": {
+          "agent": {
+            "reasoningEffort": {
+              "title": "推理强度",
+              "placeholder": "选择级别"
+            }
+          },
           "loop": {
             "loopType": {
               "title": "循环类型",
@@ -22304,12 +22310,7 @@
       "copilot": {
         "reasoning": {
           "label": "思考 / 推理",
-          "providerDefault": "提供商默认值",
-          "effort": "推理强度",
-          "budget": "思考令牌预算",
-          "on": "开启",
-          "off": "关闭",
-          "apply": "应用"
+          "selectLevel": "选择级别"
         },
         "models": {
           "loading": "正在加载模型…",
