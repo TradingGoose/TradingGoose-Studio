@@ -44,16 +44,67 @@ const m = vi.hoisted(() => {
   }
 })
 
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: () => ({
-      from: (table: unknown) => ({
-        where: (query: SQL) => ({
+vi.mock('@tradinggoose/db', () => {
+  const dialect = new PgDialect()
+  const select = (fields?: { hasOtherWorkflowOwners?: SQL }) => ({
+    from: (table: unknown) => ({
+      where: (query: SQL) => {
+        const statement = dialect.sqlToQuery(query)
+        if (table === workflowExecutionLogs && statement.sql.includes("'queuedExecution' @>")) {
+          const parent = JSON.parse(String(statement.params[0]))
+          return m.state.logRows.flatMap((row) => {
+            if (row.endedAt && statement.sql.includes('"ended_at" is null')) return []
+            const data = row.executionData as {
+              trigger?: { data: { queuedExecution: { parentExecutionId: string; source: string } } }
+              environment?: { userId: string }
+            }
+            const link = data.trigger?.data.queuedExecution
+            if (
+              link?.source !== parent.source ||
+              link?.parentExecutionId !== parent.parentExecutionId
+            )
+              return []
+            return [
+              {
+                id: row.executionId,
+                userId: data.environment?.userId,
+                workflowId: row.workflowId ?? (row.workflowSummary as { id: string }).id,
+                workspaceId: row.workspaceId,
+                endedAt: row.endedAt,
+              },
+            ]
+          })
+        }
+        return {
           limit: async () => {
-            const statement = new PgDialect().sqlToQuery(query)
             const pending = table === pendingExecution
             if (!pending && table !== workflowExecutionLogs)
               throw new Error('Unexpected table in controlled source test')
+            if (pending && statement.sql.includes("->'metadata'->>")) {
+              const [type, key, parent, ...scope] = statement.params
+              const [user, ownerType, workflow, workspace, original, source, resume] = scope
+              if (scope.length) {
+                expect(statement.sql).toContain("->'metadata'->>$2 = $3) or ")
+                expect(statement.sql).toContain("->>'resumeExecutionId' = $10")
+              }
+              return m.state.pendingRows
+                .filter((row) => {
+                  const payload = row.payload as {
+                    metadata?: Record<string, unknown>
+                    resumeExecutionId?: string
+                  }
+                  return (
+                    (row.executionType === type && payload.metadata?.[String(key)] === parent) ||
+                    (row.userId === user &&
+                      row.executionType === ownerType &&
+                      row.workflowId === workflow &&
+                      row.workspaceId === workspace &&
+                      (row.id === original ||
+                        (row.source === source && payload.resumeExecutionId === resume)))
+                  )
+                })
+                .slice(0, 1)
+            }
             return (pending ? m.state.pendingRows : m.state.logRows)
               .filter((row) => {
                 const workflowId = statement.sql.includes('"workflow_summary"')
@@ -65,12 +116,33 @@ vi.mock('@tradinggoose/db', () => ({
                 return JSON.stringify(statement.params) === JSON.stringify(identity)
               })
               .slice(0, 1)
+              .map((row) => {
+                if (!fields?.hasOtherWorkflowOwners) return row
+                const [type, original] = dialect.sqlToQuery(fields.hasOtherWorkflowOwners).params
+                return {
+                  ...row,
+                  hasOtherWorkflowOwners:
+                    Boolean(row.endedAt) &&
+                    m.state.pendingRows.some(
+                      (owner) => owner.executionType === type && owner.id !== original
+                    ),
+                }
+              })
           },
-        }),
-      }),
+        }
+      },
     }),
-  },
-}))
+  })
+  return {
+    db: {
+      select,
+      transaction: (run: (tx: { select: typeof select }) => unknown, options: unknown) => {
+        expect(options).toEqual({ isolationLevel: 'repeatable read', accessMode: 'read only' })
+        return run({ select })
+      },
+    },
+  }
+})
 vi.mock('@/lib/auth', () => ({ getSession: async () => ({ user: { id: 'actor' } }) }))
 vi.mock('@/lib/auth/hybrid', () => ({
   checkSessionOrInternalAuth: async () => ({ success: true, userId: 'actor', authType: 'session' }),
@@ -150,6 +222,10 @@ vi.unmock('@/blocks/registry')
 
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { PendingExecutionLimitError } from '@/lib/execution/pending-execution'
+import {
+  createWorkflowExecutionEventWriter,
+  readWorkflowExecutionEventState,
+} from '@/lib/execution/workflow-execution-events'
 import { POST as queuePost } from '@/app/api/workflows/[id]/queue/route'
 import { authorizeNativeBusinessResult } from './business-access'
 import { NativeTargetError } from './errors'
@@ -306,6 +382,8 @@ beforeEach(() => {
         workspaceId: input.workspaceId,
         userId: input.userId,
         executionType: input.executionType,
+        source: input.source,
+        payload: input.payload,
       })
     }
     m.claims = transaction
@@ -482,8 +560,19 @@ describe('local workflow execution and authoritative readback', () => {
       message: 'Workflow paused for review',
       data: { status: 'paused', output: pause },
     })
-    data.pause = undefined
     data.checkpoint = { revision: 1, activeJobId: `${EXECUTION}:resume:1` }
+    const observation = { pendingExecutionId: EXECUTION, workflowId: WORKFLOW, afterEventId: 0 }
+    await createWorkflowExecutionEventWriter(observation).write({
+      type: 'execution:paused',
+      data: { result: { success: true, status: 'paused', output: pause } },
+    })
+    await expect(readback()).rejects.toMatchObject({ handle: { taskId: EXECUTION } })
+    await expect(readWorkflowExecutionEventState(observation)).resolves.toMatchObject({
+      status: 'processing',
+      result: null,
+      events: [],
+    })
+    data.pause = undefined
     await expect(readback()).rejects.toMatchObject({
       handle: {
         executionId: EXECUTION,
@@ -495,6 +584,7 @@ describe('local workflow execution and authoritative readback', () => {
     await expect(readback()).rejects.toMatchObject({ status: 403 })
     m.state.allowedWorkspaces.add(row.workspaceId as string)
     data.pause = { ...pause, revision: 2 }
+    data.checkpoint = { revision: 2, activeJobId: null }
     await expect(readback()).resolves.toMatchObject({
       data: { status: 'paused', output: { revision: 2 } },
     })
@@ -508,6 +598,89 @@ describe('local workflow execution and authoritative readback', () => {
     })
     expect(m.enqueue).toHaveBeenCalledOnce()
   })
+  it.each([
+    ['queued child before its log exists', 0, 'workflow_block'],
+    ['original child owner', 1, 'workflow_block'],
+    ['resumed child', 1, 'human_in_the_loop'],
+    ['resumed grandchild through a finished child', 2, 'human_in_the_loop'],
+  ] as const)(
+    'keeps the original observation until the %s retires',
+    async (_label, depth, source) => {
+      expect((await queue()).status).toBe(202)
+      const row = terminal(false, true)
+      let parent = EXECUTION
+      for (const child of ['child', 'grandchild'].slice(0, depth)) {
+        m.state.logRows.push({
+          ...row,
+          executionId: child,
+          workflowId: 'child-workflow',
+          workflowSummary: { id: 'child-workflow' },
+          executionData: {
+            environment: { userId: ACTOR },
+            trigger: {
+              data: { queuedExecution: { source: 'workflow_block', parentExecutionId: parent } },
+            },
+          },
+        })
+        parent = child
+      }
+      const owner = {
+        id: source === 'human_in_the_loop' ? `${parent}:resume:1` : 'child',
+        executionType: 'workflow',
+        source,
+        userId: ACTOR,
+        workspaceId: row.workspaceId,
+        workflowId: 'child-workflow',
+        status: 'processing',
+        payload: {
+          ...(depth === 0 && { metadata: { parentExecutionId: EXECUTION } }),
+          ...(source === 'human_in_the_loop' && {
+            resumeExecutionId: parent,
+            checkpointRevision: 1,
+          }),
+        },
+      }
+      m.state.pendingRows.push(owner)
+      for (const [key, value] of Object.entries({
+        userId: 'other-actor',
+        workspaceId: 'other-workspace',
+        workflowId: 'other-workflow',
+        source: 'manual',
+        executionType: 'document',
+        payload: { resumeExecutionId: 'other-child' },
+      })) {
+        m.state.pendingRows.push({
+          ...owner,
+          id: `other-${key}`,
+          source: 'human_in_the_loop',
+          payload: { resumeExecutionId: parent },
+          [key]: value,
+        })
+      }
+      const observation = { pendingExecutionId: EXECUTION, workflowId: WORKFLOW, afterEventId: 0 }
+      await createWorkflowExecutionEventWriter(observation).write({
+        type: 'execution:completed',
+        data: { result: { success: true, output: row.executionData.finalOutput } },
+      })
+      await expect(readback()).rejects.toMatchObject({
+        handle: { workflowId: WORKFLOW, taskId: EXECUTION, executionId: EXECUTION },
+      })
+      await expect(readWorkflowExecutionEventState(observation)).resolves.toMatchObject({
+        status: 'processing',
+        result: null,
+        events: [],
+      })
+      expect(m.state.pendingRows.shift()).toBe(owner)
+      await expect(readback()).resolves.toMatchObject({
+        data: { output: row.executionData.finalOutput },
+      })
+      await expect(readWorkflowExecutionEventState(observation)).resolves.toMatchObject({
+        status: 'completed',
+        result: { output: row.executionData.finalOutput },
+      })
+      expect(m.enqueue).toHaveBeenCalledOnce()
+    }
+  )
   it('rejects nonterminal logs without replaying', async () => {
     expect((await queue()).status).toBe(202)
     const row = terminal()

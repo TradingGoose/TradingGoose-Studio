@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, or, type SQL, sql } from 'drizzle-orm'
 import { createLogger } from '@/lib/logs/console/logger'
 import { publicTraceSpans } from '@/lib/logs/public'
 import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
@@ -10,6 +10,7 @@ import type {
   WorkflowExecutionEventInput,
 } from '@/lib/workflows/execution-events'
 import { isTerminalWorkflowExecutionEvent } from '@/lib/workflows/execution-events'
+import { workflowResumeJobId } from '@/lib/workflows/human-in-the-loop/types'
 import type { ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('WorkflowExecutionEvents')
@@ -275,6 +276,76 @@ export function createWorkflowExecutionEventWriter(params: {
   return { write }
 }
 
+async function hasPendingWorkflowDescendants(executionId: string) {
+  const { childPendingWorkflowScope } = await import('./pending-execution')
+  const { readWorkflowCheckpointChildren } = await import(
+    '@/lib/workflows/human-in-the-loop/service'
+  )
+  const { workflowExecutionOwnerScope } = await import(
+    '@/lib/workflows/queued-execution-cancellation'
+  )
+  return db.transaction(
+    async (tx) => {
+      const executions = new Map<string, SQL | undefined>([[executionId, undefined]])
+      for (const [id, ownerScope] of executions) {
+        const [owner] = await tx
+          .select({ id: pendingExecution.id })
+          .from(pendingExecution)
+          .where(or(childPendingWorkflowScope({ executionId: id }), ownerScope))
+          .limit(1)
+        if (owner) return true
+        // A finished child can wake the parent before its continuation owner retires.
+        for (const child of await readWorkflowCheckpointChildren(id, true, tx)) {
+          if (!executions.has(child.id))
+            executions.set(
+              child.id,
+              workflowExecutionOwnerScope({ ...child, pendingExecutionId: child.id })
+            )
+        }
+      }
+      return false
+    },
+    { isolationLevel: 'repeatable read', accessMode: 'read only' }
+  )
+}
+
+export async function readWorkflowExecutionLog(executionId: string, workflowId: string) {
+  const [row] = await db
+    .select({
+      executionId: workflowExecutionLogs.executionId,
+      workflowId: workflowExecutionLogs.workflowId,
+      workspaceId: workflowExecutionLogs.workspaceId,
+      level: workflowExecutionLogs.level,
+      startedAt: workflowExecutionLogs.startedAt,
+      endedAt: workflowExecutionLogs.endedAt,
+      totalDurationMs: workflowExecutionLogs.totalDurationMs,
+      executionData: workflowExecutionLogs.executionData,
+      hasOtherWorkflowOwners: sql<boolean>`${workflowExecutionLogs.endedAt} is not null and
+        exists (select 1 from ${pendingExecution}
+          where ${pendingExecution.executionType} = ${'workflow'} and ${pendingExecution.id} <> ${executionId})`,
+    })
+    .from(workflowExecutionLogs)
+    .where(
+      and(
+        eq(workflowExecutionLogs.executionId, executionId),
+        eq(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, workflowId)
+      )
+    )
+    .limit(1)
+  if (!row) return
+  const checkpoint = isRecord(row.executionData) ? row.executionData.checkpoint : undefined
+  const requiresObservation =
+    (row.hasOtherWorkflowOwners && (await hasPendingWorkflowDescendants(executionId))) ||
+    (!row.endedAt &&
+      row.workflowId === workflowId &&
+      isRecord(checkpoint) &&
+      typeof checkpoint.revision === 'number' &&
+      Number.isSafeInteger(checkpoint.revision) &&
+      checkpoint.revision > 0 &&
+      checkpoint.activeJobId === workflowResumeJobId(executionId, checkpoint.revision))
+  return { ...row, requiresObservation }
+}
+
 export async function readWorkflowExecutionEventState(params: {
   pendingExecutionId: string
   workflowId: string
@@ -297,25 +368,20 @@ export async function readWorkflowExecutionEventState(params: {
     }
   }
 
-  const [events, [logRow]] = await Promise.all([
+  const [events, logRow] = await Promise.all([
     readEvents(params.afterEventId ?? 0),
-    db
-      .select({
-        level: workflowExecutionLogs.level,
-        startedAt: workflowExecutionLogs.startedAt,
-        endedAt: workflowExecutionLogs.endedAt,
-        totalDurationMs: workflowExecutionLogs.totalDurationMs,
-        executionData: workflowExecutionLogs.executionData,
-      })
-      .from(workflowExecutionLogs)
-      .where(
-        and(
-          eq(workflowExecutionLogs.executionId, params.pendingExecutionId),
-          eq(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, params.workflowId)
-        )
-      )
-      .limit(1),
+    readWorkflowExecutionLog(params.pendingExecutionId, params.workflowId),
   ])
+  if (logRow?.requiresObservation)
+    return {
+      status: 'processing',
+      result: null,
+      failureReason: null,
+      events:
+        params.afterEventId === undefined
+          ? []
+          : events.filter(({ event }) => !isTerminalWorkflowExecutionEvent(event)),
+    }
   // Durable state owns status: delayed pauses and post-completion failures cannot
   // override a resumed or finished execution. Streams reconstruct its final event.
   const logData = isRecord(logRow?.executionData) ? logRow.executionData : {}

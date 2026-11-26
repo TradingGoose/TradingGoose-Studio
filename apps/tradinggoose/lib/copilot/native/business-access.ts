@@ -1,16 +1,16 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 import {
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
+import { readWorkflowExecutionLog } from '@/lib/execution/workflow-execution-events'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { workflowResumeJobId } from '@/lib/workflows/human-in-the-loop/types'
 import type { Pending, Scope } from './contract'
-import { NativeTargetError, ObserveResumedWorkflow } from './errors'
+import { NativeTargetError, ObserveWorkflowExecution } from './errors'
 import { nativeToolCallId } from './identity'
 
 function record(value: unknown): Record<string, unknown> {
@@ -26,17 +26,9 @@ export async function readAuthorizedWorkflowExecutionLog(
 ) {
   throwIfServerToolAborted(context)
   const args = ToolArgSchemas.run_workflow.parse(pending.originalArgs)
-  const [row] = await db
-    .select()
-    .from(workflowExecutionLogs)
-    .where(
-      and(
-        eq(workflowExecutionLogs.executionId, nativeToolCallId(pending.target)),
-        eq(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, args.entityId)
-      )
-    )
-    .limit(1)
-  if (!row || row.executionId !== nativeToolCallId(pending.target))
+  const executionId = nativeToolCallId(pending.target)
+  const row = await readWorkflowExecutionLog(executionId, args.entityId)
+  if (!row || row.executionId !== executionId)
     throw new NativeTargetError('Original workflow execution has no terminal result', 409)
   const environment = record(record(row.executionData).environment)
   if (
@@ -48,22 +40,14 @@ export async function readAuthorizedWorkflowExecutionLog(
   )
     throw new NativeTargetError('Original execution workspace access has been revoked', 403)
   throwIfServerToolAborted(context)
-  if (!row.endedAt && !record(row.executionData).pause) {
-    const checkpoint = record(record(row.executionData).checkpoint)
-    if (
-      row.workflowId === args.entityId &&
-      typeof checkpoint.revision === 'number' &&
-      Number.isSafeInteger(checkpoint.revision) &&
-      checkpoint.revision > 0 &&
-      checkpoint.activeJobId === workflowResumeJobId(row.executionId, checkpoint.revision)
-    )
-      throw new ObserveResumedWorkflow({
-        workflowId: args.entityId,
-        taskId: row.executionId,
-        executionId: row.executionId,
-      })
+  if (row.requiresObservation)
+    throw new ObserveWorkflowExecution({
+      workflowId: args.entityId,
+      taskId: executionId,
+      executionId,
+    })
+  if (!row.endedAt && !record(row.executionData).pause)
     throw new NativeTargetError('Original workflow execution has no terminal result', 409)
-  }
   return row
 }
 

@@ -1,8 +1,8 @@
 import type { WorkflowObservation } from './contract'
 
-export class ObserveResumedWorkflow extends Error {
+export class ObserveWorkflowExecution extends Error {
   constructor(public readonly handle: WorkflowObservation['handle']) {
-    super('The workflow has resumed from review')
+    super('The workflow still has active work')
   }
 }
 

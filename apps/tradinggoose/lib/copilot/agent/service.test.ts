@@ -23,7 +23,7 @@ import {
   type SafeError,
   type Scope,
 } from '@/lib/copilot/native/contract'
-import { NativeTargetError, ObserveResumedWorkflow } from '@/lib/copilot/native/errors'
+import { NativeTargetError, ObserveWorkflowExecution } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity, nativeToolCallId } from '@/lib/copilot/native/identity'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { readSseData } from '@/lib/events/stream'
@@ -1826,7 +1826,7 @@ describe('Copilot background execution and native history', () => {
     m.startJobs = false
     expect((await command(request)).response.status).toBe(202)
     expect(m.executionLog).not.toHaveBeenCalled()
-    m.executionLog.mockRejectedValueOnce(new ObserveResumedWorkflow(handle))
+    m.executionLog.mockRejectedValueOnce(new ObserveWorkflowExecution(handle))
     await executeJob([...m.jobs.keys()][0])
     restart()
     const { result: history } = await command({
@@ -1951,6 +1951,15 @@ describe('Copilot background execution and native history', () => {
       await db.transaction((tx) =>
         claimCopilotWorkflowAdmission({ scope, threadId, runId }, toolCallId, tx)
       )
+      const executionId = nativeToolCallId(target)
+      m.executionLog.mockRejectedValueOnce(
+        new ObserveWorkflowExecution({ workflowId, executionId, taskId: executionId })
+      )
+      const reading = suspended(
+        (await command({ command: 'tool.execute', action: 'readback', target })).result
+      )
+      expect(reading.pending).toEqual(initial.pending)
+      expect(m.contacts).toHaveLength(1)
       const cancel = { command: 'cancel', threadId, runId }
       restart()
       const foreign = await command({ ...cancel, scope: { ...scope, actorUserId: 'other' } })
@@ -1960,7 +1969,6 @@ describe('Copilot background execution and native history', () => {
       expect((await command(cancel)).response.ok).toBe(false)
       expect(await pending(threadId)).toEqual(initial.pending)
       expect(await isCopilotRunCancelled(runId)).toBe(false)
-      const executionId = nativeToolCallId(target)
       const task = {
         pendingExecutionId: executionId,
         userId: scope.actorUserId,

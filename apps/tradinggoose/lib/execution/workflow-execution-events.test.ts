@@ -174,11 +174,19 @@ it.each(['info', 'error'])(
     expect(JSON.stringify(state)).not.toContain('accountedCost')
     expect(JSON.stringify(state)).not.toContain('Usage ledger unavailable')
     expect(mocks.where).toHaveBeenCalledOnce()
-    const query = new PgDialect().sqlToQuery(mocks.where.mock.calls[0][0])
+    const dialect = new PgDialect()
+    const query = dialect.sqlToQuery(mocks.where.mock.calls[0][0])
     expect(query.sql).toBe(
       '("workflow_execution_logs"."execution_id" = $1 and "workflow_execution_logs"."workflow_summary"->>\'id\' = $2)'
     )
     expect(query.params).toEqual([params.pendingExecutionId, params.workflowId])
+    const owners = dialect.sqlToQuery(mocks.dbSelect.mock.calls[0][0].hasOtherWorkflowOwners)
+    expect(owners.sql).toContain('"workflow_execution_logs"."ended_at" is not null')
+    expect(owners.sql).toContain('exists (select 1 from "pending_execution"')
+    expect(owners.sql).toContain(
+      '"pending_execution"."execution_type" = $1 and "pending_execution"."id" <> $2'
+    )
+    expect(owners.params).toEqual(['workflow', params.pendingExecutionId])
   }
 )
 

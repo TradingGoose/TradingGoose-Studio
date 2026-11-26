@@ -3,7 +3,7 @@ import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { validateNativeBrowserAssertion } from '@/lib/copilot/native/browser-assertion'
 import { authorizeNativeBusinessResult } from '@/lib/copilot/native/business-access'
 import { COPILOT_CONTEXT_PART } from '@/lib/copilot/native/contract'
-import { NativeTargetError, ObserveResumedWorkflow } from '@/lib/copilot/native/errors'
+import { NativeTargetError, ObserveWorkflowExecution } from '@/lib/copilot/native/errors'
 import { nativeAdmissionId } from '@/lib/copilot/native/identity'
 import { readbackNativeToolResult } from '@/lib/copilot/native/readback'
 import {
@@ -352,7 +352,7 @@ async function ownStudioTool(
       try {
         return { response: await executeSavedTool(identity, input, signal) }
       } catch (error) {
-        if (error instanceof ObserveResumedWorkflow) return { observe: error.handle }
+        if (error instanceof ObserveWorkflowExecution) return { observe: error.handle }
         throw error
       }
     })
