@@ -222,7 +222,9 @@ import {
   isWorkflowPendingExecution,
   listChildPendingWorkflowExecutions,
   type PendingExecutionClaim,
+  prepareWorkflowDispatch,
   reconcileStoppedWorkflowOwner,
+  requestCancelledWorkflowSettlement,
   settlePendingExecutionOwner,
   wakePendingExecution,
   withPendingWorkflowExecution,
@@ -259,12 +261,13 @@ const createPendingRow = (
 })
 
 const createSupervisorPayload = (
-  row: Pick<PendingExecutionClaim, 'id' | 'billingScopeId' | 'billingScopeType'>,
+  row: Pick<PendingExecutionClaim, 'id' | 'billingScopeId' | 'billingScopeType' | 'executionType'>,
   executionMaxDuration?: number
 ) => ({
   pendingExecutionId: row.id,
   billingScopeId: row.billingScopeId,
   billingScopeType: row.billingScopeType,
+  executionType: row.executionType,
   ...(executionMaxDuration === undefined ? {} : { executionMaxDuration }),
 })
 
@@ -914,6 +917,96 @@ describe('processing-row reconciliation', () => {
   }
 
   const exitedChild = { ...cancelledChild, status: 'SYSTEM_FAILURE', startedAt: new Date() }
+  it('keeps an earlier possible submission fenced when a retry stops before dispatch', async () => {
+    const row = createPendingRow({
+      status: 'processing',
+      payload: { firstWorkflowDispatchAttempt: 'supervisor:1' },
+    })
+    const owner = { pendingExecutionId: row.id, ...userBillingScope }
+    updateReturningMock.mockResolvedValueOnce([row]).mockResolvedValueOnce([])
+    await expect(prepareWorkflowDispatch(owner, 'supervisor:2')).resolves.toEqual(row)
+    const { payload } = updateChain.set.mock.calls[0][0]
+    expect(payload.strings.join('?')).toContain(
+      "jsonb_build_object('firstWorkflowDispatchAttempt', ?::text) || ?"
+    )
+    expect(payload.values).toEqual(['supervisor:2', 'pendingExecution.payload'])
+    await requestCancelledWorkflowSettlement(row.id, owner, 0, 'supervisor', 'supervisor:2')
+    const [scope, guard] = updateChain.where.mock.lastCall![0].args
+    expect(scope).toEqual(updateChain.where.mock.calls[0][0])
+    expect(guard.strings.join('?')).toMatch(
+      /firstWorkflowDispatchAttempt' is null\s+or .*firstWorkflowDispatchAttempt' = \?/
+    )
+    expect(guard.values).toEqual([
+      'pendingExecution.payload',
+      'pendingExecution.payload',
+      'supervisor:2',
+    ])
+    expect(detachedTriggerMock).not.toHaveBeenCalled()
+  })
+  it('retries settlement for an acknowledged supervisor with an empty child list', async () => {
+    const row = createPendingRow({
+      status: 'processing',
+      payload: { cancelRequestedAt: new Date().toISOString() },
+    })
+    const active = mockDrainingOwner(row)
+    const next = createPendingRow({ id: 'successor' })
+    updateChain.set.mockImplementationOnce(({ payload }) => ({
+      where: () => ({
+        returning: async () => {
+          const [, , id, duration] = payload.values
+          row.payload.drainedWorkflowRuns = { [id]: duration }
+          return [{ id: row.id }]
+        },
+      }),
+    }))
+    detachedTriggerMock.mockRejectedValueOnce(new Error('Settlement dispatch failed'))
+    await expect(
+      requestCancelledWorkflowSettlement(
+        row.id,
+        row,
+        17,
+        startedSupervisor.id,
+        `${startedSupervisor.id}:1`
+      )
+    ).rejects.toThrow('Settlement dispatch failed')
+    expect(active).toHaveLength(1)
+    txExecuteMock.mockResolvedValue([{ acquired: true }])
+    runsListMock.mockResolvedValue({ data: [startedSupervisor] })
+    runsRetrieveMock.mockResolvedValue({ relatedRuns: { children: [] } })
+    mockClaimableRow(next)
+    await waitForPendingWorkflowExecutionDrain(
+      {
+        pendingExecutionId: row.id,
+        userId: row.userId,
+        workflowId: row.workflowId!,
+        workspaceId: row.workspaceId!,
+      },
+      { status: 'cancelling', pendingExecutionId: row.id },
+      AbortSignal.timeout(4000)
+    )
+    expect(detachedTriggerMock).toHaveBeenCalledTimes(2)
+    expect(detachedTriggerMock.mock.calls[1]).toEqual(detachedTriggerMock.mock.calls[0])
+    expect(detachedTriggerMock).toHaveBeenLastCalledWith(
+      'pending-execution',
+      {
+        pendingExecutionId: row.id,
+        ...userBillingScope,
+        cancelledWorkflowDurationMs: 17,
+      },
+      expect.anything()
+    )
+    expect(finalizePendingExecutionFailureMock).toHaveBeenCalledExactlyOnceWith(
+      row,
+      'Workflow execution was cancelled',
+      17
+    )
+    expect(active).toHaveLength(0)
+    expect(triggerMock).toHaveBeenCalledExactlyOnceWith(
+      'pending-execution',
+      createSupervisorPayload(next, TIMEOUT_NONE),
+      expect.anything()
+    )
+  })
   const workloadIdentity = { id: exitedChild.id, taskIdentifier: exitedChild.taskIdentifier }
   const returnedWorkload = {
     ...workloadIdentity,

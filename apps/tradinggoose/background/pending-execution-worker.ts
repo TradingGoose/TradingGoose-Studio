@@ -1,3 +1,4 @@
+import { aborted } from 'node:util'
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { AbortTaskRunError, timeout, wait } from '@trigger.dev/sdk'
@@ -15,6 +16,8 @@ import {
   PENDING_EXECUTION_FAILURE_ERROR,
   PENDING_EXECUTION_TIME_LIMIT_ERROR,
   type PendingExecutionClaim,
+  type PendingExecutionType,
+  prepareWorkflowDispatch,
   settlePendingExecutionOwner,
   wakePendingExecution,
 } from '@/lib/execution/pending-execution'
@@ -31,6 +34,7 @@ export type PendingExecutionTaskPayload = {
   pendingExecutionId: string
   billingScopeId: string
   billingScopeType: string
+  executionType?: PendingExecutionType
   executionMaxDuration?: number
   cancelledWorkflowDurationMs?: number
 }
@@ -166,7 +170,10 @@ async function wakePendingExecutionUntilSuccessful(payload: PendingExecutionTask
   }
 }
 
-export async function executePendingExecution(payload: PendingExecutionTaskPayload) {
+export async function executePendingExecution(
+  payload: PendingExecutionTaskPayload,
+  dispatch?: { attempt: string; signal: AbortSignal }
+) {
   if (payload.cancelledWorkflowDurationMs !== undefined) {
     await finalizeCancelledPendingWorkflow(
       payload.pendingExecutionId,
@@ -176,7 +183,21 @@ export async function executePendingExecution(payload: PendingExecutionTaskPaylo
     return { success: true, pendingExecutionId: payload.pendingExecutionId }
   }
   const startedAt = Date.now()
-  const row = await getProcessingPendingExecution(payload.pendingExecutionId)
+  const read = dispatch
+    ? prepareWorkflowDispatch(payload, dispatch.attempt)
+    : getProcessingPendingExecution(payload.pendingExecutionId)
+  const row = dispatch
+    ? await Promise.race([read, aborted(dispatch.signal, read)]).catch((error) => {
+        if (!dispatch.signal.aborted) throw error
+      })
+    : await read
+  if (dispatch?.signal.aborted) {
+    return {
+      success: true,
+      skipped: 'cancelled_before_dispatch' as const,
+      attempt: dispatch.attempt,
+    }
+  }
   if (!row) {
     await wakePendingExecutionUntilSuccessful(payload)
     return { success: true, skipped: 'not_processing' as const }

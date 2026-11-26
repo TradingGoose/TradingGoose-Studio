@@ -201,6 +201,7 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
         pendingExecutionId: row.id,
         billingScopeId: row.billingScopeId,
         billingScopeType: row.billingScopeType,
+        executionType: row.executionType,
         executionMaxDuration: tier?.workflowExecutionTimeLimitSeconds ?? timeout.None,
       },
       {
@@ -734,42 +735,72 @@ export async function withPendingWorkflowExecution<T>(
   }
 }
 
+type WorkflowBillingScope = Pick<PendingExecutionClaim, 'billingScopeId' | 'billingScopeType'>
+
+function processingWorkflowScope(id: string, scope: WorkflowBillingScope) {
+  return and(
+    eq(pendingExecution.id, id),
+    eq(pendingExecution.status, 'processing'),
+    eq(pendingExecution.executionType, 'workflow'),
+    eq(pendingExecution.billingScopeId, scope.billingScopeId),
+    eq(pendingExecution.billingScopeType, scope.billingScopeType)
+  )
+}
+
+export async function prepareWorkflowDispatch(
+  owner: WorkflowBillingScope & { pendingExecutionId: string },
+  attempt: string
+) {
+  // A later supervisor attempt cannot certify that an earlier submission never reached Trigger.
+  const [row] = await db
+    .update(pendingExecution)
+    .set({
+      payload: sql`jsonb_build_object('firstWorkflowDispatchAttempt', ${attempt}::text) || ${pendingExecution.payload}`,
+    })
+    .where(processingWorkflowScope(owner.pendingExecutionId, owner))
+    .returning()
+  return row ? asPendingExecutionClaim(row) : null
+}
+
 export async function requestCancelledWorkflowSettlement(
   pendingExecutionId: string,
-  {
-    billingScopeId,
-    billingScopeType,
-  }: Pick<PendingExecutionClaim, 'billingScopeId' | 'billingScopeType'>,
+  scope: WorkflowBillingScope,
   cancelledWorkflowDurationMs: number,
-  drainedWorkloadRunId?: string
+  drainedRunId?: string,
+  undispatchedAttempt?: string
 ) {
-  if (drainedWorkloadRunId) {
+  if (drainedRunId) {
     // A failed dispatch can be retried from the worker's acknowledgement after its hook exits.
-    await db
+    const owner = processingWorkflowScope(pendingExecutionId, scope)
+    const receipt = db
       .update(pendingExecution)
       .set({
         payload: sql`jsonb_set(${pendingExecution.payload}, '{drainedWorkflowRuns}',
           coalesce(${pendingExecution.payload}->'drainedWorkflowRuns', '{}'::jsonb)
-          || jsonb_build_object(${drainedWorkloadRunId}::text, ${cancelledWorkflowDurationMs}::bigint))`,
+          || jsonb_build_object(${drainedRunId}::text, ${cancelledWorkflowDurationMs}::bigint))`,
         updatedAt: new Date(),
       })
       .where(
-        and(
-          eq(pendingExecution.id, pendingExecutionId),
-          eq(pendingExecution.status, 'processing'),
-          eq(pendingExecution.executionType, 'workflow'),
-          eq(pendingExecution.billingScopeId, billingScopeId),
-          eq(pendingExecution.billingScopeType, billingScopeType)
-        )
+        undispatchedAttempt
+          ? and(
+              owner,
+              sql`(${pendingExecution.payload}->>'firstWorkflowDispatchAttempt' is null
+              or ${pendingExecution.payload}->>'firstWorkflowDispatchAttempt' = ${undispatchedAttempt})`
+            )
+          : owner
       )
+    if (undispatchedAttempt) {
+      const [recorded] = await receipt.returning({ id: pendingExecution.id })
+      if (!recorded) return
+    } else await receipt
   }
   // An independent run can retry the scope wake after both original tasks and the row are gone.
   return new TriggerClient().tasks.trigger(
     PENDING_EXECUTION_TASK_ID,
     {
       pendingExecutionId,
-      billingScopeId,
-      billingScopeType,
+      billingScopeId: scope.billingScopeId,
+      billingScopeType: scope.billingScopeType,
       cancelledWorkflowDurationMs,
     },
     { idempotencyKey: `${getPendingExecutionTriggerKey(pendingExecutionId)}:cancel` }
@@ -851,6 +882,12 @@ async function hasWorkflowSettlementReceipt(
   )
 }
 
+function drainedRunDuration(row: PendingExecutionClaim, runId: string) {
+  const receipts = row.payload.drainedWorkflowRuns
+  const duration = isPendingExecutionPayload(receipts) ? receipts[runId] : undefined
+  return typeof duration === 'number' ? duration : undefined
+}
+
 async function reconcileProcessingPendingExecution(
   row: PendingExecutionClaim,
   capacityOwnerId: string,
@@ -895,20 +932,27 @@ async function reconcileProcessingPendingExecution(
   ) {
     const { relatedRuns } = await runs.retrieve(run.id)
     stopSignal?.throwIfAborted()
-    const workloads = relatedRuns.children?.filter(
+    const children = relatedRuns.children
+    if (!children) return false
+    const workloads = children.filter(
       (child) =>
         child.taskIdentifier === backgroundTaskIds[row.executionType] &&
         child.triggerFunction === 'triggerAndWait'
     )
-    if (!workloads?.length || workloads.some((child) => !child.isCompleted)) return false
+    if (!workloads.length) {
+      const duration = drainedRunDuration(row, run.id)
+      if (children.length || row.executionType !== 'workflow' || duration === undefined)
+        return false
+      cancelledWorkflowDurationMs = duration
+    }
+    if (workloads.some((child) => !child.isCompleted)) return false
     for (const child of workloads) {
       if (child.startedAt) {
         if (row.executionType !== 'workflow') return false
         if (child.status === 'CANCELED') {
           // Trigger can finalize cancellation on heartbeat expiry while the workload is still executing.
-          const receipts = row.payload.drainedWorkflowRuns
-          const duration = isPendingExecutionPayload(receipts) ? receipts[child.id] : undefined
-          if (typeof duration !== 'number') return false
+          const duration = drainedRunDuration(row, child.id)
+          if (duration === undefined) return false
           cancelledWorkflowDurationMs = duration
         } else if (!(await hasWorkflowSettlementReceipt(child, row.id, stopSignal))) return false
       } else if (child.status !== 'CANCELED') return false
