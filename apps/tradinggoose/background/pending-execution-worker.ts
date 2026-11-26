@@ -7,6 +7,7 @@ import {
   waitForBackgroundExecution,
 } from '@/lib/execution/background-execution'
 import {
+  finalizeCancelledPendingWorkflow,
   getProcessingPendingExecution,
   isWorkflowPendingExecution,
   listChildPendingWorkflowExecutions,
@@ -31,6 +32,7 @@ export type PendingExecutionTaskPayload = {
   billingScopeId: string
   billingScopeType: string
   executionMaxDuration?: number
+  cancelledWorkflowDurationMs?: number
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -100,10 +102,10 @@ export async function executePendingExecutionRun(
         typeof row.payload.resumeExecutionId === 'string' ? row.payload.resumeExecutionId : row.id
       )
     }
-    if (row.executionType !== 'document') await settlePendingExecutionOwner(row, { wake: false })
   }
-  // A cancelled supervisor may never resume to wake its queue.
-  if (row.executionType === 'workflow' && signal?.aborted) await wakePendingExecution(row)
+  // The workflow cancellation hook hands retirement and the queue wake to an independent run.
+  if (row.executionType !== 'document' && !(row.executionType === 'workflow' && signal?.aborted))
+    await settlePendingExecutionOwner(row, { wake: false })
   return { success: true, pendingExecutionId: row.id }
 }
 
@@ -165,6 +167,14 @@ async function wakePendingExecutionUntilSuccessful(payload: PendingExecutionTask
 }
 
 export async function executePendingExecution(payload: PendingExecutionTaskPayload) {
+  if (payload.cancelledWorkflowDurationMs !== undefined) {
+    await finalizeCancelledPendingWorkflow(
+      payload.pendingExecutionId,
+      payload.cancelledWorkflowDurationMs
+    )
+    await wakePendingExecutionUntilSuccessful(payload)
+    return { success: true, pendingExecutionId: payload.pendingExecutionId }
+  }
   const startedAt = Date.now()
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
@@ -363,7 +373,6 @@ async function recoverPendingExecutionCheckpoint(row: PendingExecutionClaim) {
       if (!isScheduleExecutionPayload(row.payload)) throw new Error('Invalid schedule payload')
       await settleScheduleOccurrence(row.payload, 'success')
     }
-    await settlePendingExecutionOwner(row, { wake: false })
     return true
   }
   return false
@@ -374,7 +383,10 @@ export async function finalizePendingExecutionFailure(
   message: string,
   durationMs: number
 ) {
-  if (await recoverPendingExecutionCheckpoint(row)) return true
+  if (await recoverPendingExecutionCheckpoint(row)) {
+    await settlePendingExecutionOwner(row, { wake: false })
+    return true
+  }
   if (row.executionType === 'document') {
     const { failDocumentAttempt } = await import('@/lib/knowledge/documents/claim')
     return (await failDocumentAttempt({ id: row.id }, message)) ? ('retired' as const) : undefined

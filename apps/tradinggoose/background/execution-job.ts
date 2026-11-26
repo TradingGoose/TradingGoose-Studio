@@ -4,6 +4,7 @@ import type {
   PendingExecutionPayload,
   PendingExecutionType,
 } from '@/lib/execution/pending-execution'
+import type { PendingExecutionTaskPayload } from './pending-execution-worker'
 
 type BackgroundExecutionJob = {
   id: string
@@ -19,7 +20,13 @@ export function createBackgroundExecutionTask(
     id: backgroundTaskIds[executionType],
     ...options,
     retry: { maxAttempts: 1 },
-    run: async (payload: { pendingExecutionId: string }, { signal }) => {
+    run: async (
+      payload: Pick<
+        PendingExecutionTaskPayload,
+        'pendingExecutionId' | 'billingScopeId' | 'billingScopeType'
+      >,
+      { signal }
+    ) => {
       if (!payload?.pendingExecutionId || typeof payload.pendingExecutionId !== 'string')
         throw new Error('Missing pending execution ID')
       const { executePendingExecutionRun } = await import('./pending-execution-worker')
@@ -36,14 +43,14 @@ export function createBackgroundExecutionTask(
       executionType === 'workflow'
         ? async ({ payload, ctx, runPromise }) => {
             await runPromise.catch(() => undefined)
-            const { finalizeCancelledPendingWorkflow, wakePendingExecution } = await import(
+            const { requestCancelledWorkflowSettlement } = await import(
               '@/lib/execution/pending-execution'
             )
-            const settled = await finalizeCancelledPendingWorkflow(
+            await requestCancelledWorkflowSettlement(
               payload.pendingExecutionId,
+              payload,
               Math.max(0, Date.now() - ctx.attempt.startedAt.getTime())
             )
-            if (settled) await wakePendingExecution(settled)
           }
         : undefined,
   })

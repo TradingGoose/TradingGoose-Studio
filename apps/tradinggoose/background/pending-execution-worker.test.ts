@@ -256,7 +256,7 @@ describe('pending execution worker', () => {
     expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
   })
 
-  it('wakes the queue after an aborted workflow returns with its owner already settled', async () => {
+  it('retains an aborted workflow for the cancellation hook to retire and wake its scope', async () => {
     const row = processingRow()
     const controller = new AbortController()
     mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
@@ -265,11 +265,9 @@ describe('pending execution worker', () => {
       { pendingExecutionId: row.id, executionType: 'workflow' },
       controller.signal
     )
-    expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledExactlyOnceWith(row, { wake: false })
-    expect(mocks.wakePendingExecution).toHaveBeenCalledExactlyOnceWith(row)
-    expect(mocks.settlePendingExecutionOwner.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.wakePendingExecution.mock.invocationCallOrder[0]
-    )
+    expect(mocks.reconcileWorkflowCheckpointChildren).toHaveBeenCalledWith(row.id)
+    expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
+    expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
   })
 
   it.each(['document', 'monitor'] as const)(
@@ -351,7 +349,11 @@ describe('pending execution worker', () => {
     expect(mocks.triggerAndWait.mock.calls[1]).toEqual(mocks.triggerAndWait.mock.calls[0])
     expect(mocks.triggerAndWait).toHaveBeenCalledWith(
       'workflow-execution',
-      { pendingExecutionId: row.id },
+      {
+        pendingExecutionId: row.id,
+        billingScopeId: row.billingScopeId,
+        billingScopeType: row.billingScopeType,
+      },
       { idempotencyKey: `workflow-execution:${row.id}`, maxDuration: 2_147_483_647 }
     )
     expect(mocks.wakePendingExecution).toHaveBeenCalledOnce()
@@ -399,7 +401,11 @@ describe('pending execution worker', () => {
     })
     expect(mocks.triggerAndWait).toHaveBeenCalledWith(
       'workflow-execution',
-      { pendingExecutionId: 'pending-workflow-1' },
+      {
+        pendingExecutionId: 'pending-workflow-1',
+        billingScopeId: 'scope-1',
+        billingScopeType: 'user',
+      },
       { idempotencyKey: 'workflow-execution:pending-workflow-1', maxDuration: 45 }
     )
   })
@@ -486,7 +492,11 @@ describe('pending execution worker', () => {
       await runSupervisor(row.id, maxDuration)
       expect(mocks.triggerAndWait).toHaveBeenCalledExactlyOnceWith(
         'knowledge-process-document',
-        { pendingExecutionId: row.id },
+        {
+          pendingExecutionId: row.id,
+          billingScopeId: row.billingScopeId,
+          billingScopeType: row.billingScopeType,
+        },
         { idempotencyKey: `knowledge-process-document:${row.id}`, maxDuration }
       )
     }

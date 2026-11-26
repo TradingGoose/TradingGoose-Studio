@@ -1,7 +1,11 @@
 import { tasks } from '@trigger.dev/sdk'
 import type { createBackgroundExecutionTask } from '@/background/execution-job'
 import type { copilotExecutionTask } from '@/background/tasks/copilot-execution'
-import type { PendingExecutionPayload, PendingExecutionType } from './pending-execution'
+import type {
+  PendingExecutionClaim,
+  PendingExecutionPayload,
+  PendingExecutionType,
+} from './pending-execution'
 
 export const backgroundTaskIds = {
   workflow: 'workflow-execution',
@@ -19,13 +23,17 @@ export type BackgroundExecutionTaskPayload =
 type PendingTask = ReturnType<typeof createBackgroundExecutionTask>
 
 export function waitForBackgroundExecution(
-  job: { id: string; executionType: PendingExecutionType },
+  job: Pick<PendingExecutionClaim, 'id' | 'executionType' | 'billingScopeId' | 'billingScopeType'>,
   maxDuration?: number
 ) {
   const taskId = backgroundTaskIds[job.executionType]
   return tasks.triggerAndWait<PendingTask>(
     taskId,
-    { pendingExecutionId: job.id },
+    {
+      pendingExecutionId: job.id,
+      billingScopeId: job.billingScopeId,
+      billingScopeType: job.billingScopeType,
+    },
     { idempotencyKey: `${taskId}:${job.id}`, maxDuration }
   )
 }

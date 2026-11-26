@@ -43,10 +43,11 @@ describe('shared background dispatch', () => {
   ] as const)(
     'passes the admitted %s ID and tier duration to its own task',
     (executionType, taskId) => {
-      waitForBackgroundExecution({ id: 'row', executionType }, 1800)
+      const scope = { billingScopeId: 'scope', billingScopeType: 'user' }
+      waitForBackgroundExecution({ id: 'row', executionType, ...scope }, 1800)
       expect(m.triggerAndWait).toHaveBeenCalledWith(
         taskId,
-        { pendingExecutionId: 'row' },
+        { pendingExecutionId: 'row', ...scope },
         { idempotencyKey: `${taskId}:row`, maxDuration: 1800 }
       )
     }
