@@ -790,40 +790,45 @@ export async function finalizeCancelledPendingWorkflow(
   }
 }
 
-async function hasClosedWorkloadEvent(
+async function hasWorkflowSettlementReceipt(
   workload: { id: string; status: string },
+  pendingExecutionId: string,
   signal?: AbortSignal
-) {
-  const base = process.env.TRIGGER_API_URL || 'https://api.trigger.dev'
-  const read = async (resource: 'trace' | 'events') => {
-    const response = await fetch(
-      new URL(`/api/v1/runs/${encodeURIComponent(workload.id)}/${resource}`, base),
-      {
-        headers: { Authorization: `Bearer ${env.TRIGGER_SECRET_KEY}` },
-        cache: 'no-store',
-        redirect: 'error',
-        signal,
-      }
+): Promise<boolean> {
+  // Trigger can finalize CANCELED on heartbeat expiry while the workload is still executing.
+  if (workload.status === 'CANCELED') return false
+  if (workload.status === 'COMPLETED') {
+    const run = await runs.retrieve(workload.id)
+    return (
+      run.id === workload.id &&
+      run.taskIdentifier === backgroundTaskIds.workflow &&
+      run.status === 'COMPLETED' &&
+      run.output?.success === true &&
+      run.output.pendingExecutionId === pendingExecutionId
     )
-    if (response.status === 404) return null
-    if (!response.ok)
-      throw new Error(`Trigger workload ${resource} returned HTTP ${response.status}`)
-    return response.json()
   }
-  const [trace, events] = await Promise.all([read('trace'), read('events')])
-  // A supervisor can cancel the trace before the worker acknowledges. Only the run's own
-  // root event from the run-scoped events endpoint proves its workload has terminated.
-  const root = trace?.trace?.rootSpan
+  const base = process.env.TRIGGER_API_URL || 'https://api.trigger.dev'
+  const response = await fetch(
+    new URL(`/api/v1/runs/${encodeURIComponent(workload.id)}/result`, base),
+    {
+      headers: { Authorization: `Bearer ${env.TRIGGER_SECRET_KEY}` },
+      cache: 'no-store',
+      redirect: 'error',
+      signal,
+    }
+  )
+  if (response.status === 404) return false
+  if (!response.ok) throw new Error(`Trigger workload result returned HTTP ${response.status}`)
+  const result = await response.json()
+  if (result?.id !== workload.id || result.taskIdentifier !== backgroundTaskIds.workflow)
+    return false
+  // These raw worker errors are emitted after the task process exits. A stall can also report OOM.
   return (
-    root?.runId === workload.id &&
-    typeof root.id === 'string' &&
-    events?.events.some(
-      (event: { runId: string; spanId: string; isPartial: boolean; isCancelled: boolean }) =>
-        event.runId === workload.id &&
-        event.spanId === root.id &&
-        event.isPartial === false &&
-        (workload.status !== 'CANCELED' || event.isCancelled === true)
-    )
+    result.ok === false &&
+    result.error?.type === 'INTERNAL_ERROR' &&
+    (result.error.code === 'TASK_PROCESS_SIGTERM' ||
+      result.error.code === 'TASK_PROCESS_MAYBE_OOM_KILLED' ||
+      result.error.code === 'GRACEFUL_EXIT_TIMEOUT')
   )
 }
 
@@ -878,7 +883,10 @@ async function reconcileProcessingPendingExecution(
     if (!workloads?.length || workloads.some((child) => !child.isCompleted)) return false
     for (const child of workloads) {
       if (child.startedAt) {
-        if (row.executionType !== 'workflow' || !(await hasClosedWorkloadEvent(child, stopSignal)))
+        if (
+          row.executionType !== 'workflow' ||
+          !(await hasWorkflowSettlementReceipt(child, row.id, stopSignal))
+        )
           return false
       } else if (child.status !== 'CANCELED') return false
     }
