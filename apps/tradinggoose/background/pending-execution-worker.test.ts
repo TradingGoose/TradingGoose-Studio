@@ -466,7 +466,7 @@ describe('pending execution worker', () => {
     }
   )
 
-  it('records document failure before releasing capacity', async () => {
+  it('wakes capacity only after document failure cleanup commits', async () => {
     const row = processingRow({
       id: 'pending-document-1',
       executionType: 'document',
@@ -475,16 +475,28 @@ describe('pending execution worker', () => {
       payload: { documentId: 'document-1' },
     })
     mocks.getProcessingPendingExecution.mockResolvedValue(row)
-    mocks.triggerAndWait.mockResolvedValueOnce({
+    mocks.triggerAndWait.mockResolvedValue({
       ok: false,
       error: new Error('Execution failed'),
     })
-    await expect(runSupervisor(row.id)).rejects.toThrow('Execution failed')
+    mocks.failDocumentAttempt.mockRejectedValueOnce(new Error('Retirement failed'))
+    await expect(runSupervisor(row.id)).rejects.toThrow('Retirement failed')
+    expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
+
+    let commit!: () => void
+    mocks.failDocumentAttempt.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        commit = () => resolve(true)
+      })
+    )
+    const settled = expect(runSupervisor(row.id)).rejects.toThrow('Execution failed')
+    await vi.waitFor(() => expect(mocks.failDocumentAttempt).toHaveBeenCalledTimes(2))
+    expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
+    commit()
+    await settled
+    expect(mocks.wakePendingExecution).toHaveBeenCalledOnce()
     expect(mocks.failDocumentAttempt).toHaveBeenCalledWith({ id: row.id }, 'Execution failed')
     expect(mocks.settlePendingExecutionOwner).not.toHaveBeenCalled()
-    expect(mocks.failDocumentAttempt.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.wakePendingExecution.mock.invocationCallOrder[0]
-    )
     expect(mocks.recoverWorkflowCheckpointSegment).not.toHaveBeenCalled()
     expect(mocks.loggingStart).not.toHaveBeenCalled()
     expect(mocks.listChildPendingWorkflowExecutions).not.toHaveBeenCalled()

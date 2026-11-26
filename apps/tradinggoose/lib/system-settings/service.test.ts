@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { type CopilotSettings, DEFAULT_COPILOT_SETTINGS } from '@/lib/copilot/settings'
+import { recoverInterruptedLocalDocuments } from '@/lib/knowledge/documents/claim'
 
 const {
   mockEq,
@@ -263,6 +264,7 @@ describe('system settings service', () => {
       TriggerExecutionBusyError
     )
 
+    expect(recoverInterruptedLocalDocuments).toHaveBeenCalledBefore(mockTransactionExecute)
     expect(mockTransactionExecute).toHaveBeenCalledOnce()
     expect(mockInsert).not.toHaveBeenCalled()
   })
