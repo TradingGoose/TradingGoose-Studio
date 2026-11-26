@@ -94,6 +94,7 @@ const nextConfig: NextConfig = {
     'playwright-core',
     'playwright',
     '@browserbasehq/stagehand',
+    '@mastra/core',
     'postgres',
     'yjs',
   ],
