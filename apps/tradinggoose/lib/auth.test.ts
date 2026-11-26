@@ -23,6 +23,7 @@ const { tables, resolveDefinitions, registerClient, origin } = vi.hoisted(() => 
       account: [],
       session: [],
       verification: [],
+      organization: [],
       member: [],
       invitation: [],
       ssoProvider: [],
@@ -310,7 +311,7 @@ describe('managed OAuth through the auth handler', () => {
   })
 })
 
-describe('SSO domain verification access', () => {
+describe('Organization and SSO access', () => {
   beforeEach(() => {
     for (const table of Object.keys(tables)) tables[table] = []
   })
@@ -319,6 +320,28 @@ describe('SSO domain verification access', () => {
     vi.mocked(getBillingGateState).mockReset()
     vi.mocked(validateSeatAvailability).mockReset()
     vi.unstubAllGlobals()
+  })
+
+  it('refuses organization creation after another membership is admitted and creates its owner together otherwise', async () => {
+    vi.mocked(getBillingGateState).mockResolvedValue({
+      billingEnabled: true,
+      stripeConfigured: true,
+    })
+    const create = (cookie = '') =>
+      request('/organization/create', { name: 'Example', slug: 'example' }, cookie)
+    expect((await create()).status).toBe(401)
+    const cookie = await signIn('candidate')
+    tables.member.push({ userId: 'candidate', organizationId: 'first' })
+    expect((await create(cookie)).status).toBe(403)
+    expect(tables.organization).toHaveLength(0)
+    tables.member.length = 0
+    const created = await create(cookie)
+    expect(created.status).toBe(200)
+    const { id } = await created.json()
+    expect(tables.organization).toMatchObject([{ id, slug: 'example' }])
+    expect(tables.member).toMatchObject([
+      { organizationId: id, userId: 'candidate', role: 'owner' },
+    ])
   })
 
   it('reserves managed OAuth IDs on the native SSO registration endpoint', async () => {
