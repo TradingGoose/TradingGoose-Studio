@@ -88,16 +88,17 @@ describe('editWorkflowBlockServerTool', () => {
   })
 
   it('preserves the ordinary block edit contract', async () => {
-    const result = await editWorkflowBlockServerTool.execute(
-      {
-        entityId: 'wf-1',
-        blockId: 'fn1',
-        blockType: 'function',
-        name: 'Compute Indicators',
-        subBlocks: { code: 'return { rsi: 50 }' },
-      },
-      { userId: 'user-1', accessLevel: 'limited' }
-    )
+    const args = {
+      entityId: 'wf-1',
+      blockId: 'fn1',
+      blockType: 'function',
+      name: 'Compute Indicators',
+      subBlocks: { code: 'return { rsi: 50 }' },
+    }
+    const result = await editWorkflowBlockServerTool.execute(args, {
+      userId: 'user-1',
+      accessLevel: 'limited',
+    })
     expect(result.workflowState.blocks.fn1.name).toBe('Compute Indicators')
     expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return { rsi: 50 }')
     expect(result.workflowState.edges).toEqual(current.edges)
@@ -108,6 +109,18 @@ describe('editWorkflowBlockServerTool', () => {
       'wf-1',
       { userId: 'user-1', accessLevel: 'limited' },
       'write'
+    )
+    await editWorkflowBlockServerTool.execute(args, {
+      userId: 'user-1',
+      accessLevel: 'full',
+      acceptedReviewBaseStateHash: result.reviewBaseStateHash,
+    })
+    expect(mockApply).toHaveBeenCalledExactlyOnceWith(
+      'wf-1',
+      'user-1',
+      result.workflowState,
+      {},
+      result.reviewBaseStateHash
     )
   })
 
@@ -261,7 +274,13 @@ describe('editWorkflowBlockServerTool', () => {
       name: 'Updated Research',
       enabled: false,
     })
-    expect(mockApply).toHaveBeenCalledExactlyOnceWith('wf-1', 'user-1', result.workflowState, {})
+    expect(mockApply).toHaveBeenCalledExactlyOnceWith(
+      'wf-1',
+      'user-1',
+      result.workflowState,
+      {},
+      undefined
+    )
   })
 
   it.each([

@@ -118,6 +118,21 @@ describe('editWorkflowServerTool', () => {
       { userId: 'user-1', accessLevel: 'limited' },
       'write'
     )
+    await editWorkflowServerTool.execute(
+      { entityId: 'wf-1', entityDocument: result.entityDocument },
+      {
+        userId: 'user-1',
+        accessLevel: 'full',
+        acceptedReviewBaseStateHash: result.reviewBaseStateHash,
+      }
+    )
+    expect(mockApplyWorkflowState).toHaveBeenCalledExactlyOnceWith(
+      'wf-1',
+      'user-1',
+      expect.anything(),
+      {},
+      result.reviewBaseStateHash
+    )
   })
 
   it('returns a valid applied result after full-access execution', async () => {

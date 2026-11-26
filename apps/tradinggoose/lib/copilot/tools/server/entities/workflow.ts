@@ -398,6 +398,8 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       context,
       'write'
     )
+    const currentVariablesBaseHash = hashServerToolReviewBase(variables)
+    assertAcceptedServerToolReviewBase(context, currentVariablesBaseHash)
     const nextVariables = buildWorkflowVariablesFromDocument({
       workflowId,
       entityDocument: args.entityDocument,
@@ -419,7 +421,6 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       )
     }
     const nextDocument = serializeWorkflowVariableDocument(nextVariables)
-    const currentVariablesBaseHash = hashServerToolReviewBase(variables)
 
     if (shouldStageServerToolMutationForReview(context)) {
       const currentDocument = serializeWorkflowVariableDocument(variables)
@@ -443,9 +444,9 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       }
     }
 
-    assertAcceptedServerToolReviewBase(context, currentVariablesBaseHash)
     await applyWorkflowPatchInSocketServer(workflowId, requireUserId(context), {
       variables: nextVariables,
+      expectedReviewBaseStateHash: context?.acceptedReviewBaseStateHash,
     })
     return {
       success: true,

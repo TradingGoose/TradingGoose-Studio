@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { throwStaleServerToolReview } from '@/lib/copilot/tools/server/base-tool'
 
 const { mockApplyWorkflowPatchInSocketServer, mockEnsureUniqueBlockIds, mockEnsureUniqueEdgeIds } =
   vi.hoisted(() => {
@@ -83,7 +84,8 @@ describe('applyWorkflowState', () => {
         loops: {},
         parallels: {},
       },
-      {}
+      {},
+      'accepted-workflow-hash'
     )
 
     expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledWith(
@@ -96,6 +98,7 @@ describe('applyWorkflowState', () => {
           },
         }),
         variables: {},
+        expectedReviewBaseStateHash: 'accepted-workflow-hash',
       })
     )
   })
@@ -107,6 +110,10 @@ describe('applyWorkflowState', () => {
 
     await expect(
       applyWorkflowState('workflow-1', 'user-1', emptyWorkflowState, {})
-    ).rejects.toThrow('fetch failed')
+    ).rejects.toMatchObject({ code: 'WORKFLOW_REALTIME_REQUIRED', message: 'fetch failed' })
+    mockApplyWorkflowPatchInSocketServer.mockImplementationOnce(throwStaleServerToolReview)
+    await expect(
+      applyWorkflowState('workflow-1', 'user-1', emptyWorkflowState, {}, 'reviewed')
+    ).rejects.toMatchObject({ status: 409, code: 'stale_server_tool_review' })
   })
 })

@@ -41,7 +41,8 @@ interface YjsSnapshotResponse {
   descriptor: ReviewTargetDescriptor
 }
 
-type WorkflowPatch = {
+export type WorkflowPatch = {
+  expectedReviewBaseStateHash?: string
   workflowState?: WorkflowSnapshot
   variables?: Record<string, any>
 }
@@ -196,7 +197,7 @@ export async function applyWorkflowPatchInSocketServer(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
     patch,
     actorUserId
-  )
+  ).catch(rethrowStructuredBridgeError)
 }
 
 export async function applyEntityStateInSocketServer(

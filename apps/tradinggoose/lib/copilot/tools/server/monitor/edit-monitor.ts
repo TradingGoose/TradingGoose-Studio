@@ -5,9 +5,7 @@ import {
   serializeMonitorDocument,
 } from '@/lib/copilot/monitor/monitor-documents'
 import {
-  assertAcceptedServerToolReviewBase,
   type BaseServerTool,
-  hashServerToolReviewBase,
   shouldStageServerToolMutationForReview,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
@@ -20,7 +18,7 @@ import {
 } from '@/lib/copilot/tools/server/monitor/shared'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getMonitorRowById, toMonitorRecord } from '@/app/api/monitors/shared'
-import { updateMonitorForUser } from '@/app/api/monitors/update-service'
+import { getMonitorReviewBaseHash, updateMonitorForUser } from '@/app/api/monitors/update-service'
 
 const logger = createLogger('EditMonitorServerTool')
 
@@ -53,11 +51,10 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
 
     const nextFields = parseMonitorDocument(args.monitorDocument)
     const nextListing = 'listing' in nextFields ? nextFields.listing : undefined
-    const currentMonitor = (await toMonitorRecord(row.webhook)) as MonitorRecord
-    const currentDocument = serializeMonitorDocument(toMonitorDocumentFields(currentMonitor))
-    const reviewBaseStateHash = hashServerToolReviewBase(currentDocument)
-
     if (shouldStageServerToolMutationForReview(context)) {
+      const currentDocument = serializeMonitorDocument(
+        toMonitorDocumentFields(toMonitorRecord(row.webhook) as MonitorRecord)
+      )
       const nextDocument = serializeMonitorDocument(nextFields)
       const resolvedListing = await resolveMonitorListingPresentation(nextListing, context?.signal)
       return {
@@ -69,7 +66,7 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
         monitorName: readMonitorDocumentName(nextFields, resolvedListing),
         documentFormat: MONITOR_DOCUMENT_FORMAT,
         monitorDocument: nextDocument,
-        reviewBaseStateHash,
+        reviewBaseStateHash: getMonitorReviewBaseHash(row.webhook),
         preview: {
           documentDiff: {
             before: currentDocument,
@@ -79,7 +76,6 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
       }
     }
 
-    assertAcceptedServerToolReviewBase(context, reviewBaseStateHash)
     const updatedMonitor = (await updateMonitorForUser({
       monitorId: args.monitorId,
       userId,
@@ -87,6 +83,7 @@ export const editMonitorServerTool: BaseServerTool<EditMonitorArgs> = {
         ...nextFields,
         workspaceId: row.workflow.workspaceId,
       },
+      acceptedReviewBaseStateHash: context?.acceptedReviewBaseStateHash,
       requestId: crypto.randomUUID(),
       logger,
     })) as MonitorRecord

@@ -22,7 +22,14 @@ import {
   seedDashboardWidgetSession,
 } from '@/lib/yjs/dashboard-layout-session'
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
+import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { ReviewTargetBootstrapError } from '@/lib/yjs/server/bootstrap-review-target'
+import {
+  getVariablesSnapshot,
+  readWorkflowSnapshot,
+  setVariables,
+  setWorkflowState,
+} from '@/lib/yjs/workflow-session'
 import type { DocumentAdmission } from '@/socket-server/yjs/upstream-utils'
 import type { DashboardLayoutProjectionContent } from '@/widgets/layout-document'
 import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
@@ -30,6 +37,7 @@ import { createHttpHandler } from './http'
 
 const mocks = vi.hoisted(() => ({
   saveDashboard: vi.fn(),
+  saveWorkflow: vi.fn(),
   saveEntity: vi.fn(),
   initializeTarget: vi.fn(),
   refreshActiveEntityList: vi.fn(),
@@ -47,9 +55,12 @@ vi.mock('@/lib/env', async (importOriginal) => ({
   ...(await importOriginal()),
   env: { INTERNAL_API_SECRET: 'internal-secret' },
 }))
-vi.mock('@/lib/workflows/db-helpers', () => ({ saveWorkflowYjsDocToDb: vi.fn() }))
-vi.mock('@/lib/yjs/workflow-session', () => ({ replaceWorkflowDocumentState: vi.fn() }))
-vi.mock('@/lib/yjs/workflow-variables', () => ({ replaceWorkflowVariables: vi.fn() }))
+vi.mock('@/lib/workflows/db-helpers', async (original) => ({
+  ...(await original<typeof import('@/lib/workflows/db-helpers')>()),
+  ensureUniqueBlockIds: async (_id: string, state: unknown) => state,
+  ensureUniqueEdgeIds: async (_id: string, state: unknown) => state,
+  saveWorkflowYjsDocToDb: mocks.saveWorkflow,
+}))
 vi.mock('@/socket-server/monitor-runtime-lock', () => ({
   getMonitorRuntimeLockHealth: () => ({ degraded: false }),
 }))
@@ -400,6 +411,80 @@ describe('socket internal HTTP Yjs routes', () => {
     expect(missingActor).toMatchObject({ status: 400, body: { error: 'Acting user is required' } })
     expect(mocks.acquireDocument).not.toHaveBeenCalled()
   })
+
+  it('compares approved variables with the acquired document before replacing them', async () => {
+    const doc = new Y.Doc()
+    documents.set('workflow-1', doc)
+    const variables = (value: number) => ({
+      risk: { id: 'risk', workflowId: 'workflow-1', name: 'riskLimit', type: 'number', value },
+    })
+    const apply = (value: number, expectedReviewBaseStateHash?: string) =>
+      invoke('POST', '/internal/yjs/workflows/workflow-1/apply-state', {
+        variables: variables(value),
+        expectedReviewBaseStateHash,
+      })
+    setVariables(doc, variables(10))
+    const reviewed = hashServerToolReviewBase(getVariablesSnapshot(doc))
+    await expect(apply(20)).resolves.toMatchObject({ status: 200 })
+    mocks.saveWorkflow.mockClear()
+    await expect(apply(11, reviewed)).resolves.toMatchObject({
+      status: 409,
+      body: { code: 'stale_server_tool_review', retryable: true },
+    })
+    expect(getVariablesSnapshot(doc)).toEqual(variables(20))
+    expect(mocks.saveWorkflow).not.toHaveBeenCalled()
+
+    const fresh = hashServerToolReviewBase(getVariablesSnapshot(doc))
+    doc.getMap('meta').set('description', 'independent change')
+    await expect(apply(11, fresh)).resolves.toMatchObject({ status: 200 })
+    expect(getVariablesSnapshot(doc)).toEqual(variables(11))
+    expect(doc.getMap('meta').get('description')).toBe('independent change')
+    expect(mocks.saveWorkflow).toHaveBeenCalledOnce()
+  })
+
+  it.each(['graph', 'variables'])(
+    'preserves a concurrent %s edit during a full replacement',
+    async (change) => {
+      const doc = new Y.Doc()
+      documents.set('workflow-1', doc)
+      const current = () => ({ ...readWorkflowSnapshot(doc), variables: getVariablesSnapshot(doc) })
+      const reviewed = current()
+      const apply = (base: ReturnType<typeof current>) =>
+        applyWorkflowState(
+          'workflow-1',
+          'user-1',
+          { ...reviewed, direction: 'TD' },
+          base.variables,
+          hashServerToolReviewBase(base)
+        )
+      const transfer = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+        const { status, body } = await invoke(
+          'POST',
+          new URL(String(url)).pathname,
+          JSON.parse(String(init?.body)),
+          new Headers(init?.headers).get('x-yjs-actor-user-id')
+        )
+        return Response.json(body, { status })
+      })
+      if (change === 'graph') setWorkflowState(doc, { ...reviewed, direction: 'LR' })
+      else setVariables(doc, { risk: { value: 20 } })
+      const edited = current()
+      expect(edited).not.toEqual(reviewed)
+      try {
+        await expect(apply(reviewed)).rejects.toMatchObject({
+          status: 409,
+          code: 'stale_server_tool_review',
+        })
+        expect(current()).toEqual(edited)
+        expect(mocks.saveWorkflow).not.toHaveBeenCalled()
+        await apply(edited)
+        expect(current()).toMatchObject({ direction: 'TD', variables: edited.variables })
+        expect(mocks.saveWorkflow).toHaveBeenCalledOnce()
+      } finally {
+        transfer.mockRestore()
+      }
+    }
+  )
 
   it('replays the committed entity result before checking newer live state', async () => {
     const doc = new Y.Doc()

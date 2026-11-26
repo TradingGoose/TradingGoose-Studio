@@ -206,6 +206,28 @@ describe('workflow server tools', () => {
     expect(mockApplyWorkflowState).not.toHaveBeenCalled()
   })
 
+  it('sends the saved approval base with the variable-only patch', async () => {
+    const args = {
+      entityId: 'wf-1',
+      entityDocument: JSON.stringify({ variables: [] }),
+      removedVariableIds: ['var-1'],
+    }
+    const { reviewBaseStateHash } = await editWorkflowVariableServerTool.execute(args, {
+      userId: 'user-1',
+      accessLevel: 'limited',
+    })
+    expect(reviewBaseStateHash).toMatch(/^[a-f0-9]{64}$/)
+    await editWorkflowVariableServerTool.execute(args, {
+      userId: 'user-1',
+      accessLevel: 'full',
+      acceptedReviewBaseStateHash: reviewBaseStateHash,
+    })
+    expect(mockApplyWorkflowPatchInSocketServer).toHaveBeenCalledExactlyOnceWith('wf-1', 'user-1', {
+      variables: {},
+      expectedReviewBaseStateHash: reviewBaseStateHash,
+    })
+  })
+
   it('rejects variable replacements without stable ids or removal intent', async () => {
     await expect(
       editWorkflowVariableServerTool.execute(
