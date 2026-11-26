@@ -212,8 +212,10 @@ import {
   isWorkflowPendingExecution,
   listChildPendingWorkflowExecutions,
   type PendingExecutionClaim,
+  reconcileStoppedWorkflowOwner,
   settlePendingExecutionOwner,
   wakePendingExecution,
+  withPendingWorkflowExecution,
 } from './pending-execution'
 
 const TIMEOUT_NONE = 2_147_483_647
@@ -768,25 +770,32 @@ describe('processing-row reconciliation', () => {
     triggerFunction: 'triggerAndWait',
   }
 
-  it.each(['supervisor', 'child'])('releases a stopped slot before %s startup', async (stage) => {
+  const stages = [
+    'before supervisor startup',
+    'before child startup',
+    'after forced child termination',
+  ]
+  it.each(stages)('releases a stopped slot %s', async (stage) => {
     const stopped = createPendingRow({
       id: 'stopped',
       status: 'processing',
       processingStartedAt: new Date(),
-      payload: { cancelRequestedAt: new Date().toISOString() },
+      payload:
+        stage === 'after forced child termination'
+          ? {}
+          : { cancelRequestedAt: new Date().toISOString() },
     })
     const active = [stopped]
     const next = createPendingRow()
     resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({ concurrencyLimit: 1 })
-    mockClaimableRow(next)
     txSelectLimitMock.mockResolvedValue([next])
     txSelectRowsMock.mockImplementation(async () => active)
     selectChain.orderBy.mockResolvedValueOnce(active)
     runsListMock.mockResolvedValue({
       data: [
-        stage === 'child'
-          ? startedSupervisor
-          : createTriggerRun('CANCELED', true, { durationMs: 0 }),
+        stage === 'before supervisor startup'
+          ? createTriggerRun('CANCELED', true, { durationMs: 0 })
+          : startedSupervisor,
       ],
     })
     finalizePendingExecutionFailureMock.mockImplementationOnce((row) =>
@@ -794,9 +803,27 @@ describe('processing-row reconciliation', () => {
     )
     deleteReturningMock.mockImplementationOnce(async () => active.splice(0))
 
-    if (stage === 'child') {
+    if (stage !== 'before supervisor startup') {
+      const forced = stage === 'after forced child termination'
+      const child = forced
+        ? { ...cancelledChild, startedAt: new Date(), finishedAt: new Date() }
+        : cancelledChild
+      let workerAlive = true
+      if (forced) {
+        selectLimitMock.mockImplementation(async () => active)
+        txExecuteMock.mockImplementation(async (query) => {
+          if (query.strings.join('').includes('pg_try_advisory_xact_lock')) {
+            expect(
+              query.values.flatMap((value: { values?: unknown[] }) => value?.values ?? value)
+            ).toContain(stopped.id)
+            return [{ acquired: !workerAlive }]
+          }
+        })
+      }
       runsRetrieveMock.mockResolvedValueOnce({
-        relatedRuns: { children: [{ ...cancelledChild, status: 'QUEUED', isCompleted: false }] },
+        relatedRuns: {
+          children: [forced ? child : { ...child, status: 'QUEUED', isCompleted: false }],
+        },
       })
       await expect(dispatchNextPendingExecution(userBillingScope)).resolves.toEqual({
         status: 'capacity_blocked',
@@ -804,9 +831,15 @@ describe('processing-row reconciliation', () => {
       })
       expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
       expect(deleteWhereMock).not.toHaveBeenCalled()
+      if (forced) {
+        stopped.payload.cancelRequestedAt = new Date().toISOString()
+        updateReturningMock.mockResolvedValueOnce([stopped])
+      }
+      workerAlive = false
       selectChain.orderBy.mockResolvedValueOnce(active)
-      runsRetrieveMock.mockResolvedValueOnce({ relatedRuns: { children: [cancelledChild] } })
+      runsRetrieveMock.mockResolvedValueOnce({ relatedRuns: { children: [child] } })
     }
+    mockClaimableRow(next)
     await expect(dispatchNextPendingExecution(userBillingScope)).resolves.toEqual({
       status: 'dispatched',
       pendingExecutionId: next.id,
@@ -826,7 +859,7 @@ describe('processing-row reconciliation', () => {
       expect.anything()
     )
     expect(runsRetrieveMock.mock.calls).toEqual(
-      stage === 'child' ? [[startedSupervisor.id], [startedSupervisor.id]] : []
+      stage === 'before supervisor startup' ? [] : [[startedSupervisor.id], [startedSupervisor.id]]
     )
     selectChain.where.mockResolvedValueOnce(active)
     readWorkflowCheckpointChildrenMock.mockResolvedValueOnce([])
@@ -840,6 +873,176 @@ describe('processing-row reconciliation', () => {
       { status: 'cancelling', pendingExecutionId: stopped.id },
       AbortSignal.timeout(2000)
     )
+  })
+
+  it('recovers a terminated workflow from an outstanding Stop without another admission', async () => {
+    const row = createPendingRow({
+      status: 'processing',
+      payload: { cancelRequestedAt: new Date().toISOString() },
+    })
+    const active = [row]
+    let release!: () => void
+    let terminate!: (error: Error) => void
+    const held = new Promise<void>((resolve, reject) => {
+      release = resolve
+      terminate = reject
+    })
+    let workerKey: unknown
+    let workerExited = false
+    const tryLock = vi.fn((key) => {
+      expect(key).toEqual(workerKey)
+      return [{ acquired: workerExited }]
+    })
+    txExecuteMock.mockImplementation(async ({ strings, values }) => {
+      const statement = strings.join('')
+      if (statement.includes('pg_advisory_xact_lock_shared')) workerKey = values[0]
+      if (statement.includes('pg_try_advisory_xact_lock')) return tryLock(values[0])
+    })
+    const workload = withPendingWorkflowExecution(row.id, () => held).finally(() => {
+      workerExited = true
+    })
+    await vi.waitFor(() =>
+      expect(workerKey).toMatchObject({ values: [expect.any(Number), row.id] })
+    )
+    const ownerReads = vi.fn(() =>
+      active.map(({ id, billingScopeType }) => ({ id, billingScopeType, cancelling: true }))
+    )
+    selectChain.where.mockImplementation((filter) =>
+      filter.args?.[1]?.args?.[0]?.field === 'pendingExecution.id'
+        ? Promise.resolve(ownerReads())
+        : selectChain
+    )
+    selectLimitMock.mockImplementation(async () => active)
+    updateReturningMock.mockResolvedValueOnce([row])
+    runsListMock
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValue({ data: [startedSupervisor] })
+    runsRetrieveMock.mockResolvedValue({
+      relatedRuns: { children: [{ ...cancelledChild, startedAt: new Date() }] },
+    })
+    finalizePendingExecutionFailureMock.mockImplementationOnce((owner) =>
+      settlePendingExecutionOwner(owner, { wake: false })
+    )
+    deleteReturningMock.mockImplementationOnce(async () => active.splice(0))
+    readWorkflowCheckpointChildrenMock.mockResolvedValue([])
+    const acknowledged = vi.fn()
+    try {
+      const stop = waitForPendingWorkflowExecutionDrain(
+        {
+          pendingExecutionId: row.id,
+          userId: row.userId,
+          workspaceId: row.workspaceId!,
+          workflowId: row.workflowId!,
+        },
+        { status: 'cancelling', pendingExecutionId: row.id },
+        AbortSignal.timeout(5000)
+      ).then(acknowledged)
+      await vi.waitFor(() => expect(tryLock).toHaveBeenCalled(), { timeout: 2000 })
+      expect(acknowledged).not.toHaveBeenCalled()
+      expect(updateChain.set).not.toHaveBeenCalled()
+      expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
+      expect(triggerMock).not.toHaveBeenCalled()
+      terminate(new Error('worker terminated'))
+      await expect(workload).rejects.toThrow('worker terminated')
+      await stop
+      expect(acknowledged).toHaveBeenCalledOnce()
+      expect(updateChain.where).toHaveBeenCalledWith({
+        args: [
+          { field: 'pendingExecution.id', value: row.id },
+          { field: 'pendingExecution.status', value: 'processing' },
+          { field: 'pendingExecution.executionType', value: 'workflow' },
+          { field: 'pendingExecution.billingScopeType', value: 'local', operator: 'ne' },
+        ],
+      })
+      expect(finalizePendingExecutionFailureMock).toHaveBeenCalledExactlyOnceWith(
+        row,
+        'Workflow execution was cancelled',
+        0
+      )
+      expect(active).toHaveLength(0)
+      expect(triggerMock).not.toHaveBeenCalled()
+    } finally {
+      release()
+      selectChain.where.mockReturnThis()
+    }
+  })
+
+  it('releases a completed parent when its stopped workflow-block child was forcibly terminated', async () => {
+    const cancelled = { cancelRequestedAt: new Date().toISOString() }
+    const parent = createPendingRow({
+      status: 'processing',
+      payload: { ...cancelled, ownerCompletedAt: new Date().toISOString() },
+    })
+    const child = createPendingRow({
+      id: 'child',
+      source: 'workflow_block',
+      status: 'processing',
+      payload: { ...cancelled, metadata: { parentPendingExecutionId: parent.id } },
+    })
+    selectLimitMock
+      .mockResolvedValueOnce([parent])
+      .mockResolvedValueOnce([child])
+      .mockResolvedValueOnce([parent])
+    selectChain.orderBy.mockResolvedValueOnce([child])
+    runsListMock
+      .mockResolvedValueOnce({ data: [createTriggerRun('COMPLETED', true)] })
+      .mockResolvedValueOnce({ data: [startedSupervisor] })
+    runsRetrieveMock.mockResolvedValueOnce({
+      relatedRuns: { children: [{ ...cancelledChild, startedAt: new Date() }] },
+    })
+    txExecuteMock.mockResolvedValueOnce([{ acquired: true }])
+    updateReturningMock.mockResolvedValueOnce([child])
+    deleteReturningMock
+      .mockResolvedValueOnce([{ parentPendingExecutionId: parent.id }])
+      .mockResolvedValueOnce([])
+    finalizePendingExecutionFailureMock.mockImplementationOnce((owner) =>
+      settlePendingExecutionOwner(owner, { wake: false })
+    )
+    await reconcileStoppedWorkflowOwner(parent.id, AbortSignal.timeout(2000))
+    expect(finalizePendingExecutionFailureMock).toHaveBeenCalledExactlyOnceWith(
+      child,
+      'Workflow execution was cancelled',
+      0
+    )
+    expect(deleteWhereMock.mock.calls.map(([id]) => id.value)).toEqual([child.id, parent.id])
+    expect(triggerMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps Stop retryable when Trigger discovery outlasts its deadline', async () => {
+    const row = createPendingRow({
+      status: 'processing',
+      payload: { cancelRequestedAt: new Date().toISOString() },
+    })
+    selectChain.where.mockResolvedValueOnce([
+      { id: row.id, billingScopeType: row.billingScopeType, cancelling: true },
+    ])
+    selectLimitMock.mockResolvedValueOnce([row])
+    let finishDiscovery!: (page: { data: (typeof startedSupervisor)[] }) => void
+    runsListMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishDiscovery = resolve
+      })
+    )
+    const controller = new AbortController()
+    const stop = waitForPendingWorkflowExecutionDrain(
+      {
+        pendingExecutionId: row.id,
+        userId: row.userId,
+        workflowId: row.workflowId!,
+        workspaceId: row.workspaceId!,
+      },
+      { status: 'cancelling', pendingExecutionId: row.id },
+      controller.signal
+    )
+    await vi.waitFor(() => expect(runsListMock).toHaveBeenCalledOnce())
+    controller.abort(new Error('Stop deadline'))
+    await expect(stop).rejects.toThrow('Stop deadline')
+    finishDiscovery({ data: [startedSupervisor] })
+    await Promise.resolve()
+    expect(runsRetrieveMock).not.toHaveBeenCalled()
+    expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
+    expect(updateChain.set).not.toHaveBeenCalled()
+    expect(triggerMock).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -862,7 +1065,7 @@ describe('processing-row reconciliation', () => {
       ],
     },
     { state: 'awaiting admission', run: undefined },
-  ])('retains a cancelling owner while $state', async ({ run, children }) => {
+  ])('retains a cancelling owner while $state', async ({ state, run, children }) => {
     const cancelled = createPendingRow({
       id: 'cancelled-1',
       status: 'processing',
@@ -872,6 +1075,8 @@ describe('processing-row reconciliation', () => {
     selectChain.orderBy.mockResolvedValueOnce([cancelled])
     runsListMock.mockResolvedValueOnce({ data: run ? [run] : [] })
     if (children) runsRetrieveMock.mockResolvedValueOnce({ relatedRuns: { children } })
+    if (state === 'awaiting worker acknowledgement')
+      txExecuteMock.mockResolvedValue([{ acquired: false }])
 
     await expect(dispatchNextPendingExecution(userBillingScope)).resolves.toEqual({
       status: 'empty',

@@ -1,4 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises'
+import { aborted } from 'node:util'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, or, sql } from 'drizzle-orm'
@@ -7,6 +8,8 @@ import {
   isPendingExecutionPayload,
   PENDING_EXECUTION_CANCELLATION_ERROR,
   PENDING_EXECUTION_LOCK_NAMESPACE,
+  pendingExecutionCancellationUpdate,
+  reconcileStoppedWorkflowOwner,
   settlePendingExecutionOwner,
 } from '@/lib/execution/pending-execution'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
@@ -75,10 +78,7 @@ export async function cancelPendingWorkflowExecution(
     )
     await cancelPendingExecutionDescendants(executionId)
   }
-  const cancellation = {
-    payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${new Date().toISOString()}::text)`,
-    updatedAt: new Date(),
-  }
+  const cancellation = pendingExecutionCancellationUpdate()
   let cancellationOwnerId: string | undefined
   const checkRowAccess = row?.status === 'processing' || Boolean(params.workflowId)
   if (row?.workflowId && checkRowAccess && !params.descendantCancellation) {
@@ -317,14 +317,24 @@ async function waitForWorkflowOwners(
     const remaining = await db
       .select({
         id: pendingExecution.id,
+        billingScopeType: pendingExecution.billingScopeType,
         cancelling: sql<boolean>`${pendingExecution.status} = 'processing' and ${pendingExecution.payload}->>'cancelRequestedAt' is not null`,
       })
       .from(pendingExecution)
       .where(owners)
     if (!remaining.length) return
     await authorizeChildWork?.()
-    for (const { id, cancelling } of remaining) {
-      if (signalled.has(id) || (target.descendantCancellation && cancelling)) continue
+    for (const { id, cancelling, billingScopeType } of remaining) {
+      if (signalled.has(id) || (target.descendantCancellation && cancelling)) {
+        if (cancelling && billingScopeType !== 'local') {
+          const recovery = reconcileStoppedWorkflowOwner(id, signal)
+          await Promise.race([
+            recovery,
+            aborted(signal, recovery).then(() => signal.throwIfAborted()),
+          ])
+        }
+        continue
+      }
       signal.throwIfAborted()
       const outcome = await cancelPendingWorkflowExecution({ ...target, pendingExecutionId: id })
       if (outcome.status === 'not_found')

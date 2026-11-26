@@ -12,6 +12,9 @@ vi.mock('@trigger.dev/sdk', () => ({
   defineConfig: (config: unknown) => config,
 }))
 vi.mock('@/lib/env', () => ({ env: {} }))
+vi.mock('@/lib/execution/pending-execution', () => ({
+  withPendingWorkflowExecution: (_id: string, execute: () => Promise<unknown>) => execute(),
+}))
 vi.mock('@/lib/copilot/agent/worker', () => {
   m.businessImports('copilot')
   return { executeCopilotJob: () => m.run('copilot') }

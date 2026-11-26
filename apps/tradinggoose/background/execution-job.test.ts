@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
   executeDocumentProcessingJob: vi.fn(),
   executeMonitorJob: vi.fn(),
   executePendingExecutionRun: vi.fn(),
+  finalizeCancelledPendingWorkflow: vi.fn(),
+  wakePendingExecution: vi.fn(),
+  withPendingWorkflowExecution: vi.fn((_id: string, run: () => Promise<unknown>) => run()),
   executeScheduleJob: vi.fn(),
   executeWebhookJob: vi.fn(),
   executeWorkflowJob: vi.fn(),
@@ -29,6 +32,11 @@ vi.mock('./monitor-execution', () => ({
 }))
 vi.mock('./pending-execution-worker', () => ({
   executePendingExecutionRun: mocks.executePendingExecutionRun,
+}))
+vi.mock('@/lib/execution/pending-execution', () => ({
+  finalizeCancelledPendingWorkflow: mocks.finalizeCancelledPendingWorkflow,
+  withPendingWorkflowExecution: mocks.withPendingWorkflowExecution,
+  wakePendingExecution: mocks.wakePendingExecution,
 }))
 
 vi.mock('./schedule-execution', () => ({
@@ -103,6 +111,40 @@ describe('background execution job', () => {
       { signal }
     )
     expect(mocks.executeCopilotJob).toHaveBeenCalledWith(payload, signal)
+  })
+
+  it('acknowledges Trigger cancellation only after the workflow workload drains', async () => {
+    const task = createBackgroundExecutionTask('workflow') as any
+    const payload = { pendingExecutionId: 'stopped' }
+    const scope = { billingScopeType: 'user', billingScopeId: 'scope' }
+    mocks.finalizeCancelledPendingWorkflow.mockResolvedValueOnce(scope)
+    let terminate!: (error: Error) => void
+    mocks.executePendingExecutionRun.mockReturnValueOnce(
+      new Promise<void>((_, reject) => {
+        terminate = reject
+      })
+    )
+    const controller = new AbortController()
+    const runPromise = task.run(payload, { signal: controller.signal })
+    await vi.waitFor(() => expect(mocks.executePendingExecutionRun).toHaveBeenCalledOnce())
+    const ctx = { attempt: { startedAt: new Date() } }
+    controller.abort()
+    const cancellation = task.onCancel({ payload, ctx, runPromise })
+    await Promise.resolve()
+    expect(mocks.finalizeCancelledPendingWorkflow).not.toHaveBeenCalled()
+    expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
+    terminate(new Error('aborted'))
+    await expect(runPromise).rejects.toThrow('aborted')
+    await cancellation
+    expect(mocks.withPendingWorkflowExecution).toHaveBeenCalledExactlyOnceWith(
+      'stopped',
+      expect.any(Function)
+    )
+    expect(mocks.finalizeCancelledPendingWorkflow).toHaveBeenCalledExactlyOnceWith(
+      'stopped',
+      expect.any(Number)
+    )
+    expect(mocks.wakePendingExecution).toHaveBeenCalledExactlyOnceWith(scope)
   })
 
   it('finalizes Copilot task failure and waits for cancellation drainage', async () => {

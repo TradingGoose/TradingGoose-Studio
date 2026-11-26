@@ -256,6 +256,22 @@ describe('pending execution worker', () => {
     expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
   })
 
+  it('wakes the queue after an aborted workflow returns with its owner already settled', async () => {
+    const row = processingRow()
+    const controller = new AbortController()
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    mocks.executeBackgroundExecution.mockImplementationOnce(async () => controller.abort())
+    await executePendingExecutionRun(
+      { pendingExecutionId: row.id, executionType: 'workflow' },
+      controller.signal
+    )
+    expect(mocks.settlePendingExecutionOwner).toHaveBeenCalledExactlyOnceWith(row, { wake: false })
+    expect(mocks.wakePendingExecution).toHaveBeenCalledExactlyOnceWith(row)
+    expect(mocks.settlePendingExecutionOwner.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.wakePendingExecution.mock.invocationCallOrder[0]
+    )
+  })
+
   it.each(['document', 'monitor'] as const)(
     'passes cancellation to %s without loading workflow checkpoint state',
     async (executionType) => {

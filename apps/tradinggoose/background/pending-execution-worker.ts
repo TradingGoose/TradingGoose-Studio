@@ -102,6 +102,8 @@ export async function executePendingExecutionRun(
     }
     if (row.executionType !== 'document') await settlePendingExecutionOwner(row, { wake: false })
   }
+  // A cancelled supervisor may never resume to wake its queue.
+  if (row.executionType === 'workflow' && signal?.aborted) await wakePendingExecution(row)
   return { success: true, pendingExecutionId: row.id }
 }
 

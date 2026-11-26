@@ -18,6 +18,7 @@ import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/li
 
 export const PENDING_EXECUTION_TASK_ID = 'pending-execution'
 export const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
+const WORKFLOW_WORKLOAD_LOCK_NAMESPACE = 29_405
 const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
 export const PENDING_EXECUTION_TIME_LIMIT_ERROR = 'Workflow execution time limit exceeded'
 export const PENDING_EXECUTION_CANCELLATION_ERROR = 'Workflow execution was cancelled'
@@ -697,17 +698,83 @@ async function releasedPendingExecutionCapacity(capacityOwnerId: string) {
   return (await getProcessingPendingExecution(capacityOwnerId)) === null
 }
 
+function workflowWorkloadLock(pendingExecutionId: string) {
+  return sql`${WORKFLOW_WORKLOAD_LOCK_NAMESPACE}, hashtext(${pendingExecutionId})`
+}
+
+export function pendingExecutionCancellationUpdate() {
+  const now = new Date()
+  return {
+    payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${now.toISOString()}::text)`,
+    updatedAt: now,
+  }
+}
+
+export function withPendingWorkflowExecution<T>(
+  pendingExecutionId: string,
+  execute: () => Promise<T>
+) {
+  return db.transaction(async (tx) => {
+    // The Trigger process holds this lock through its effects. Process exit releases it too.
+    await tx.execute(sql`select
+      set_config('idle_in_transaction_session_timeout', '0', true),
+      set_config('transaction_timeout', '0', true),
+      pg_advisory_xact_lock_shared(${workflowWorkloadLock(pendingExecutionId)})`)
+    return execute()
+  })
+}
+
+export async function finalizeCancelledPendingWorkflow(
+  pendingExecutionId: string,
+  durationMs: number
+) {
+  const stopped = await db.transaction(async (tx) => {
+    const [lock] = await tx.execute<{ acquired: boolean }>(
+      sql`select pg_try_advisory_xact_lock(${workflowWorkloadLock(pendingExecutionId)}) as acquired`
+    )
+    if (!lock.acquired) return
+    // Commit Stop before releasing the lock so a late workload cannot start during cleanup.
+    const [row] = await tx
+      .update(pendingExecution)
+      .set(pendingExecutionCancellationUpdate())
+      .where(
+        and(
+          eq(pendingExecution.id, pendingExecutionId),
+          eq(pendingExecution.status, 'processing'),
+          eq(pendingExecution.executionType, 'workflow'),
+          ne(pendingExecution.billingScopeType, 'local')
+        )
+      )
+      .returning()
+    return row && asPendingExecutionClaim(row)
+  })
+  if (!stopped) return
+  if (typeof stopped.payload.ownerCompletedAt === 'string') {
+    await settlePendingExecutionOwner(stopped, { wake: false })
+  } else {
+    const { finalizePendingExecutionFailure } = await import(
+      '@/background/pending-execution-worker'
+    )
+    await finalizePendingExecutionFailure(stopped, PENDING_EXECUTION_CANCELLATION_ERROR, durationMs)
+  }
+  return stopped
+}
+
 async function reconcileProcessingPendingExecution(
   row: PendingExecutionClaim,
-  capacityOwnerId: string
+  capacityOwnerId: string,
+  stopSignal?: AbortSignal
 ) {
   if (row.billingScopeType === 'local') return false
+  stopSignal?.throwIfAborted()
   const page = await runs.list({
     tag: getPendingExecutionTriggerKey(row.id),
     taskIdentifier: PENDING_EXECUTION_TASK_ID,
     limit: 1,
   })
   const run = page.data[0]
+  stopSignal?.throwIfAborted()
+  if (stopSignal && run?.status !== 'CANCELED') return false
 
   if (
     typeof row.payload.ownerCompletedAt === 'string' ||
@@ -730,20 +797,22 @@ async function reconcileProcessingPendingExecution(
   if (
     run.status === 'CANCELED' &&
     run.startedAt &&
-    typeof row.payload.cancelRequestedAt === 'string'
+    (row.executionType === 'workflow' || typeof row.payload.cancelRequestedAt === 'string')
   ) {
-    // A cancelled supervisor cannot acknowledge Stop for a workload that never started.
     const { relatedRuns } = await runs.retrieve(run.id)
+    stopSignal?.throwIfAborted()
     const workloads = relatedRuns.children?.filter(
       (child) =>
         child.taskIdentifier === backgroundTaskIds[row.executionType] &&
         child.triggerFunction === 'triggerAndWait'
     )
-    if (
-      !workloads?.length ||
-      workloads.some((child) => child.status !== 'CANCELED' || child.startedAt)
-    )
-      return false
+    if (!workloads?.length || workloads.some((child) => !child.isCompleted)) return false
+    if (workloads.some((child) => child.startedAt)) {
+      if (row.executionType !== 'workflow') return false
+      await finalizeCancelledPendingWorkflow(row.id, run.durationMs)
+      return releasedPendingExecutionCapacity(capacityOwnerId)
+    }
+    if (workloads.some((child) => child.status !== 'CANCELED')) return false
   }
 
   const message =
@@ -755,6 +824,31 @@ async function reconcileProcessingPendingExecution(
   const { finalizePendingExecutionFailure } = await import('@/background/pending-execution-worker')
   await finalizePendingExecutionFailure(row, message, run.durationMs)
   return releasedPendingExecutionCapacity(capacityOwnerId)
+}
+
+export async function reconcileStoppedWorkflowOwner(
+  pendingExecutionId: string,
+  signal: AbortSignal
+) {
+  const owners = new Set([pendingExecutionId])
+  for (const id of owners) {
+    signal.throwIfAborted()
+    const row = await getProcessingPendingExecution(id)
+    if (
+      row?.executionType !== 'workflow' ||
+      row.billingScopeType === 'local' ||
+      typeof row.payload.cancelRequestedAt !== 'string'
+    )
+      continue
+    if (await reconcileProcessingPendingExecution(row, id, signal)) {
+      await wakePendingExecution(row)
+      continue
+    }
+    // A completed parent's slot can still belong to a running workflow-block child.
+    for (const child of await listChildPendingWorkflowExecutions({ pendingExecutionId: id })) {
+      if (getParentPendingExecutionId(child) === id) owners.add(child.id)
+    }
+  }
 }
 
 async function reconcilePendingExecutionCapacity(
