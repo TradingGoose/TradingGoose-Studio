@@ -23,6 +23,7 @@ const {
   finalizePendingExecutionFailureMock,
   terminalizeWorkflowExecutionMock,
   cancelPendingExecutionDescendantsMock,
+  readWorkflowCheckpointChildrenMock,
   authorizeWorkflowScopeMock,
   checkWorkspaceAccessMock,
   sqlMock,
@@ -46,6 +47,7 @@ const {
   finalizePendingExecutionFailureMock: vi.fn(),
   terminalizeWorkflowExecutionMock: vi.fn(),
   cancelPendingExecutionDescendantsMock: vi.fn(),
+  readWorkflowCheckpointChildrenMock: vi.fn(),
   authorizeWorkflowScopeMock: vi.fn(),
   checkWorkspaceAccessMock: vi.fn(),
   sqlMock: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
@@ -188,6 +190,9 @@ vi.mock('@/background/pending-execution-worker', () => ({
   cancelPendingExecutionDescendants: cancelPendingExecutionDescendantsMock,
 }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: authorizeWorkflowScopeMock }))
+vi.mock('@/lib/workflows/human-in-the-loop/service', () => ({
+  readWorkflowCheckpointChildren: readWorkflowCheckpointChildrenMock,
+}))
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: checkWorkspaceAccessMock }))
 
 import { ApiError } from '@trigger.dev/sdk'
@@ -1571,6 +1576,124 @@ describe('cancelPendingWorkflowExecution', () => {
     ...pausedCancellation,
     workflowId: 'workflow-1',
   }
+  it('holds parent Stop across a timeout and retry until the resumed child owner retires', async () => {
+    const target = { ...scopedCancellation, workspaceId: 'workspace-1' }
+    const child = {
+      id: 'paused-child',
+      userId: target.userId,
+      workflowId: 'child-workflow',
+      workspaceId: 'child-workspace',
+    }
+    const owner = createPendingRow({
+      id: 'paused-child:resume:1',
+      userId: child.userId,
+      workflowId: child.workflowId,
+      workspaceId: child.workspaceId,
+      status: 'processing',
+      source: 'human_in_the_loop',
+      payload: { resumeExecutionId: child.id },
+    })
+    let retired = false
+    let ended = false
+    let childReads = 0
+    const childLog = {
+      id: 'child-log',
+      executionId: child.id,
+      workflowId: child.workflowId,
+      workspaceId: child.workspaceId,
+      endedAt: null,
+      executionData: { checkpoint: { activeJobId: owner.id } },
+    }
+    const parentLog = checkpoint()
+    selectLimitMock
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([parentLog])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([childLog])
+    txSelectLimitMock.mockResolvedValueOnce([parentLog]).mockResolvedValueOnce([childLog])
+    updateReturningMock.mockResolvedValueOnce([owner])
+    readWorkflowCheckpointChildrenMock.mockImplementation(async (id, includeFinished) =>
+      id === target.pendingExecutionId && (!ended || includeFinished)
+        ? [{ ...child, endedAt: ended ? new Date() : null }]
+        : []
+    )
+    const originalWhere = selectChain.where.getMockImplementation()!
+    selectChain.where.mockImplementation((condition) => {
+      const [scope, identity] = condition.args
+      if (!scope.args || !identity?.args) return selectChain
+      if (!scope.args?.some((term: { value: unknown }) => term?.value === child.workflowId))
+        return Promise.resolve([])
+      expect(scope.args).toContainEqual({ field: 'pendingExecution.userId', value: child.userId })
+      expect(scope.args).toContainEqual({
+        field: 'pendingExecution.workspaceId',
+        value: child.workspaceId,
+      })
+      expect(identity.args).toContainEqual({ field: 'pendingExecution.id', value: child.id })
+      expect(identity.args[1].args).toContainEqual(
+        expect.objectContaining({
+          field: expect.objectContaining({ strings: ['', "->>'resumeExecutionId'"] }),
+          value: child.id,
+        })
+      )
+      childReads++
+      return Promise.resolve(
+        retired ? [] : [{ id: owner.id, cancelling: updateReturningMock.mock.calls.length > 0 }]
+      )
+    })
+    const deadline = new AbortController()
+    const acknowledged = vi.fn()
+    try {
+      const initial = { status: 'cancelling' } as const
+      await expect(cancelPendingWorkflowExecution(target)).resolves.toEqual(initial)
+      expect(cancelPendingExecutionDescendantsMock).toHaveBeenCalledExactlyOnceWith(
+        target.pendingExecutionId
+      )
+      cancelPendingExecutionDescendantsMock.mockClear()
+      const first = waitForPendingWorkflowExecutionDrain(target, initial, deadline.signal).then(
+        acknowledged
+      )
+      await vi.waitFor(() => expect(childReads + acknowledged.mock.calls.length).toBeGreaterThan(0))
+      expect(acknowledged).not.toHaveBeenCalled()
+      expect(updateReturningMock).toHaveBeenCalledOnce()
+      expect(txSelectChain.for).toHaveBeenCalledWith('update')
+      expect(eqMock).toHaveBeenCalledWith('pendingExecution.id', owner.id)
+      deadline.abort()
+      await expect(first).rejects.toThrow()
+      ended = true
+      const completedLog = { ...parentLog, endedAt: new Date() }
+      selectLimitMock
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([completedLog])
+        .mockResolvedValueOnce([completedLog])
+      checkWorkspaceAccessMock.mockResolvedValueOnce({ hasAccess: true })
+      const terminal = { status: 'finished' } as const
+      await expect(cancelPendingWorkflowExecution(target)).resolves.toEqual(terminal)
+      authorizeWorkflowScopeMock.mockResolvedValueOnce({ ok: false })
+      await expect(
+        waitForPendingWorkflowExecutionDrain(target, terminal, AbortSignal.timeout(5000))
+      ).rejects.toThrow('Workflow cancellation could not be verified')
+      expect(cancelPendingExecutionDescendantsMock).not.toHaveBeenCalled()
+      const readsBeforeRetry = childReads
+      const retry = waitForPendingWorkflowExecutionDrain(
+        target,
+        terminal,
+        AbortSignal.timeout(5000)
+      ).then(acknowledged)
+      await vi.waitFor(() => expect(childReads).toBeGreaterThan(readsBeforeRetry))
+      expect(acknowledged).not.toHaveBeenCalled()
+      retired = true
+      await retry
+      expect(acknowledged).toHaveBeenCalledOnce()
+      expect(updateReturningMock).toHaveBeenCalledOnce()
+      expect(cancelPendingExecutionDescendantsMock).toHaveBeenCalledExactlyOnceWith(
+        target.pendingExecutionId
+      )
+    } finally {
+      retired = true
+      deadline.abort()
+      selectChain.where.mockImplementation(originalWhere)
+    }
+  })
   it('waits for a finished checkpoint owner retained by its child to retire', async () => {
     const target = { ...scopedCancellation, workspaceId: 'workspace-1' }
     const owner = createPendingRow({
@@ -1611,6 +1734,7 @@ describe('cancelPendingWorkflowExecution', () => {
   beforeEach(() => {
     terminalizeWorkflowExecutionMock.mockResolvedValue(undefined)
     cancelPendingExecutionDescendantsMock.mockResolvedValue(undefined)
+    readWorkflowCheckpointChildrenMock.mockReset().mockResolvedValue([])
     authorizeWorkflowScopeMock.mockResolvedValue({
       ok: true,
       workspaceId: 'workspace-1',

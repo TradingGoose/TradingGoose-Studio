@@ -871,22 +871,24 @@ function asPendingExecutionClaim(row: typeof pendingExecution.$inferSelect): Pen
   } as PendingExecutionClaim
 }
 
-export async function listChildPendingWorkflowExecutions(
-  parent: { executionId: string } | { pendingExecutionId: string }
-) {
+type WorkflowParent = { executionId: string } | { pendingExecutionId: string }
+
+export function childPendingWorkflowScope(parent: WorkflowParent) {
   const [key, id] =
     'executionId' in parent
       ? ['parentExecutionId', parent.executionId]
       : ['parentPendingExecutionId', parent.pendingExecutionId]
+  return and(
+    eq(pendingExecution.executionType, 'workflow'),
+    sql<boolean>`${pendingExecution.payload}->'metadata'->>${key} = ${id}`
+  )
+}
+
+export async function listChildPendingWorkflowExecutions(parent: WorkflowParent) {
   const rows = await db
     .select()
     .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.executionType, 'workflow'),
-        sql<boolean>`${pendingExecution.payload}->'metadata'->>${key} = ${id}`
-      )
-    )
+    .where(childPendingWorkflowScope(parent))
     .orderBy(asc(pendingExecution.createdAt), asc(pendingExecution.id))
 
   return rows.map(asPendingExecutionClaim)

@@ -204,20 +204,23 @@ export async function readWorkflowCheckpointSnapshot(executionId: string) {
   return JSON.parse(decrypted) as WorkflowCheckpointSnapshot
 }
 
-export async function readWorkflowCheckpointChildren(executionId: string) {
-  const rows = await db
-    .select()
+export async function readWorkflowCheckpointChildren(
+  executionId: string,
+  includeFinished = false,
+  connection: Pick<typeof db, 'select'> = db
+) {
+  const parent = sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'queuedExecution' @> ${JSON.stringify({ source: 'workflow_block', parentExecutionId: executionId })}::jsonb`
+  const rows = await connection
+    .select({
+      id: workflowExecutionLogs.executionId,
+      userId: sql<string>`${workflowExecutionLogs.executionData}->'environment'->>'userId'`,
+      workflowId: sql<string>`coalesce(${workflowExecutionLogs.workflowId}, ${workflowExecutionLogs.workflowSummary}->>'id')`,
+      workspaceId: workflowExecutionLogs.workspaceId,
+      endedAt: workflowExecutionLogs.endedAt,
+    })
     .from(workflowExecutionLogs)
-    .where(
-      and(
-        isNull(workflowExecutionLogs.endedAt),
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'queuedExecution' @> ${JSON.stringify({ source: 'workflow_block', parentExecutionId: executionId })}::jsonb`
-      )
-    )
-  return rows.flatMap((row) => {
-    const userId = dataOf(row).environment?.userId
-    return userId ? [{ id: row.executionId, userId }] : []
-  })
+    .where(includeFinished ? parent : and(isNull(workflowExecutionLogs.endedAt), parent))
+  return rows.filter((row) => row.userId)
 }
 
 export async function readWorkflowCheckpoint(
