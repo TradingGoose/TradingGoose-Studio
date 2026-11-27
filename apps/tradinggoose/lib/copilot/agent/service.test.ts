@@ -25,6 +25,7 @@ import {
 } from '@/lib/copilot/native/contract'
 import { NativeTargetError, ObserveWorkflowExecution } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity, nativeToolCallId } from '@/lib/copilot/native/identity'
+import { validateCopilotModel } from '@/lib/copilot/settings.server'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { readSseData } from '@/lib/events/stream'
 import type { BackgroundExecutionTaskPayload } from '@/lib/execution/background-execution'
@@ -2573,28 +2574,36 @@ describe('Copilot background execution and native history', () => {
     }
   )
 
-  it('retains the admitted reasoning effort on cold decline', async () => {
-    const reasoning = { type: 'effort', value: 'low' } as const
-    setModel(
-      { tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } },
-      { text: 'No edit applied' }
-    )
-    const initial = suspended(
-      (await message({ accessLevel: 'limited', model: 'google/gemini-2.5-flash', reasoning }))
-        .result
-    )
-    restart()
-    const { result } = await command({
-      command: 'tool.decline',
-      target: initial.pending[0].target,
-      reason: 'Declined',
-    })
-    expect(result).toMatchObject({ status: 'success', text: 'No edit applied' })
-    expect(m.route).not.toHaveBeenCalled()
-    expect(m.contacts).toHaveLength(2)
-    for (const [, level] of vi.mocked(createNativeModel).mock.calls)
-      expect(level).toBe(reasoning.value)
-  })
+  it.each([undefined, 'high'] as const)(
+    'keeps the admitted effort for %s on cold decline',
+    async (value) => {
+      const reasoning = value && { type: 'effort' as const, value }
+      const admitted = { type: 'effort', value: value ?? 'low' } as const
+      vi.mocked(validateCopilotModel).mockResolvedValueOnce({
+        model: 'google/gemini-2.5-flash',
+        reasoning: admitted,
+      })
+      setModel(
+        { tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } },
+        { text: 'No edit applied' }
+      )
+      const initial = suspended(
+        (await message({ accessLevel: 'limited', model: 'google/gemini-2.5-flash', reasoning }))
+          .result
+      )
+      restart()
+      const { result } = await command({
+        command: 'tool.decline',
+        target: initial.pending[0].target,
+        reason: 'Declined',
+      })
+      expect(result).toMatchObject({ status: 'success', text: 'No edit applied' })
+      expect(m.route).not.toHaveBeenCalled()
+      expect(m.contacts).toHaveLength(2)
+      for (const [, level] of vi.mocked(createNativeModel).mock.calls)
+        expect(level).toBe(admitted.value)
+    }
+  )
 
   it.each(['reject', 'stale'] as const)(
     'keeps native preview %s decisions from applying a mutation',

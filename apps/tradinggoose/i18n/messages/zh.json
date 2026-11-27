@@ -3771,8 +3771,7 @@
         "subBlocks": {
           "agent": {
             "reasoningEffort": {
-              "title": "推理强度",
-              "placeholder": "选择级别"
+              "title": "推理强度"
             }
           },
           "loop": {
@@ -22309,8 +22308,7 @@
       },
       "copilot": {
         "reasoning": {
-          "label": "思考 / 推理",
-          "selectLevel": "选择级别"
+          "label": "思考 / 推理"
         },
         "models": {
           "loading": "正在加载模型…",

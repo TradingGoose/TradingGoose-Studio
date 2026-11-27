@@ -9,23 +9,24 @@ export type Reasoning = z.infer<typeof reasoningEffortSchema>
 export const reasoningOptionSchema = z.object({
   type: z.literal('effort'),
   values: z.array(level).nonempty(),
+  defaultValue: level,
 })
 export type ReasoningOption = z.infer<typeof reasoningOptionSchema>
 
-export function workflowReasoning(value: unknown): Reasoning | undefined {
-  if (value == null || value === '') return undefined
+export function reasoningFromChoice(
+  choice: unknown,
+  options?: ReasoningOption[]
+): Reasoning | undefined {
+  const value = choice == null || choice === '' ? options?.[0]?.defaultValue : choice
+  if (value === undefined) return undefined
   return reasoningEffortSchema.parse({ type: 'effort', value })
 }
 
 export function reasoningSelectionError(
   model: string,
   options: ReasoningOption[] | undefined,
-  value: unknown,
-  required = true
+  value: unknown
 ) {
-  const levels = options?.[0]?.values
-  if (value != null && value !== '') {
-    if (!levels?.some((level) => level === value))
-      return `Selected reasoning level is unsupported for ${model}`
-  } else if (required && levels?.length) return `Select a reasoning level for ${model}`
+  if (value != null && value !== '' && !options?.[0]?.values.some((level) => level === value))
+    return `Selected reasoning level is unsupported for ${model}`
 }

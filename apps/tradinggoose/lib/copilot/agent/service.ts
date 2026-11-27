@@ -540,10 +540,14 @@ async function dispatchCopilotCommand(
   if (mode === 'trigger' && !process.env.REDIS_URL)
     throw new NativeTargetError('REDIS_URL is required for Copilot streaming across workers', 503)
   let ownership: Awaited<ReturnType<typeof claimCopilotThread>>
+  let admittedRequest = request
   try {
     if (request.command === 'message') {
       if (request.threadId) await requireThread(scope, threadId, signal)
-      await validateCopilotModel(request.model, request.reasoning)
+      admittedRequest = {
+        ...request,
+        ...(await validateCopilotModel(request.model, request.reasoning)),
+      }
     } else {
       await resolveNativePendingTarget(
         scope,
@@ -655,9 +659,9 @@ async function dispatchCopilotCommand(
         executionType: 'copilot',
         payload: {
           request:
-            request.command === 'message'
-              ? (({ input: _input, ...command }) => command)(request)
-              : request,
+            admittedRequest.command === 'message'
+              ? (({ input: _input, ...command }) => command)(admittedRequest)
+              : admittedRequest,
           actorUserId: scope.actorUserId,
           toolContexts,
           threadId,

@@ -59,6 +59,7 @@ const getOptionIcon = (option: string | SubBlockOption) =>
 /** Edits persisted selections and references, distinguishing fresh openings from typed searches. */
 export function ComboBox({
   options,
+  config,
   defaultValue,
   blockId,
   subBlockId,
@@ -67,20 +68,19 @@ export function ComboBox({
   disabled,
   placeholder,
   isConnecting,
-  config,
 }: ComboBoxProps) {
   const locale = useLocale() as LocaleCode
   const registryLoading = useModelRegistry((state) => state.isLoading)
   const registryError = useModelRegistry((state) => state.error)
   const loadRegistry = useModelRegistry((state) => state.load)
-  const isModelPicker = subBlockId === 'model' && config.dropdownMode === 'sidebar'
+  const usesSidebarMode = config.dropdownMode === 'sidebar'
+  const isModelPicker = subBlockId === 'model' && usesSidebarMode
   const placeholderText = placeholder ?? translateWorkflowLabel(locale, 'typeOrSelectAnOption')
   const workspaceId = useWorkspaceId()
-  const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
+  const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId, disabled)
   const [storeInitialized, setStoreInitialized] = useState(false)
   const [menu, setMenu] = useState<'options' | 'environment' | 'tags' | null>(null)
   const open = menu === 'options'
-  const [focused, setFocused] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
@@ -98,74 +98,53 @@ export function ComboBox({
   const reactFlowInstance = useReactFlow()
 
   const value = propValue !== undefined ? propValue : storeValue
+  const defaultOnEmpty = config.autoSelectFirstOption === false ? undefined : defaultValue
+  const displayValue = value?.toString() || defaultOnEmpty || ''
+  const showingDefault = !!defaultOnEmpty && displayValue === defaultOnEmpty
 
   // Evaluate options if it's a function
   const evaluatedOptions = useMemo(() => {
     return typeof options === 'function' ? options() : options
   }, [options])
 
-  const selectedOption = useMemo(() => {
-    if (value === null || value === undefined) return undefined
+  const selectedOption = useMemo(
+    () => evaluatedOptions.find((opt) => getOptionValue(opt) === displayValue),
+    [evaluatedOptions, displayValue]
+  )
 
-    return evaluatedOptions.find((opt) => getOptionValue(opt) === value)
-  }, [evaluatedOptions, value])
-
-  const displayValue =
-    selectedOption && !focused ? getOptionLabel(selectedOption) : (value?.toString() ?? '')
-
-  // Get the explicit default or first option when automatic selection is enabled.
-  const defaultOptionValue = useMemo(() => {
-    if (defaultValue !== undefined) {
-      return defaultValue
-    }
-
-    if (config.autoSelectFirstOption === false) return undefined
-
-    if (evaluatedOptions.length > 0) {
-      return getOptionValue(evaluatedOptions[0])
-    }
-
-    return undefined
-  }, [defaultValue, evaluatedOptions, config.autoSelectFirstOption])
+  const defaultOptionValue =
+    defaultValue ??
+    (config.autoSelectFirstOption !== false && evaluatedOptions.length
+      ? getOptionValue(evaluatedOptions[0])
+      : undefined)
 
   // Mark store as initialized on first render
   useEffect(() => {
     setStoreInitialized(true)
   }, [])
 
-  // Only set default value once the store is confirmed to be initialized
-  // and we know the actual value is null/undefined (not just loading)
   useEffect(() => {
     if (
+      !disabled &&
       storeInitialized &&
-      (value === null || value === undefined) &&
+      (value == null || (value === '' && defaultOnEmpty)) &&
       defaultOptionValue !== undefined
     ) {
       setStoreValue(defaultOptionValue)
     }
-  }, [storeInitialized, value, defaultOptionValue, setStoreValue])
+  }, [disabled, storeInitialized, value, defaultOnEmpty, defaultOptionValue, setStoreValue])
 
   // Filter options based on current value for display
   const filteredOptions = useMemo(() => {
-    // Always show all options when dropdown is not open
-    if (!open) return evaluatedOptions
-
-    // If no value, show all options
-    const currentValue = displayValue
-    if (!currentValue) return evaluatedOptions
-
-    // If current value exactly matches an option and user hasn't typed, show all (fresh open)
-    if (!hasTyped && selectedOption) return evaluatedOptions
-
-    // Otherwise filter based on current input
+    if (!open || !hasTyped || !displayValue) return evaluatedOptions
+    const search = displayValue.toLowerCase()
     return evaluatedOptions.filter((option) => {
       const label = getOptionLabel(option).toLowerCase()
       const optionValue = getOptionValue(option).toLowerCase()
       const searchLabel = getOptionSearchText(option).toLowerCase()
-      const search = currentValue.toLowerCase()
       return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
     })
-  }, [displayValue, evaluatedOptions, open, hasTyped, selectedOption])
+  }, [displayValue, evaluatedOptions, open, hasTyped])
 
   const sidebarItems = useMemo<SidebarDropdownItem[]>(
     () =>
@@ -202,7 +181,6 @@ export function ComboBox({
     ]
   }, [config.optionGroups, sidebarItems])
 
-  const usesSidebarMode = config.dropdownMode === 'sidebar'
   const selectedSidebarGroupId = selectedOption ? getOptionGroup(selectedOption) : null
   const currentSidebarGroupId =
     activeSidebarGroupId && sidebarGroups.some((group) => group.id === activeSidebarGroupId)
@@ -228,10 +206,10 @@ export function ComboBox({
 
     const newValue = e.target.value
     const newCursorPosition = e.target.selectionStart ?? 0
-    setHasTyped(true)
+    setHasTyped(!!newValue)
 
     // Update store value immediately (allow free text)
-    setStoreValue(newValue)
+    setStoreValue(newValue || defaultOnEmpty || '')
 
     setCursorPosition(newCursorPosition)
 
@@ -252,10 +230,16 @@ export function ComboBox({
     inputRef.current?.blur()
   }
 
+  const handleReferenceSelect = (newValue: string) => {
+    emitTagSelection(newValue)
+    setHasTyped(false)
+  }
+
   const handleDropdownClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (!disabled) {
+      setHasTyped(false)
       setMenu(open ? null : 'options')
       if (!open) {
         inputRef.current?.focus()
@@ -264,19 +248,23 @@ export function ComboBox({
   }
 
   const handleFocus = () => {
-    setFocused(true)
+    selectDefaultText()
     setMenu('options')
     setHighlightedIndex(-1)
   }
 
+  const selectDefaultText = () => {
+    if (showingDefault) inputRef.current?.select()
+  }
+
   const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
-    setFocused(false)
     setHasTyped(false)
     if (!dropdownRef.current?.contains(event.relatedTarget)) setMenu(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
+      setHasTyped(false)
       setMenu(null)
       setHighlightedIndex(-1)
       return
@@ -333,12 +321,9 @@ export function ComboBox({
       const data = JSON.parse(e.dataTransfer.getData('application/json'))
       if (data.type !== 'connectionBlock') return
 
-      const currentValue = value?.toString() ?? ''
-      const dropPosition =
-        selectedOption && !focused
-          ? currentValue.length
-          : (inputRef.current?.selectionStart ?? currentValue.length)
-      const newValue = `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`
+      const text = showingDefault ? '' : displayValue
+      const dropPosition = showingDefault ? 0 : (inputRef.current?.selectionStart ?? text.length)
+      const newValue = `${text.slice(0, dropPosition)}<${text.slice(dropPosition)}`
 
       inputRef.current?.focus()
 
@@ -371,6 +356,7 @@ export function ComboBox({
   }
 
   const handlePaste = () => {
+    selectDefaultText()
     setTimeout(() => {
       if (inputRef.current && overlayRef.current) {
         overlayRef.current.scrollLeft = inputRef.current.scrollLeft
@@ -460,6 +446,7 @@ export function ComboBox({
           placeholder={placeholderText}
           aria-label={config.title || placeholderText}
           value={displayValue}
+          onBeforeInput={selectDefaultText}
           onChange={handleChange}
           onClick={() => setMenu((current) => current ?? 'options')}
           onFocus={handleFocus}
@@ -578,7 +565,7 @@ export function ComboBox({
               const optionValue = getOptionValue(option)
               const optionLabel = getOptionLabel(option)
               const OptionIcon = getOptionIcon(option)
-              const isSelected = value === optionValue
+              const isSelected = displayValue === optionValue
               const isHighlighted = index === highlightedIndex
 
               return (
@@ -605,7 +592,7 @@ export function ComboBox({
 
       <EnvVarDropdown
         visible={menu === 'environment'}
-        onSelect={emitTagSelection}
+        onSelect={handleReferenceSelect}
         searchTerm={searchTerm}
         inputValue={displayValue}
         cursorPosition={cursorPosition}
@@ -614,7 +601,7 @@ export function ComboBox({
       />
       <TagDropdown
         visible={menu === 'tags'}
-        onSelect={emitTagSelection}
+        onSelect={handleReferenceSelect}
         blockId={blockId}
         activeSourceBlockId={activeSourceBlockId}
         inputValue={displayValue}

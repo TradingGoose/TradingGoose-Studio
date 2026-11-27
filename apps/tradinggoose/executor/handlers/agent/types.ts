@@ -14,7 +14,7 @@ export interface AgentInputs {
   systemPrompt?: string | object
   userPrompt?: string | object
   memories?: any
-  reasoningEffort?: string
+  reasoningEffort?: string | null
   apiKey?: string
 }
 

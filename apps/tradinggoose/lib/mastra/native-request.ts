@@ -13,7 +13,7 @@ import {
 
 /** Native request execution is independent of Studio's connection and accounting transport. */
 export async function prepareNativeModelRequest(
-  scope: NativeUsageScope & { model: string; purpose?: string; workspaceId?: string | null },
+  scope: NativeUsageScope & { model: string; workspaceId?: string | null },
   settings: {
     model: NativeModelConnection
     accounting: NativeUsageAccounting
@@ -26,8 +26,7 @@ export async function prepareNativeModelRequest(
   const error = reasoningSelectionError(
     scope.model,
     getReasoningOptions(scope.model),
-    reasoning?.value,
-    scope.purpose === 'workflow-agent' || scope.purpose === 'copilot'
+    reasoning?.value
   )
   if (error) throw new Error(error)
   const model = await createNativeModel(settings.model, reasoning?.value)

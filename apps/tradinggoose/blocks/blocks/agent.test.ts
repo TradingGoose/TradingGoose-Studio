@@ -21,7 +21,13 @@ const providers = [
         id: 'example/capable',
         structuredOutput: true,
         toolCall: true,
-        reasoningOptions: [{ type: 'effort' as const, values: ['low' as const, 'high' as const] }],
+        reasoningOptions: [
+          {
+            type: 'effort' as const,
+            values: ['low' as const, 'high' as const],
+            defaultValue: 'high' as const,
+          },
+        ],
       },
       {
         id: 'example/plain',
@@ -107,13 +113,14 @@ describe('registry-backed model interaction', () => {
     }
     expect(AgentBlock.inputs).not.toHaveProperty('temperature')
     expect(available.find(({ id }) => id === 'reasoningMode')).toBeUndefined()
-    expect(available.find(({ id }) => id === 'reasoningEffort')).toMatchObject({
+    const effort = available.find(({ id }) => id === 'reasoningEffort')
+    expect(effort?.required).toBeFalsy()
+    expect(effort?.autoSelectFirstOption).not.toBe(false)
+    expect(effort).toMatchObject({
       type: 'combobox',
-      required: true,
-      autoSelectFirstOption: false,
       title: 'Reasoning Effort',
-      placeholder: 'Choose a level',
     })
+    expect(effort?.value?.({ model: 'example/capable' })).toBe('high')
     expect(AgentBlock.subBlocks.every(({ layout }) => layout === 'full')).toBe(true)
     const ids = AgentBlock.subBlocks.map(({ id }) => id)
     for (const id of [
@@ -142,7 +149,7 @@ describe('registry-backed model interaction', () => {
     }
   )
   it.each(['openai/gpt-5', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'openai/gpt-4o'])(
-    'places the runtime reasoning options for %s only in Additional Fields',
+    'places the runtime reasoning options for %s directly below Model',
     (id) => {
       const options = getReasoningOptions(id) ?? []
       const [provider] = id.split('/')
@@ -151,16 +158,18 @@ describe('registry-backed model interaction', () => {
       })
       const rows = layout(id)
       expect(rows.displayAdditionalFields).toBe(false)
-      expect(rows.regularRows.flat().some((field) => field.id.startsWith('reasoning'))).toBe(false)
-      const controls = rows.additionalRows
-        .flat()
-        .filter((field) => field.id.startsWith('reasoning'))
+      expect(rows.additionalRows.flat().some((field) => field.id.startsWith('reasoning'))).toBe(
+        false
+      )
+      const controls = rows.regularRows.flat().filter((field) => field.id.startsWith('reasoning'))
       expect(controls).toHaveLength(options.length)
       for (const option of options) {
         const field = controls.find(
           ({ condition }) => typeof condition === 'object' && condition.value === option.type
         )!
-        expect(field.additional).toBe(true)
+        const modelRow = rows.regularRows.findIndex((row) => row.some(({ id }) => id === 'model'))
+        expect(rows.regularRows[modelRow + 1]).toEqual([field])
+        expect(field.value?.({ model: id })).toBe(option.defaultValue)
         expect(typeof field.options === 'function' && field.options({ model: id })).toEqual(
           option.values.map((id) => ({ id, label: id }))
         )

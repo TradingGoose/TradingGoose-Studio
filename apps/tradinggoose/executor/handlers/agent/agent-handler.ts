@@ -8,7 +8,8 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { safeInferenceError } from '@/lib/mastra/errors'
 import type { WorkflowMessage } from '@/lib/mastra/messages'
-import { workflowReasoning } from '@/lib/mastra/reasoning'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
+import { reasoningFromChoice } from '@/lib/mastra/reasoning'
 import { assertListedModel } from '@/lib/mastra/registry'
 import { prepareModelRequest } from '@/lib/mastra/request'
 import { getInferenceFacts, getNativeFinalText, withInferenceFacts } from '@/lib/mastra/result'
@@ -114,7 +115,7 @@ export class AgentBlockHandler implements BlockHandler {
       },
       {
         apiKey: inputs.apiKey,
-        reasoning: workflowReasoning(inputs.reasoningEffort),
+        reasoning: reasoningFromChoice(inputs.reasoningEffort, getReasoningOptions(model)),
       }
     )
     const agent = new Agent({

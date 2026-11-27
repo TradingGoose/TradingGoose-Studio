@@ -51,9 +51,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "reasoningEffort",
             "type": "combobox",
             "title": "推理强度",
-            "placeholder": "选择级别",
             "layout": "full",
-            "description": "在附加字段中可用。模型支持推理强度时显示。"
+            "description": "模型支持推理强度时显示。"
         },
         {
             "id": "apiKey",
@@ -93,7 +92,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 配置系统提示词、用户提示词、工具和技能。在附加字段中可以连接历史消息并设置响应格式。
 
-如果 Mastra 为所选模型提供推理级别，请在**附加字段**中选择一个级别。
+如果 Mastra 为所选模型提供推理级别，**推理强度**会显示在**模型**下方。在工作流中，Studio 优先使用保存在该区块上的级别。在 Copilot 中，Studio 优先使用你为当前工作区保存的级别。如果没有保存的级别，或所选模型不支持该级别，Studio 会使用 Mastra Code 根据其推理偏好确定的有效级别。如果该偏好无法确定有效级别，Studio 会选择 Mastra 列表中的第一个有效级别。
 
 Auto 允许模型自行选择工具；Force 按配置顺序要求执行所有标记的工具，然后恢复 Auto；None 会排除工具。不支持的组合或未完成的强制序列会产生明确错误。固定参数和已授权的工作流上下文保持有效。
 

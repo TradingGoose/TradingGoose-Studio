@@ -142,7 +142,7 @@ describe('documentation regeneration boundaries', () => {
     expect(first['agent.mdx']).not.toContain('"id": "reasoningMode"')
     expect(first['agent.mdx']).not.toContain('reasoningToggle')
     expect(first['agent.mdx']).toContain('"title": "Reasoning Effort"')
-    expect(first['agent.mdx']).toContain('"placeholder": "Choose a level"')
+    expect(first['agent.mdx']).toContain('Studio selects the first active level in Mastra’s list.')
     expect(first['agent.mdx']).toContain('Shown when model supports effort.')
     expect(first['agent.mdx']).not.toContain('"id": "maxTokens"')
     expect(first['agent.mdx']).not.toContain('"id": "maxSteps"')

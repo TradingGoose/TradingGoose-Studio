@@ -167,7 +167,6 @@ export async function executeCopilotJob(
         workspaceId: run.scope.workspaceId,
         runId: run.runId,
         funding: 'account',
-        purpose: 'copilot',
         signal,
       },
       {

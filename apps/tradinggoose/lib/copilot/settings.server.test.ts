@@ -221,15 +221,21 @@ describe('server Copilot settings', () => {
     }
     await expect(
       validateCopilotModel('google/gemini-2.5-pro', { type: 'effort', value: 'low' })
-    ).resolves.toBe('google/gemini-2.5-pro')
+    ).resolves.toEqual({
+      model: 'google/gemini-2.5-pro',
+      reasoning: { type: 'effort', value: 'low' },
+    })
     expect(mockResolveSystemServiceConfig).not.toHaveBeenCalled()
   })
 
-  it('requires a supported level for the authorized model before credential lookup', async () => {
+  it('accepts the native default and rejects unsupported levels before credential lookup', async () => {
     mockGetResolvedSystemSettings.mockResolvedValue({
       copilot: { models: [{ provider: 'openai', model: 'gpt-5' }] },
     })
-    await expect(validateCopilotModel('openai/gpt-5')).rejects.toMatchObject({ status: 422 })
+    await expect(validateCopilotModel('openai/gpt-5')).resolves.toEqual({
+      model: 'openai/gpt-5',
+      reasoning: { type: 'effort', value: 'low' },
+    })
     await expect(
       validateCopilotModel('openai/gpt-5', { type: 'effort', value: 'max' })
     ).rejects.toMatchObject({ status: 422 })

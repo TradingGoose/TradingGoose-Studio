@@ -58,8 +58,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "combobox",
             "title": "Reasoning Effort",
             "layout": "full",
-            "placeholder": "Choose a level",
-            "description": "Available in Additional Fields. Shown when model supports effort."
+            "description": "Shown when model supports effort."
         },
         {
             "id": "apiKey",
@@ -146,7 +145,7 @@ Send a chat completion request to any supported LLM provider
 
 ## Usage Instructions
 
-Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Open Additional Fields for the selected model’s reasoning controls, memory, and response format. Choose a thinking level when Mastra Code offers one for the selected model. Mastra manages the agent loop. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
+Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Reasoning Effort appears below Model when Mastra Code offers levels. Studio starts with the level saved on the block or, in Copilot, your saved level for this workspace. If that choice is missing or the model does not support it, Studio uses the active level Mastra Code resolves from its preference. If that preference yields no active level, Studio selects the first active level in Mastra’s list. Open Additional Fields for memory and response format. Mastra manages the agent loop. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
 
 
 

@@ -2289,7 +2289,8 @@ describe('InputResolver', () => {
         expect(run(id, { reasoningEffort: 'low' })).toEqual({ model: id, reasoningEffort: 'low' })
         expect(() => run('openai/gpt-4.1', { reasoningEffort: 'low' })).toThrow(/unsupported/)
         expect(() => run('openai/gpt-5', { reasoningEffort: 'max' })).toThrow(/unsupported/)
-        expect(() => run(id, {})).toThrow(/select a reasoning/i)
+        expect(run(id, {})).toEqual({ model: id })
+        expect(() => run(id, { reasoningEffort: 'default' })).toThrow(/unsupported/)
         expect(run('openai/gpt-4.1', {})).toEqual({ model: 'openai/gpt-4.1' })
         expect(run('unknown/model', {})).toEqual({ model: 'unknown/model' })
         mockContext.blockStates.get('trigger-block').output.level = 'high'

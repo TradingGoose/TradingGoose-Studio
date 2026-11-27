@@ -16,6 +16,7 @@ import { useCopilotModels } from '@/hooks/queries/copilot-models'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { isCopilotBusy } from '@/stores/copilot/store-state'
+import { SELECTOR_TRIGGER_CLASS } from '../constants'
 
 function SelectorLabel({ label, icon: Icon }: { label: string; icon?: LucideIcon }) {
   return (
@@ -44,14 +45,27 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
   )
 
   const selected = catalog.data?.models.find(({ id }) => id === selectedModel)
+  const option = selected?.reasoningOptions?.[0]
+  const savedLevel = reasoning?.value
+  const selectedLevel =
+    savedLevel && (busy || option?.values.includes(savedLevel)) ? savedLevel : option?.defaultValue
   useEffect(() => {
-    if (!catalog.data || busy || selected) return
+    if (!catalog.data || busy) return
     const firstModel = catalog.data.models[0]?.id ?? null
-    if (selectedModel !== firstModel) setSelectedModel(firstModel)
-  }, [busy, catalog.data, selected, selectedModel, setSelectedModel])
+    if (!selected && selectedModel !== firstModel) setSelectedModel(firstModel)
+    else if (selected && savedLevel !== selectedLevel)
+      setReasoning(selectedLevel && { type: 'effort', value: selectedLevel })
+  }, [
+    busy,
+    catalog.data,
+    savedLevel,
+    selected,
+    selectedLevel,
+    selectedModel,
+    setReasoning,
+    setSelectedModel,
+  ])
 
-  const levels = selected?.reasoningOptions?.[0]?.values
-  const levelLabel = reasoning?.value ?? reasoningCopy.selectLevel
   const unavailable = catalog.isPending
     ? copy.loading
     : selectedModel || (catalog.isError && !catalog.data)
@@ -69,7 +83,7 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
               size='sm'
               aria-label={selected?.label ?? unavailable}
               title={selected?.label ?? unavailable}
-              className='h-auto min-h-6 max-w-full whitespace-normal rounded-sm px-2 py-1 font-medium text-xs'
+              className={SELECTOR_TRIGGER_CLASS}
             />
           }
         >
@@ -96,7 +110,7 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
-      {!!levels?.length && (
+      {option && selectedLevel && (
         <DropdownMenu>
           <DropdownMenuTrigger
             disabled={busy}
@@ -104,21 +118,21 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
               <Button
                 variant='outline'
                 size='sm'
-                aria-label={`${reasoningCopy.label} · ${levelLabel}`}
-                className='h-auto min-h-6 max-w-full whitespace-normal rounded-sm px-2 py-1 font-medium text-xs'
+                aria-label={`${reasoningCopy.label} · ${selectedLevel}`}
+                className={SELECTOR_TRIGGER_CLASS}
               />
             }
           >
-            <SelectorLabel label={levelLabel} icon={Brain} />
+            <SelectorLabel label={selectedLevel} icon={Brain} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align='start' side={isNearTop ? 'bottom' : 'top'}>
-            {levels.map((value) => (
+            {option.values.map((value) => (
               <DropdownMenuItem
                 key={value}
                 disabled={busy}
-                aria-current={reasoning?.value === value}
+                aria-current={selectedLevel === value}
                 onClick={() => setReasoning({ type: 'effort', value })}
-                className={cn('text-xs', reasoning?.value === value && 'bg-muted/40')}
+                className={cn('text-xs', selectedLevel === value && 'bg-muted/40')}
               >
                 {value}
               </DropdownMenuItem>

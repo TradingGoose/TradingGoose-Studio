@@ -22,13 +22,17 @@ interface AgentResponse extends ToolResponse {
   }
 }
 
+function modelEffort(params?: Record<string, any>) {
+  return getRegistryModel(params?.model?.id ?? params?.model)?.reasoningOptions?.[0]
+}
+
 export const AgentBlock: BlockConfig<AgentResponse> = {
   type: 'agent',
   name: 'Agent',
   description: 'Build an agent',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Open Additional Fields for the selected model’s reasoning controls, memory, and response format. Choose a thinking level when Mastra Code offers one for the selected model. Mastra manages the agent loop. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
+    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Reasoning Effort appears below Model when Mastra Code offers levels. Studio starts with the level saved on the block or, in Copilot, your saved level for this workspace. If that choice is missing or the model does not support it, Studio uses the active level Mastra Code resolves from its preference. If that preference yields no active level, Studio selects the first active level in Mastra’s list. Open Additional Fields for memory and response format. Mastra manages the agent loop. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
@@ -123,18 +127,11 @@ Create a system prompt appropriately detailed for the request, using clear langu
     {
       id: 'reasoningEffort',
       title: 'Reasoning Effort',
-      placeholder: 'Choose a level',
       type: 'combobox',
       layout: 'full',
-      additional: true,
-      required: true,
-      autoSelectFirstOption: false,
       condition: { field: 'model', operator: 'modelCapability', value: 'effort' },
-      options: (params) => {
-        const model = params?.model?.id ?? params?.model ?? ''
-        const values = getRegistryModel(model)?.reasoningOptions?.[0]?.values ?? []
-        return values.map((id) => ({ id, label: id }))
-      },
+      value: (params) => modelEffort(params)?.defaultValue,
+      options: (params) => (modelEffort(params)?.values ?? []).map((id) => ({ id, label: id })),
     },
     modelApiKeyField,
     {

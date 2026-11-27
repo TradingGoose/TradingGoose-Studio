@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { isCopilotBusy } from '@/stores/copilot/store-state'
+import { SELECTOR_TRIGGER_CLASS } from '../constants'
 
 const getAccessLevelIcon = (accessLevel: CopilotAccessLevel) => {
   if (accessLevel === 'full') {
@@ -37,13 +38,7 @@ export function AccessLevelSelector({ isNearTop }: { isNearTop: boolean }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={busy}
-        render={
-          <Button
-            variant='outline'
-            size='sm'
-            className='flex h-6 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30 focus-visible:ring-0 focus-visible:ring-offset-0'
-          />
-        }
+        render={<Button variant='outline' size='sm' className={SELECTOR_TRIGGER_CLASS} />}
       >
         {getAccessLevelIcon(accessLevel)}
         <span>{buttonLabel}</span>

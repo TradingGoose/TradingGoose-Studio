@@ -2,17 +2,17 @@ import { providers } from '@opencode-ai/models/snapshot'
 import { resolveConfiguredModel } from '@/lib/mastra/connections'
 import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 import { getModelProviders } from '@/lib/mastra/providers'
-import { type Reasoning, reasoningSelectionError } from '@/lib/mastra/reasoning'
+import {
+  type Reasoning,
+  reasoningFromChoice,
+  reasoningSelectionError,
+} from '@/lib/mastra/reasoning'
 import { isLanguageModel } from '@/lib/mastra/registry'
 import { getCopilotSettings } from '@/lib/system-settings/service'
 import { NativeTargetError } from './native/errors'
 import { type CopilotModelOption, getCopilotModelId } from './settings'
 
-export async function validateCopilotModel(
-  modelId?: string,
-  reasoning?: Reasoning,
-  requireSelection = true
-) {
+export async function validateCopilotModel(modelId?: string, reasoning?: Reasoning) {
   const settings = await getCopilotSettings()
   const first = settings.models[0]
   if (!first) {
@@ -27,20 +27,16 @@ export async function validateCopilotModel(
   ) {
     throw new NativeTargetError('The selected Copilot model is no longer available', 422)
   }
-  const error = reasoningSelectionError(
-    selected,
-    getReasoningOptions(selected),
-    reasoning?.value,
-    requireSelection
-  )
+  const options = getReasoningOptions(selected)
+  const error = reasoningSelectionError(selected, options, reasoning?.value)
   if (error) throw new NativeTargetError(error, 422)
-  return selected
+  return { model: selected, reasoning: reasoning ?? reasoningFromChoice(undefined, options) }
 }
 
 export async function resolveCopilotModel(modelId?: string, reasoning?: Reasoning) {
-  const selected = await validateCopilotModel(modelId, reasoning, false)
+  const { model } = await validateCopilotModel(modelId, reasoning)
   try {
-    return await resolveConfiguredModel(selected)
+    return await resolveConfiguredModel(model)
   } catch {
     throw new NativeTargetError(
       'The system connection for the selected Copilot model is not configured',

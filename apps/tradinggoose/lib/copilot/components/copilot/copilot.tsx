@@ -79,7 +79,9 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
   const { data } = useCopilotModels()
   const model = data?.models.find(({ id }) => id === selectedModel)
   const submitDisabled =
-    !model || !!reasoningSelectionError(model.id, model.reasoningOptions, reasoning?.value)
+    !model ||
+    (!reasoning && !!model.reasoningOptions?.length) ||
+    !!reasoningSelectionError(model.id, model.reasoningOptions, reasoning?.value)
   const planTodos = useMemo(() => buildPlanTodosFromMessages(messages), [messages])
   const isTurnInProgress = isCopilotBusy(state)
 

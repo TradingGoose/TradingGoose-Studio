@@ -3784,8 +3784,7 @@
         "subBlocks": {
           "agent": {
             "reasoningEffort": {
-              "title": "Reasoning Effort",
-              "placeholder": "Choose a level"
+              "title": "Reasoning Effort"
             }
           },
           "loop": {
@@ -22322,8 +22321,7 @@
       },
       "copilot": {
         "reasoning": {
-          "label": "Thinking / Reasoning",
-          "selectLevel": "Choose a level"
+          "label": "Thinking / Reasoning"
         },
         "models": {
           "loading": "Loading models…",

@@ -251,41 +251,42 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('native Agent workflow execution', () => {
-  it('requires a published workflow reasoning choice before admitting inference', async () => {
+  it('rejects an unsupported workflow reasoning choice before admitting inference', async () => {
     await expect(
       new AgentBlockHandler().execute(
         block,
-        { model: 'openai/gpt-5', userPrompt: 'Answer' },
+        { model: 'openai/gpt-5', reasoningEffort: 'max', userPrompt: 'Answer' },
         context()
       )
-    ).rejects.toThrow(/reasoning/i)
+    ).rejects.toThrow(/unsupported/i)
     expect(state.finance).not.toHaveBeenCalled()
     expect(state.configurations).toHaveLength(0)
   })
 
   it.each([
-    ['openai', 'gpt-5', 'low'],
-    ['openai', 'gpt-5', 'high'],
-    ['google', 'gemini-2.5-flash', 'medium'],
-  ])(
-    'passes the selected reasoning level for %s/%s to Mastra as %s',
-    async (providerId, modelId, value) => {
-      await new AgentBlockHandler().execute(
-        block,
-        {
-          model: `${providerId}/${modelId}`,
-          userPrompt: 'Answer',
-          reasoningEffort: value,
-        },
-        context()
-      )
-      expect(createNativeModel).toHaveBeenCalledWith(
-        expect.objectContaining({ providerId, modelId }),
-        value
-      )
-      expect(state.model.doGenerateCalls).toHaveLength(1)
-    }
-  )
+    ['openai/gpt-5', undefined, 'low'],
+    ['openai/gpt-5', null, 'low'],
+    ['openai/gpt-5', '', 'low'],
+    ['openai/gpt-5', 'low', 'low'],
+    ['openai/gpt-5', 'high', 'high'],
+    ['google/gemini-2.5-flash', 'medium', 'medium'],
+  ] as const)('passes %s workflow choice %s to Mastra as %s', async (model, value, expected) => {
+    const [providerId, modelId] = model.split('/')
+    await new AgentBlockHandler().execute(
+      block,
+      {
+        model,
+        userPrompt: 'Answer',
+        reasoningEffort: value,
+      },
+      context()
+    )
+    expect(createNativeModel).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId, modelId }),
+      expected
+    )
+    expect(state.model.doGenerateCalls).toHaveLength(1)
+  })
 
   it.each([
     { apiKey: undefined, expectedKey: undefined, funding: 'account' },

@@ -1,8 +1,15 @@
+import { loadSettings, resolveDefaultThinkingLevel } from '@mastra/code-sdk/onboarding/settings'
 import { getCredentialProviderId } from '@mastra/code-sdk/providers/model-ids'
-import { getAvailableThinkingLevelsForModel } from '@mastra/code-sdk/thinking'
+import {
+  getAvailableThinkingLevelsForModel,
+  runThinkingLevel,
+  type ThinkingLevelSetting,
+} from '@mastra/code-sdk/thinking'
 import { getModelReasoningOptions } from '@mastra/core/llm'
 import type { NativeModelConnection } from './connections'
 import type { Reasoning, ReasoningOption } from './reasoning'
+
+let sessionDefault: ThinkingLevelSetting | undefined
 
 export function getReasoningOptions(model: string): ReasoningOption[] | undefined {
   const options = getModelReasoningOptions(model)
@@ -10,7 +17,11 @@ export function getReasoningOptions(model: string): ReasoningOption[] | undefine
   const values = getAvailableThinkingLevelsForModel(model, options).filter(
     (level) => level !== 'off'
   )
-  return values.length ? [{ type: 'effort', values }] : []
+  if (!values.length) return []
+  sessionDefault ??= resolveDefaultThinkingLevel(loadSettings()).level
+  const resolved = runThinkingLevel(model, sessionDefault, options)
+  const defaultValue = values.find((value) => value === resolved) ?? values[0]
+  return [{ type: 'effort', values, defaultValue }]
 }
 
 export async function createNativeModel(

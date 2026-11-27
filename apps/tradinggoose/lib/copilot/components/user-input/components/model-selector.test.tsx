@@ -26,7 +26,6 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
     },
     reasoning: {
       label: 'Thinking / Reasoning',
-      selectLevel: 'Choose a level',
     },
   }),
 }))
@@ -190,24 +189,62 @@ it.each(['google/gemini-2.5-flash', 'openai/gpt-5'])(
     const trigger = container.querySelector<HTMLButtonElement>(
       'button[aria-label^="Thinking / Reasoning"]'
     )!
-    expect(trigger.textContent).toBe('Choose a level')
+    const { defaultValue, values } = reasoningOptions![0]
+    expect(trigger.textContent).toBe(defaultValue)
+    expect(values).toContain(defaultValue)
+    expect(state.setReasoning).toHaveBeenCalledExactlyOnceWith({
+      type: 'effort',
+      value: defaultValue,
+    })
     expect(trigger.querySelector('svg.lucide-brain')).toHaveAttribute('aria-hidden', 'true')
-    expect(trigger).toHaveAccessibleName('Thinking / Reasoning · Choose a level')
+    expect(trigger).toHaveAccessibleName(`Thinking / Reasoning · ${defaultValue}`)
     const levels = [...trigger.parentElement!.querySelectorAll('button')].slice(1)
-    expect(levels.map((button) => button.textContent)).toEqual(['low', 'medium', 'high'])
+    expect(levels.map((button) => button.textContent)).toEqual(values)
     expect(levels.every((button) => !button.querySelector('svg'))).toBe(true)
     const high = levels.find((button) => button.textContent === 'high')!
     act(() => high.click())
     const selection = { type: 'effort', value: 'high' }
-    expect(state.setReasoning).toHaveBeenCalledExactlyOnceWith(selection)
+    expect(state.setReasoning).toHaveBeenLastCalledWith(selection)
+    state.setReasoning.mockClear()
     state.reasoning = selection
     render()
+    expect(state.setReasoning).not.toHaveBeenCalled()
     expect(trigger.textContent).toBe('high')
     expect(trigger).toHaveAccessibleName('Thinking / Reasoning · high')
     state.isSendingMessage = true
     render()
     expect(trigger).toBeDisabled()
     expect(high).toBeDisabled()
+  }
+)
+
+it.each(['deepseek/deepseek-v4-pro', 'openai/gpt-4o'])(
+  'repairs a stale idle preference on %s and leaves a pending turn alone',
+  (id) => {
+    state.selectedModel = id
+    state.reasoning = { type: 'effort', value: 'medium' }
+    catalog.data = { models: [{ id, label: id, reasoningOptions: getReasoningOptions(id) }] }
+    state.isAwaitingContinuation = true
+    render()
+    expect(state.setReasoning).not.toHaveBeenCalled()
+    if (catalog.data.models[0].reasoningOptions[0])
+      expect(
+        container.querySelector('button[aria-label^="Thinking / Reasoning"]')
+      ).toHaveTextContent('medium')
+    state.isAwaitingContinuation = false
+    render()
+    const option = catalog.data.models[0].reasoningOptions[0]
+    expect(state.setReasoning).toHaveBeenCalledExactlyOnceWith(
+      option && { type: 'effort', value: option.defaultValue }
+    )
+    for (const value of option?.values ?? []) {
+      const option = [...container.querySelectorAll('button')].find(
+        (item) => item.textContent === value
+      )!
+      expect(option).toBeEnabled()
+      act(() => option.click())
+      expect(state.setReasoning).toHaveBeenLastCalledWith({ type: 'effort', value })
+    }
   }
 )
 

@@ -195,7 +195,7 @@ it.each([
   ['openai/unlisted-model', 'high', 'high'],
   ['<variable.model>', 'high', 'high'],
   ['openai/gpt-4.1', '<variable.effort>', '<variable.effort>'],
-  ['openai/gpt-5.1', 'max', ''],
+  ['openai/gpt-5.1', 'max', getReasoningOptions('openai/gpt-5.1')![0].defaultValue],
   ['openai/gpt-4.1', 'high', ''],
 ])('changing to "%s" with effort "%s" leaves "%s"', (model, effort, expected) => {
   mocks.values.reasoningEffort = effort
