@@ -603,6 +603,19 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         { label: t('outputTokens'), value: outputTokens?.toLocaleString(locale), Icon: ArrowDown },
       ].filter(({ value }) => value !== undefined)
       const cost = message.cost?.total
+      const hasUsage = usageFields.length > 0 || cost !== undefined
+      const options =
+        isLastMessage && !shouldHidePostTurnControls && parsedTags?.optionsComplete
+          ? parsedTags.options
+          : undefined
+      if (
+        !shouldShowActivityIndicator &&
+        !hasUsage &&
+        !memoizedContentBlocks?.some(Boolean) &&
+        !Object.keys(options ?? {}).length
+      )
+        return null
+
       return (
         <div
           className={`w-full max-w-full overflow-hidden pb-2 pl-[2px] transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
@@ -615,7 +628,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
             {shouldShowActivityIndicator && <StreamingIndicator />}
 
-            {(usageFields.length > 0 || cost !== undefined) && (
+            {hasUsage && (
               <CardFooter
                 className='flex-wrap gap-x-2 p-0 pt-1 text-muted-foreground text-xs tabular-nums'
                 data-testid='message-usage'
@@ -641,21 +654,13 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             )}
 
             {/* Options selector after the full assistant message has finished rendering */}
-            {(() => {
-              const options = parsedTags?.options
-              const isOptionsReady =
-                !shouldHidePostTurnControls && parsedTags?.optionsComplete === true
-
-              if (!isLastMessage || !options || !isOptionsReady) return null
-
-              return (
-                <OptionsSelector
-                  options={options}
-                  onSelect={handleOptionSelect}
-                  disabled={submitDisabled}
-                />
-              )
-            })()}
+            {options && (
+              <OptionsSelector
+                options={options}
+                onSelect={handleOptionSelect}
+                disabled={submitDisabled}
+              />
+            )}
           </div>
         </div>
       )

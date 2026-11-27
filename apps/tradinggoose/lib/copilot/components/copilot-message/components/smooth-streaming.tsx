@@ -129,16 +129,7 @@ export const SmoothStreamingText = memo(
       }
     }, [content, onTypingStateChangeRef, typingKeyRef])
 
-    const displayedContent = content.slice(0, displayedLength)
-
-    return (
-      <div
-        className='relative max-w-full overflow-hidden whitespace-pre-wrap break-words'
-        style={{ minHeight: '1.25rem' }}
-      >
-        <CopilotMarkdownRenderer content={displayedContent} />
-      </div>
-    )
+    return <CopilotMarkdownRenderer content={content.slice(0, displayedLength)} />
   }
 )
 
