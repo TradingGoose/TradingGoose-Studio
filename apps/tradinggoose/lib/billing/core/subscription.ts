@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
@@ -55,13 +55,10 @@ export function getSubscribedPersonalUsageMinimumLimit(params: {
     return 0
   }
 
-  const subscriptionLimit = getSubscriptionUsageAllowanceUsd(params.subscription)
+  // Default users spend a one-time grant; the tier must not replenish its balance.
   return params.subscription.tier.isDefault
-    ? Math.max(
-        subscriptionLimit,
-        getGrantedOnboardingAllowance(params.grantedOnboardingAllowanceUsd)
-      )
-    : subscriptionLimit
+    ? getGrantedOnboardingAllowance(params.grantedOnboardingAllowanceUsd)
+    : getSubscriptionUsageAllowanceUsd(params.subscription)
 }
 
 export function getConfiguredPersonalUsageLimit(
@@ -269,6 +266,7 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
     }
 
     await ensureDefaultUserSubscription(row.id)
+    // Provision missing stats without replacing grants or custom limits with today's default.
     await db
       .insert(userStats)
       .values({
@@ -276,16 +274,8 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
         userId: row.id,
         ...usageLimitSeed,
       })
-      .onConflictDoUpdate({
+      .onConflictDoNothing({
         target: userStats.userId,
-        set: {
-          grantedOnboardingAllowanceUsd: usageLimit,
-          customUsageLimit: sql`CASE
-            WHEN ${userStats.customUsageLimit} = ${userStats.grantedOnboardingAllowanceUsd}
-              THEN ${usageLimit}
-            ELSE ${userStats.customUsageLimit}
-          END`,
-        },
       })
     createdCount += 1
   }
