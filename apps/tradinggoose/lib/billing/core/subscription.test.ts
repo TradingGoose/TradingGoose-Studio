@@ -13,7 +13,6 @@ const {
   mockGetSubscriptionUsageAllowanceUsd,
   mockHydrateSubscriptionsWithTiers,
   mockInArray,
-  mockSql,
   mockSelectEffectiveSubscription,
   mockToBillingTierSummary,
 } = vi.hoisted(() => ({
@@ -28,11 +27,6 @@ const {
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
   mockHydrateSubscriptionsWithTiers: vi.fn(),
   mockInArray: vi.fn(),
-  mockSql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
-    strings,
-    values,
-    type: 'sql',
-  })),
   mockSelectEffectiveSubscription: vi.fn(),
   mockToBillingTierSummary: vi.fn((tier) => tier ?? { id: null, displayName: 'No plan' }),
 }))
@@ -66,7 +60,6 @@ vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   eq: mockEq,
   inArray: mockInArray,
-  sql: mockSql,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -122,20 +115,39 @@ describe('subscription billing helpers', () => {
     })
   })
 
-  it('keeps the default-tier minimum usage limit at least as high as the granted onboarding allowance', async () => {
+  it.each([25, 18, 0])(
+    'keeps the default tier from replenishing a $%s onboarding balance',
+    async (remainingAllowance) => {
+      mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(40)
+      const { getConfiguredPersonalUsageLimit, getSubscribedPersonalUsageMinimumLimit } =
+        await import('./subscription')
+
+      const minimum = getSubscribedPersonalUsageMinimumLimit({
+        subscription: {
+          tier: {
+            isDefault: true,
+          },
+        } as any,
+        grantedOnboardingAllowanceUsd: remainingAllowance.toString(),
+      })
+
+      expect(getConfiguredPersonalUsageLimit(remainingAllowance.toString(), minimum)).toBe(
+        remainingAllowance
+      )
+      expect(getConfiguredPersonalUsageLimit('100', minimum)).toBe(100)
+    }
+  )
+
+  it('uses the subscribed tier allowance for paid personal limits', async () => {
+    mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(40)
     const { getSubscribedPersonalUsageMinimumLimit } = await import('./subscription')
 
-    const minimum = getSubscribedPersonalUsageMinimumLimit({
-      subscription: {
-        tier: {
-          isDefault: true,
-        },
-      } as any,
-      grantedOnboardingAllowanceUsd: '25',
-    })
-
-    expect(minimum).toBe(25)
-    expect(mockGetSubscriptionUsageAllowanceUsd).toHaveBeenCalled()
+    expect(
+      getSubscribedPersonalUsageMinimumLimit({
+        subscription: { tier: { isDefault: false } } as any,
+        grantedOnboardingAllowanceUsd: '18',
+      })
+    ).toBe(40)
   })
 
   it('returns unlimited personal snapshot limits when billing is disabled', async () => {
@@ -269,98 +281,102 @@ describe('subscription billing helpers', () => {
     expect(mockHydrateSubscriptionsWithTiers).toHaveBeenCalledWith([])
   })
 
-  it('seeds onboarding allowance into user stats on billing-enable backfill', async () => {
-    const insertCalls: Array<{
-      values: Record<string, unknown>
-      conflict: 'update' | 'nothing'
-      target: unknown
-      set?: Record<string, unknown>
-    }> = []
-    const selectResults: Array<{
-      result: unknown
-      terminal: 'from' | 'limit' | 'where'
-    }> = [
-      { result: [{ id: 'user_123' }], terminal: 'from' },
-      { result: [], terminal: 'where' },
-      { result: [], terminal: 'where' },
-      {
-        result: [
-          {
+  it.each([0, 10, 40])(
+    'preserves existing balances when billing is enabled with a $%s default',
+    async (onboardingAllowanceUsd) => {
+      const existingStats = {
+        grantedOnboardingAllowanceUsd: '18',
+        customUsageLimit: '100',
+        currentPeriodCost: '9',
+      }
+      const insertCalls: Array<{
+        values: Record<string, unknown>
+        conflict: 'update' | 'nothing'
+        target: unknown
+        set?: Record<string, unknown>
+      }> = []
+      const selectResults: Array<{
+        result: unknown
+        terminal: 'from' | 'limit' | 'where'
+      }> = [
+        { result: [{ id: 'user_123' }], terminal: 'from' },
+        { result: [], terminal: 'where' },
+        { result: [], terminal: 'where' },
+        {
+          result: [
+            {
+              id: 'sub_default_user_123',
+              referenceType: 'user',
+              referenceId: 'user_123',
+              status: 'active',
+              tier: {
+                id: 'tier_default',
+                isDefault: true,
+              },
+            },
+          ],
+          terminal: 'where',
+        },
+      ]
+
+      mockGetResolvedBillingSettings.mockResolvedValue({
+        onboardingAllowanceUsd,
+      })
+      mockDb.select.mockImplementation(() => {
+        const nextResult = selectResults.shift() ?? { result: [], terminal: 'where' as const }
+        return createSelectQueryMock(nextResult.result, nextResult.terminal)
+      })
+      mockDb.insert.mockImplementation(() => ({
+        values: vi.fn((values) => ({
+          onConflictDoUpdate: vi.fn(({ target, set }) => {
+            insertCalls.push({ values, conflict: 'update', target, set })
+            if (values.userId === 'user_123') {
+              Object.assign(existingStats, set)
+            }
+            return Promise.resolve()
+          }),
+          onConflictDoNothing: vi.fn(({ target }) => {
+            insertCalls.push({ values, conflict: 'nothing', target })
+            return Promise.resolve()
+          }),
+        })),
+      }))
+
+      const { backfillDefaultUserSubscriptions } = await import('./subscription')
+      const createdCount = await backfillDefaultUserSubscriptions()
+
+      expect(createdCount).toBe(1)
+      const { id, stripeCustomerId, ...resetValues } = insertCalls[0].values
+      expect(id).toBe('sub_default_user_123')
+      expect(stripeCustomerId).toBeNull()
+      expect(insertCalls[0].set).toEqual(resetValues)
+      expect(existingStats).toEqual({
+        grantedOnboardingAllowanceUsd: '18',
+        customUsageLimit: '100',
+        currentPeriodCost: '9',
+      })
+      expect(insertCalls).toEqual([
+        expect.objectContaining({
+          conflict: 'update',
+          values: expect.objectContaining({
             id: 'sub_default_user_123',
+            plan: 'tier_default',
+            billingTierId: 'tier_default',
             referenceType: 'user',
             referenceId: 'user_123',
             status: 'active',
-            tier: {
-              id: 'tier_default',
-              isDefault: true,
-            },
-          },
-        ],
-        terminal: 'where',
-      },
-    ]
-
-    mockGetResolvedBillingSettings.mockResolvedValue({
-      onboardingAllowanceUsd: 25,
-    })
-    mockDb.select.mockImplementation(() => {
-      const nextResult = selectResults.shift() ?? { result: [], terminal: 'where' as const }
-      return createSelectQueryMock(nextResult.result, nextResult.terminal)
-    })
-    mockDb.insert.mockImplementation(() => ({
-      values: vi.fn((values) => ({
-        onConflictDoUpdate: vi.fn(({ target, set }) => {
-          insertCalls.push({ values, conflict: 'update', target, set })
-          return Promise.resolve()
-        }),
-        onConflictDoNothing: vi.fn(({ target }) => {
-          insertCalls.push({ values, conflict: 'nothing', target })
-          return Promise.resolve()
-        }),
-      })),
-    }))
-
-    const { backfillDefaultUserSubscriptions } = await import('./subscription')
-    const createdCount = await backfillDefaultUserSubscriptions()
-
-    expect(createdCount).toBe(1)
-    const { id, stripeCustomerId, ...resetValues } = insertCalls[0].values
-    expect(id).toBe('sub_default_user_123')
-    expect(stripeCustomerId).toBeNull()
-    expect(insertCalls[0].set).toEqual(resetValues)
-    expect(mockSql).toHaveBeenCalledTimes(1)
-    expect(insertCalls).toEqual([
-      expect.objectContaining({
-        conflict: 'update',
-        values: expect.objectContaining({
-          id: 'sub_default_user_123',
-          plan: 'tier_default',
-          billingTierId: 'tier_default',
-          referenceType: 'user',
-          referenceId: 'user_123',
-          status: 'active',
-        }),
-      }),
-      expect.objectContaining({
-        conflict: 'update',
-        values: expect.objectContaining({
-          userId: 'user_123',
-          grantedOnboardingAllowanceUsd: '25',
-          customUsageLimit: '25',
-        }),
-        set: expect.objectContaining({
-          grantedOnboardingAllowanceUsd: '25',
-          customUsageLimit: expect.objectContaining({
-            type: 'sql',
-            values: [
-              'userStats.customUsageLimit',
-              'userStats.grantedOnboardingAllowanceUsd',
-              '25',
-              'userStats.customUsageLimit',
-            ],
           }),
         }),
-      }),
-    ])
-  })
+        expect.objectContaining({
+          conflict: 'nothing',
+          target: 'userStats.userId',
+          values: expect.objectContaining({
+            userId: 'user_123',
+            grantedOnboardingAllowanceUsd: onboardingAllowanceUsd.toString(),
+            customUsageLimit: onboardingAllowanceUsd.toString(),
+          }),
+        }),
+      ])
+    }
+  )
 })

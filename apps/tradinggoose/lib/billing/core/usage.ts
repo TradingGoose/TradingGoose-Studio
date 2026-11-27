@@ -74,18 +74,15 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
   userId: string,
   dbClient: Pick<typeof db, 'select' | 'update'> = db
 ): Promise<void> {
-  const [{ onboardingAllowanceUsd }, statsRecords] = await Promise.all([
-    getResolvedBillingSettings(dbClient),
-    dbClient
-      .select({
-        currentPeriodCost: userStats.currentPeriodCost,
-        currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
-        grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
-      })
-      .from(userStats)
-      .where(eq(userStats.userId, userId))
-      .limit(1),
-  ])
+  const statsRecords = await dbClient
+    .select({
+      currentPeriodCost: userStats.currentPeriodCost,
+      currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
+      grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
+    })
+    .from(userStats)
+    .where(eq(userStats.userId, userId))
+    .limit(1)
 
   if (statsRecords.length === 0) {
     return
@@ -102,11 +99,7 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
     return
   }
 
-  const onboardingAllowance = parseNonNegativeBillingAmount(onboardingAllowanceUsd) ?? 0
-  // Cancellation restores already-settled usage as the default ledger's baseline.
-  const settledUsage = Math.max(onboardingAllowance - grantedAllowance, 0)
-  const newUsage = Math.max(currentPeriodCost - settledUsage, 0)
-  const remainingAllowance = Math.max(grantedAllowance - newUsage, 0)
+  const remainingAllowance = Math.max(grantedAllowance - currentPeriodCost, 0)
   const nextValues: {
     billedOverageThisPeriod: string
     grantedOnboardingAllowanceUsd: string
@@ -131,30 +124,26 @@ export async function resetUserDefaultUsageToOnboardingAllowanceBalance(
   userId: string,
   dbClient: Pick<typeof db, 'select' | 'update'> = db
 ): Promise<void> {
-  const [{ onboardingAllowanceUsd }, statsRecords] = await Promise.all([
-    getResolvedBillingSettings(),
-    dbClient
-      .select({ grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd })
-      .from(userStats)
-      .where(eq(userStats.userId, userId))
-      .limit(1),
-  ])
+  const statsRecords = await dbClient
+    .select({ grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd })
+    .from(userStats)
+    .where(eq(userStats.userId, userId))
+    .limit(1)
 
   if (statsRecords.length === 0) {
     return
   }
 
-  const onboardingAllowance = parseNonNegativeBillingAmount(onboardingAllowanceUsd) ?? 0
   const grantedAllowance =
     parseNonNegativeBillingAmount(statsRecords[0].grantedOnboardingAllowanceUsd) ?? 0
-  const usedOnboardingAllowance = Math.max(onboardingAllowance - grantedAllowance, 0)
 
   await dbClient
     .update(userStats)
     .set({
-      customUsageLimit: onboardingAllowance.toString(),
+      customUsageLimit: grantedAllowance.toString(),
       customUsageLimitUpdatedAt: new Date(),
-      currentPeriodCost: usedOnboardingAllowance.toString(),
+      // Spent credit is already deducted from the stored grant.
+      currentPeriodCost: '0',
       currentPeriodCopilotCost: '0',
       billedOverageThisPeriod: '0',
     })

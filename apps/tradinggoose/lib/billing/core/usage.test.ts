@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mockDb, mockEq, mockGetResolvedBillingSettings } = vi.hoisted(() => ({
   mockDb: {
+    insert: vi.fn(),
     select: vi.fn(),
     update: vi.fn(),
   },
@@ -117,31 +118,36 @@ describe('usage onboarding allowance helpers', () => {
     }))
   })
 
-  it('consumes granted onboarding allowance without reducing the seeded custom usage limit', async () => {
-    statsRows = [
-      {
-        currentPeriodCost: '12.50',
-        currentPeriodCopilotCost: '1.25',
-        grantedOnboardingAllowanceUsd: '25.00',
-        customUsageLimit: '25.00',
-      },
-    ]
+  it.each([0, 10, 25, 40])(
+    'consumes the stored grant regardless of a $%s onboarding default',
+    async (onboardingAllowanceUsd) => {
+      mockGetResolvedBillingSettings.mockResolvedValue({ onboardingAllowanceUsd })
+      statsRows = [
+        {
+          currentPeriodCost: '12.50',
+          currentPeriodCopilotCost: '1.25',
+          grantedOnboardingAllowanceUsd: '25.00',
+          customUsageLimit: '25.00',
+        },
+      ]
 
-    const { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } = await import('./usage')
+      const { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } = await import('./usage')
 
-    await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
+      await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
 
-    expect(updateValues).toEqual([
-      {
-        billedOverageThisPeriod: '0',
-        currentPeriodCopilotCost: '0',
-        currentPeriodCost: '0',
-        grantedOnboardingAllowanceUsd: '12.5',
-        lastPeriodCopilotCost: '1.25',
-        lastPeriodCost: '12.5',
-      },
-    ])
-  })
+      expect(updateValues).toEqual([
+        {
+          billedOverageThisPeriod: '0',
+          currentPeriodCopilotCost: '0',
+          currentPeriodCost: '0',
+          grantedOnboardingAllowanceUsd: '12.5',
+          lastPeriodCopilotCost: '1.25',
+          lastPeriodCost: '12.5',
+        },
+      ])
+      expect(mockGetResolvedBillingSettings).not.toHaveBeenCalled()
+    }
+  )
 
   it('clamps consumed onboarding allowance at zero', async () => {
     statsRows = [
@@ -170,6 +176,7 @@ describe('usage onboarding allowance helpers', () => {
   })
 
   it('preserves higher custom usage limits while consuming onboarding allowance', async () => {
+    mockGetResolvedBillingSettings.mockResolvedValue({ onboardingAllowanceUsd: 40 })
     statsRows = [
       {
         currentPeriodCost: '7.00',
@@ -227,8 +234,8 @@ describe('usage onboarding allowance helpers', () => {
       {
         billedOverageThisPeriod: '0',
         currentPeriodCopilotCost: '0',
-        currentPeriodCost: '18',
-        customUsageLimit: '25',
+        currentPeriodCost: '0',
+        customUsageLimit: '7',
         customUsageLimitUpdatedAt: expect.any(Date),
       },
     ])
@@ -258,24 +265,28 @@ describe('usage onboarding allowance helpers', () => {
       await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
       expect(stats.grantedOnboardingAllowanceUsd).toBe('18')
 
+      mockGetResolvedBillingSettings.mockResolvedValue({ onboardingAllowanceUsd: 40 })
       await resetUserDefaultUsageToOnboardingAllowanceBalance('user-1')
-      expect(stats.customUsageLimit).toBe('25')
-      expect(stats.currentPeriodCost).toBe('7')
+      expect(stats.customUsageLimit).toBe('18')
+      expect(stats.currentPeriodCost).toBe('0')
+      expect(stats).toMatchObject({ lastPeriodCost: '7', lastPeriodCopilotCost: '0.75' })
       expect(Number(stats.customUsageLimit) - Number(stats.currentPeriodCost)).toBe(18)
 
-      stats.currentPeriodCost = (7 + additionalUsage).toString()
+      stats.currentPeriodCost = additionalUsage.toString()
+      mockGetResolvedBillingSettings.mockResolvedValue({ onboardingAllowanceUsd: 10 })
       await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
       expect(stats).toMatchObject({
         grantedOnboardingAllowanceUsd: remainingAllowance.toString(),
         currentPeriodCost: '0',
         currentPeriodCopilotCost: '0',
-        customUsageLimit: '25',
+        customUsageLimit: '18',
       })
 
       const writesAfterActivation = updateValues.length
       await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
       expect(updateValues).toHaveLength(writesAfterActivation)
 
+      mockGetResolvedBillingSettings.mockResolvedValue({ onboardingAllowanceUsd: 0 })
       await resetUserDefaultUsageToOnboardingAllowanceBalance('user-1')
       expect(Number(stats.customUsageLimit) - Number(stats.currentPeriodCost)).toBe(
         remainingAllowance
@@ -283,6 +294,25 @@ describe('usage onboarding allowance helpers', () => {
       await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
       expect(stats.grantedOnboardingAllowanceUsd).toBe(remainingAllowance.toString())
       expect(stats.currentPeriodCost).toBe('0')
+      expect(mockGetResolvedBillingSettings).not.toHaveBeenCalled()
     }
   )
+
+  it('uses the changed default when granting allowance to a new user', async () => {
+    mockGetResolvedBillingSettings.mockResolvedValue({ onboardingAllowanceUsd: 40 })
+    const onConflictDoNothing = vi.fn().mockResolvedValue(undefined)
+    const values = vi.fn(() => ({ onConflictDoNothing }))
+    mockDb.insert.mockReturnValue({ values })
+
+    const { handleNewUser } = await import('./usage')
+    await handleNewUser('new-user')
+
+    expect(values).toHaveBeenCalledWith({
+      id: expect.any(String),
+      userId: 'new-user',
+      grantedOnboardingAllowanceUsd: '40',
+      customUsageLimit: '40',
+    })
+    expect(onConflictDoNothing).toHaveBeenCalledWith({ target: 'userStats.userId' })
+  })
 })
