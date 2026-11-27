@@ -22,7 +22,7 @@ export default defineConfig({
   },
   dirs: ['./background/tasks'],
   build: {
-    external: ['@mastra/code-sdk'],
+    external: ['@mastra/code-sdk', '@mastra/core'],
     extensions: [
       esbuildPlugin({
         name: 'trigger-index-entry-points',
