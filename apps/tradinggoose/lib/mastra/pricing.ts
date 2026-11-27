@@ -1,6 +1,6 @@
 import type { LanguageModelUsage } from '@mastra/core/stream'
 import { providers } from '@opencode-ai/models/snapshot'
-import type { NativeCost } from './usage'
+import { getCacheTokenUsage, type NativeCost } from './usage'
 
 const amount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0
@@ -17,14 +17,10 @@ export async function calculateNativeCost(
   const listed = providers[provider]?.models[model.slice(separator + 1)]
   const pricing = listed?.cost
   if (!pricing) return { status: 'unavailable' }
-  const anthropic = providerMetadata?.anthropic as
-    | { cacheReadInputTokens?: number; cacheCreationInputTokens?: number }
-    | undefined
   const googleUsage = (
     providerMetadata?.google as
       | {
           usageMetadata?: {
-            cachedContentTokenCount?: number
             thoughtsTokenCount?: number
             promptTokensDetails?: Array<{ modality: string; tokenCount: number }>
             candidatesTokensDetails?: Array<{ modality: string; tokenCount: number }>
@@ -51,15 +47,12 @@ export async function calculateNativeCost(
   const outputAudio =
     rawUsage?.raw?.completion_tokens_details?.audio_tokens ??
     audioTokens(googleUsage?.candidatesTokensDetails)
-  const read =
-    usage.cachedInputTokens ??
-    anthropic?.cacheReadInputTokens ??
-    googleUsage?.cachedContentTokenCount ??
-    0
+  const { cachedInputTokens: read = 0, cacheCreationInputTokens: write = 0 } = getCacheTokenUsage(
+    usage,
+    providerMetadata
+  )
   const write5m = usage.cacheCreationInputTokens5m ?? 0
   const write1h = usage.cacheCreationInputTokens1h ?? 0
-  const write =
-    usage.cacheCreationInputTokens ?? anthropic?.cacheCreationInputTokens ?? write5m + write1h
   const reasoning = usage.reasoningTokens ?? googleUsage?.thoughtsTokenCount ?? 0
   // Match Mastra's native usage semantics: V2 Anthropic prompt counts exclude cache tokens;
   // normalized top-level cache counts and V3 raw totals already include them.
@@ -67,7 +60,7 @@ export async function calculateNativeCost(
     usage.inputTokens === undefined
       ? undefined
       : usage.inputTokens +
-        (anthropic &&
+        (providerMetadata?.anthropic &&
         !(usage.cachedInputTokens !== undefined && usage.cachedInputTokens > 0) &&
         !(usage.cacheCreationInputTokens !== undefined && usage.cacheCreationInputTokens > 0) &&
         typeof rawUsage?.inputTokens !== 'object'
@@ -128,7 +121,5 @@ export async function calculateNativeCost(
     output,
     total: input + output,
     currency: 'USD',
-    estimated: true,
-    status: 'estimated',
   }
 }

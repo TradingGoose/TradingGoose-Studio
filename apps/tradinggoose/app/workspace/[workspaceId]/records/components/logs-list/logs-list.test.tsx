@@ -33,13 +33,8 @@ afterEach(async () => {
 it.each<[CostMetadata | undefined, string]>([
   [{ status: 'reported', total: 0.006 }, '$0.0060'],
   [{ status: 'reported', total: 0 }, '$0'],
-  [{ status: 'estimated', total: 0.006 }, 'Estimated $0.0060'],
-  [{ estimated: true, total: 0.006 }, 'Estimated $0.0060'],
+  [{ total: 0.006 }, '$0.0060'],
   [{ status: 'partial', availableTotal: 0.002 }, 'Unavailable (available: $0.0020)'],
-  [
-    { status: 'partial', availableTotal: 0.002, estimated: true },
-    'Estimated Unavailable (estimated available: $0.0020)',
-  ],
   [{ status: 'partial', availableTotal: 0 }, 'Unavailable (available: $0)'],
   [{ status: 'unavailable', availableTotal: 0.000001 }, 'Unavailable (available: $0.000001000)'],
   [{ status: 'unavailable' }, 'Unavailable (available: Unavailable)'],

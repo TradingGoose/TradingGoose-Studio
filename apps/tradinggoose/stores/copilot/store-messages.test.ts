@@ -83,7 +83,6 @@ describe('canonical native history display', () => {
     const cost = {
       status: 'partial' as const,
       currency: 'USD',
-      estimated: true,
       availableTotal: 0.002,
     }
     const message = projectNativeHistoryMessage({

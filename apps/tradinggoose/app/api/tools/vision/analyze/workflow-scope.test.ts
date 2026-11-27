@@ -108,7 +108,6 @@ function assertScope() {
   expect(boundary.accept.mock.calls[0][2]).toMatchObject({
     total: expect.closeTo(0.000012, 10),
     currency: 'USD',
-    status: 'estimated',
   })
   expect(boundary.contact).toHaveBeenCalledOnce()
 }

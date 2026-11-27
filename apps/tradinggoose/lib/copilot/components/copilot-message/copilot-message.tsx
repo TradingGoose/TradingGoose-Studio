@@ -1,7 +1,8 @@
 'use client'
 
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { ArrowDown, ArrowUp, X } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { extractExplicitCopilotContexts } from '@/lib/copilot/chat-contexts'
@@ -13,7 +14,6 @@ import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import type { ImagePart } from '@/lib/copilot/native/contract'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { formatCost } from '@/lib/logs/cost'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { isCopilotBusy } from '@/stores/copilot/store-state'
 import type {
@@ -121,7 +121,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     submitDisabled,
     onEditModeChange,
   }) => {
-    const copilotCopy = useCopilotMessages()
+    const t = useTranslations('workspace.widgets.copilot.message')
+    const locale = useLocale()
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
     const [isEditMode, setIsEditMode] = useState(false)
@@ -518,7 +519,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onSubmit={handleSubmitEdit}
                 draft={editDraft}
                 onDraftChange={setEditDraft}
-                placeholder={copilotCopy.message.editPlaceholder}
+                placeholder={t('editPlaceholder')}
                 panelWidth={panelWidth}
                 clearOnSubmit={false}
                 submitDisabled={submitDisabled}
@@ -576,15 +577,13 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                             }}
                             disabled={isAborting}
                             className='flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60'
-                            aria-label={copilotCopy.message.stopGeneration}
+                            aria-label={t('stopGeneration')}
                           >
                             <X className='h-4 w-4' />
                           </button>
                         }
                       />
-                      <TooltipContent side='top'>
-                        {copilotCopy.message.stopGeneration}
-                      </TooltipContent>
+                      <TooltipContent side='top'>{t('stopGeneration')}</TooltipContent>
                     </Tooltip>
                   </div>
                 )}
@@ -596,6 +595,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     }
 
     if (isAssistant) {
+      const { cacheStatus, inputTokens, outputTokens } = message.usage ?? {}
+      const cost = message.cost?.total
       return (
         <div
           className={`w-full max-w-full overflow-hidden pb-2 pl-[2px] transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
@@ -608,30 +609,33 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
             {shouldShowActivityIndicator && <StreamingIndicator />}
 
-            {(message.usage || message.cost) && (
+            {(cacheStatus ||
+              inputTokens !== undefined ||
+              outputTokens !== undefined ||
+              cost !== undefined) && (
               <div
-                className='flex flex-wrap gap-x-2 pt-1 text-muted-foreground text-xs'
+                className='flex flex-wrap items-center gap-x-2 pt-1 text-muted-foreground text-xs tabular-nums'
                 data-testid='message-usage'
               >
-                {message.usage && (
-                  <span
-                    title={`Input: ${message.usage.inputTokens ?? 'Unavailable'}; output: ${message.usage.outputTokens ?? 'Unavailable'}`}
-                  >
-                    {message.usage.totalTokens?.toLocaleString() ?? 'Unavailable'} tokens
-                  </span>
-                )}
-                {message.cost && (
+                {cacheStatus && (
                   <span>
-                    {message.cost.total !== undefined &&
-                    (message.cost.estimated || message.cost.status === 'estimated')
-                      ? 'Estimated '
-                      : ''}
-                    {formatCost(message.cost.total)} USD
-                    {message.cost.status === 'partial' &&
-                      message.cost.availableTotal !== undefined &&
-                      ` (${message.cost.estimated ? 'estimated ' : ''}${formatCost(message.cost.availableTotal)} available)`}
+                    <span className='sr-only'>{t('cache')} </span>
+                    {t(cacheStatus)}
                   </span>
                 )}
+                {inputTokens !== undefined && (
+                  <span className='inline-flex items-center gap-0.5'>
+                    <ArrowUp className='size-3' role='img' aria-label={t('inputTokens')} />
+                    {inputTokens.toLocaleString(locale)}
+                  </span>
+                )}
+                {outputTokens !== undefined && (
+                  <span className='inline-flex items-center gap-0.5'>
+                    <ArrowDown className='size-3' role='img' aria-label={t('outputTokens')} />
+                    {outputTokens.toLocaleString(locale)}
+                  </span>
+                )}
+                {cost !== undefined && <span>{formatCost(cost, 'code')}</span>}
               </div>
             )}
 

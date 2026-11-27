@@ -30,18 +30,11 @@ afterEach(async () => {
 })
 
 it.each([
-  [
-    { status: 'partial', availableTotal: 0.002, estimated: true },
-    'Unavailable (estimated available: $0.0020)',
-  ],
   [{ status: 'partial', availableTotal: 0.002 }, 'Unavailable (available: $0.0020)'],
-  [
-    { status: 'partial', availableTotal: 0, estimated: true },
-    'Unavailable (estimated available: $0)',
-  ],
+  [{ status: 'partial', availableTotal: 0 }, 'Unavailable (available: $0)'],
   [{ status: 'reported', total: 0 }, '$0'],
   [{ status: 'unavailable' }, 'Unavailable'],
-])('displays per-model available costs and estimate labels (%j)', async (cost, expected) => {
+])('displays per-model available costs in USD (%j)', async (cost, expected) => {
   await act(async () => {
     root.render(
       <LogDetails
@@ -90,7 +83,7 @@ it('shows persisted Agent message tokens and USD without internal message metada
                   parts: [{ type: 'text', text: 'Known answer' }],
                   metadata: {
                     usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
-                    cost: { total: 0.002, currency: 'USD', status: 'estimated', estimated: true },
+                    cost: { total: 0.002, currency: 'USD' },
                     pendingToolApprovals: { private: 'private-approval-carrier' },
                     providerMetadata: { secret: 'private-provider-carrier' },
                   },
@@ -111,7 +104,7 @@ it('shows persisted Agent message tokens and USD without internal message metada
   expect(container.textContent).toContain('totalTokens')
   expect(container.textContent).toContain('0.002')
   expect(container.textContent).toContain('USD')
-  expect(container.textContent).toContain('estimated')
+  expect(container.textContent).not.toContain('estimated')
   expect(container.textContent).not.toContain('private-approval-carrier')
   expect(container.textContent).not.toContain('private-provider-carrier')
 })

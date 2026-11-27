@@ -28,7 +28,7 @@ describe('workflow Memory native message representation', () => {
       parts: message.content.parts,
       runId: 'native-run',
       usage,
-      cost,
+      cost: { total: 0.002, currency: 'USD' },
     })
     expect(projected.parts).toBe(message.content.parts)
     expect(projected).not.toHaveProperty('content')

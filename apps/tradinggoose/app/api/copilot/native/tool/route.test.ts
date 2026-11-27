@@ -77,7 +77,7 @@ it('uses the signed model for completion accounting without requiring a current 
     { ...identity, model: 'openai/model' },
     envelope({ operation: 'usage.record', input })
   )
-  const cost = { status: 'estimated', total: 0.01 }
+  const cost = { total: 0.01 }
   handler.mockResolvedValueOnce(cost)
   const response = await request(token, { operation: 'usage.record', input })
   expect(response.status).toBe(200)

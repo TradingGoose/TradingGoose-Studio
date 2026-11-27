@@ -113,7 +113,6 @@ describe('built-in stateless completions', () => {
     })
     expect(state.accept.mock.calls[0][2]).toMatchObject({
       total: expect.closeTo(0.000015, 12),
-      status: 'estimated',
       currency: 'USD',
     })
     expect(JSON.stringify(state.requests)).toContain('Exact first prompt')

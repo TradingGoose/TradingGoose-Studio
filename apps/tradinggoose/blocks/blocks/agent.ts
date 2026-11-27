@@ -301,7 +301,7 @@ Example 3 (Array Input):
     tokens: { type: 'any', description: 'Token usage statistics' },
     cost: {
       type: 'object',
-      description: 'Reported or estimated model cost in USD, with availability status',
+      description: 'Studio model cost in USD',
     },
   },
 }

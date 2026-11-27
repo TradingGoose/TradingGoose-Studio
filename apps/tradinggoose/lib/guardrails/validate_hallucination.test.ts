@@ -128,14 +128,11 @@ describe('hallucination search and scoring', () => {
     native.cost.mockReturnValue({
       total: 0.005,
       currency: 'USD',
-      estimated: true,
-      status: 'estimated',
     })
     const result = await validateHallucination(input)
     expect(result.cost).toMatchObject({
       status: 'partial',
       availableTotal: 0.005,
-      estimated: true,
       currency: 'USD',
     })
     expect(result.cost?.total).toBeUndefined()

@@ -9,8 +9,7 @@ export type { WorkflowState, Loop, Parallel, DeploymentStatus }
 export type WorkflowEdge = Edge
 export type { NormalizedBlockOutput, BlockLog }
 
-export interface CostMetadata extends Omit<NativeCost, 'status'> {
-  status?: NativeCost['status']
+export interface CostMetadata extends NativeCost {
   unavailableComponents?: number
   modelCost?: number
   models?: Record<
@@ -20,7 +19,6 @@ export interface CostMetadata extends Omit<NativeCost, 'status'> {
       output?: number
       total?: number
       availableTotal?: number
-      estimated?: boolean
       status?: NativeCost['status']
       tokens?: {
         prompt?: number
@@ -119,7 +117,7 @@ export interface TraceSpan {
   input?: Record<string, unknown>
   output?: Record<string, unknown>
   model?: string
-  cost?: Omit<NativeCost, 'status'> & { status?: NativeCost['status'] }
+  cost?: NativeCost
 }
 
 export type WorkflowLogOutcome = 'running' | 'success' | 'error'

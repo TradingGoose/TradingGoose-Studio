@@ -486,7 +486,6 @@ it.each([true, false])(
       expect(body).toMatchObject({
         content: 'exact scoped output',
         cost: {
-          status: 'estimated',
           total: expect.closeTo(0.000012, 10),
           accountCost: null,
         },
@@ -607,7 +606,7 @@ it('retains filtered provider usage in the HTTP failure and records it once', as
   expect(response.status).toBe(500)
   expect(await response.json()).toMatchObject({
     tokens: { prompt: 12, completion: 3, total: 15 },
-    cost: { status: 'estimated', total: expect.closeTo(0.000048, 10) },
+    cost: { total: expect.closeTo(0.000048, 10) },
   })
   expect(boundary.accept).toHaveBeenCalledOnce()
   expect(boundary.contact).toHaveBeenCalledOnce()

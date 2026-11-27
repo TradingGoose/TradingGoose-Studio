@@ -9,6 +9,7 @@ import {
   type MastraCompositeStore,
   RunFenceConflictError,
 } from '@mastra/core/storage'
+import type { LanguageModelUsage } from '@mastra/core/stream'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
 import { db } from '@tradinggoose/db'
@@ -234,7 +235,7 @@ type ResponseStep =
   | { error: Error }
   | (MockToolCall & { text?: string | AsyncIterable<string> })
   | { tools: MockToolCall[] }
-function setModel(...steps: ResponseStep[]) {
+function setModel(...steps: Array<ResponseStep & { usage?: LanguageModelUsage }>) {
   let index = 0
   m.model = new MastraLanguageModelV2Mock({
     doStream: async (request) => {
@@ -265,7 +266,7 @@ function setModel(...steps: ResponseStep[]) {
                   : 'tool' in step || 'tools' in step
                     ? 'tool-calls'
                     : 'stop',
-              usage: { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
+              usage: step.usage ?? { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
             })
             controller.close()
           },
@@ -2407,7 +2408,11 @@ describe('Copilot background execution and native history', () => {
     m.resolve.mockResolvedValue({ ...connection, apiKey: originalCredential })
     const args = { entityId: 'workflow', name: 'Renamed' }
     const preview = { requiresReview: true, reviewBaseStateHash: 'original-base' }
-    setModel({ tool: 'rename_workflow', args }, { text: 'Renamed successfully' })
+    const tokens = { inputTokens: 3, outputTokens: 2, totalTokens: 5 }
+    setModel(
+      { tool: 'rename_workflow', args, usage: { ...tokens, cachedInputTokens: 0 } },
+      { text: 'Renamed successfully' }
+    )
     m.route.mockResolvedValueOnce(preview).mockResolvedValueOnce({
       success: true,
       workspaceId: 'workspace',
@@ -2431,6 +2436,15 @@ describe('Copilot background execution and native history', () => {
       ).result
     )
     expect(initial.pending[0].stage).toBe('approval')
+    const pausedHistory = (await command({ command: 'thread.observe', threadId: initial.threadId }))
+      .result
+    if (pausedHistory.status !== 'history') throw new Error(JSON.stringify(pausedHistory))
+    const pausedReply = pausedHistory.items.find((item) => item.role === 'assistant')!
+    expect(pausedReply.usage).toStrictEqual({
+      ...tokens,
+      cachedInputTokens: 0,
+      cacheStatus: 'miss',
+    })
     expect(createNativeModel).toHaveBeenLastCalledWith(
       {
         ...connection,
@@ -2536,10 +2550,12 @@ describe('Copilot background execution and native history', () => {
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
     const assistants = history.items.filter((item) => item.role === 'assistant')
     expect(assistants).toHaveLength(2)
+    expect(assistants[0]).toMatchObject({ id: pausedReply.id, usage: pausedReply.usage })
+    expect(assistants[1].id).not.toBe(pausedReply.id)
+    expect(assistants[1].usage).toStrictEqual(tokens)
     for (const assistant of assistants) {
       expect(assistant.runId).toBe(initial.runId)
-      expect(assistant.usage).toEqual({ inputTokens: 3, outputTokens: 2, totalTokens: 5 })
-      expect(assistant.cost).toMatchObject({ status: 'estimated', currency: 'USD' })
+      expect(assistant.cost).toMatchObject({ currency: 'USD' })
       expect(assistant.cost?.total).toBeCloseTo(0.00002375, 12)
     }
     const contacts = m.contacts.length

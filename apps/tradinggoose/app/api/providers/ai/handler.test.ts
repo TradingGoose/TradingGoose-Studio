@@ -88,7 +88,7 @@ describe('native AI HTTP handler', () => {
     expect(native.generate).not.toHaveBeenCalled()
   })
   it('passes canonical Anthropic routing and request-local keys directly to Mastra', async () => {
-    const cost = { total: 0.005, currency: 'USD', status: 'estimated' }
+    const cost = { total: 0.005, currency: 'USD' }
     native.cost.mockReturnValue(cost)
     const response = await handleAIProviderRequest({
       body: {

@@ -1315,7 +1315,7 @@ describe('MCP Tool Execution', () => {
       const accounting = {
         model: 'openai/gpt-4o',
         tokens: { total: 20 },
-        cost: { status: 'partial', availableTotal: 0.002, estimated: true },
+        cost: { status: 'partial', availableTotal: 0.002 },
       }
       vi.mocked(fetch).mockResolvedValue(
         Response.json(

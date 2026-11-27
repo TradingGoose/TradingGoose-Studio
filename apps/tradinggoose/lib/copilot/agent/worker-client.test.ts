@@ -184,7 +184,7 @@ it('drains usage accounting after cancellation', async () => {
   const pending = client.call('usage.record', observation, abort.signal)
   await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce())
   abort.abort()
-  const result = { status: 'estimated', total: 0.01 }
+  const result = { total: 0.01 }
   complete(Response.json({ result }))
   await expect(pending).resolves.toEqual(result)
 })

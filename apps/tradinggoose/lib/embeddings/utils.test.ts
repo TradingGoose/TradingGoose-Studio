@@ -99,8 +99,6 @@ describe('native embeddings', () => {
       input: 0.00000006,
       output: 0,
       total: 0.00000006,
-      status: 'estimated' as const,
-      estimated: true,
       currency: 'USD',
     }
     mocks.embed.mockResolvedValueOnce({ embeddings: [[1]], usage: { tokens: 1 } })
@@ -142,12 +140,12 @@ describe('native embeddings', () => {
       message: expect.stringMatching(/vector count/),
       tokens: { prompt: 7, total: 7 },
       embeddingUsage: { status: 'partial', batches: 1 },
-      cost: { status: 'estimated', total: expect.closeTo(0.00000014, 12), currency: 'USD' },
+      cost: { total: expect.closeTo(0.00000014, 12), currency: 'USD' },
     })
     expect(mocks.accept).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'openai/text-embedding-3-small' }),
       { inputTokens: 7, totalTokens: 7 },
-      expect.objectContaining({ status: 'estimated', total: expect.closeTo(0.00000014, 12) }),
+      expect.objectContaining({ total: expect.closeTo(0.00000014, 12) }),
       expect.stringMatching(/^embedding-run-1:embedding:[^:]+:0$/)
     )
     expect(mocks.embed).toHaveBeenCalledOnce()
@@ -269,7 +267,7 @@ it('preserves vectors and completed facts when transaction acknowledgement is un
     completedEmbeddings: [[1]],
     tokens: { prompt: 3, total: 3 },
     embeddingUsage: { status: 'partial', batches: 1 },
-    cost: { status: 'estimated', total: expect.closeTo(0.00000006, 12), currency: 'USD' },
+    cost: { total: expect.closeTo(0.00000006, 12), currency: 'USD' },
   })
   expect(mocks.accept).toHaveBeenCalledOnce()
 })

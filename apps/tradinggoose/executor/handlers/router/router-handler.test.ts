@@ -78,8 +78,6 @@ describe('Router native generation', () => {
       output: 0.003,
       total: 0.005,
       currency: 'USD',
-      estimated: true,
-      status: 'estimated',
     }
     native.cost.mockReturnValue(cost)
     const result = await new RouterBlockHandler().execute(

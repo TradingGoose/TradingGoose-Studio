@@ -405,7 +405,7 @@ describe('durable native observations', () => {
           await recordModelUsage(
             retrieval,
             { inputTokens: 100, totalTokens: 100 },
-            unpriced ? { status: 'unavailable' } : { total: 0.01, status: 'estimated' },
+            unpriced ? { status: 'unavailable' } : { total: 0.01 },
             'retrieval'
           )
           await beginWorkflowModelUsage(scoring, 'scoring')
@@ -446,7 +446,7 @@ describe('durable native observations', () => {
         totalApiCalls: 1,
       })
       expect(state.log.executionData.billing.nativeUsage.retrieval.cost).toMatchObject({
-        status: unpriced ? 'unavailable' : 'estimated',
+        ...(unpriced ? { status: 'unavailable' } : { total: 0.01 }),
         ...(funding === 'byok' ? { accountCost: null } : {}),
       })
       await logger.settleWorkflowExecutionUsage('execution')
@@ -474,12 +474,7 @@ describe('durable native observations', () => {
     await logger.completeWorkflowExecution({ ...completion, success: false })
     expect(state.ledgers.user?.totalCost).toBe(6.25)
     state.modelMultiplier.mockReturnValue(9)
-    await recordModelUsage(
-      usageScope,
-      { totalTokens: 100 },
-      { total: 0.01, status: 'estimated' },
-      'late'
-    )
+    await recordModelUsage(usageScope, { totalTokens: 100 }, { total: 0.01 }, 'late')
     expect(state.log.cost).toMatchObject({
       total: expect.closeTo(6.28, 12),
       tokens: { total: 250 },
@@ -490,12 +485,7 @@ describe('durable native observations', () => {
       totalApiCalls: 1,
     })
     expect(
-      await recordModelUsage(
-        usageScope,
-        { totalTokens: 999 },
-        { total: 999, status: 'estimated' },
-        'late'
-      )
+      await recordModelUsage(usageScope, { totalTokens: 999 }, { total: 999 }, 'late')
     ).toMatchObject({ total: 0.01 })
     await expect(beginWorkflowModelUsage(usageScope, 'new-after-terminal')).rejects.toThrow(
       'Workflow execution is not accepting model requests'
@@ -503,12 +493,7 @@ describe('durable native observations', () => {
     if (deleted) {
       for (const field of ['actorUserId', 'workspaceId', 'executionId']) {
         await expect(
-          recordModelUsage(
-            { ...usageScope, [field]: 'foreign' },
-            {},
-            { total: 999, status: 'estimated' },
-            'late'
-          )
+          recordModelUsage({ ...usageScope, [field]: 'foreign' }, {}, { total: 999 }, 'late')
         ).rejects.toThrow('Workflow workflow not found')
       }
     }
@@ -529,12 +514,7 @@ describe('durable native observations', () => {
       expect(state.log.endedAt).toBeNull()
       state.modelMultiplier.mockReturnValue(9)
 
-      await recordModelUsage(
-        usageScope,
-        { totalTokens: 100 },
-        { total: 0.01, status: 'estimated' },
-        'in-flight'
-      )
+      await recordModelUsage(usageScope, { totalTokens: 100 }, { total: 0.01 }, 'in-flight')
       expect(state.log.executionData.billing.nativeUsage['in-flight']).toMatchObject({
         tokens: { total: 100 },
         cost: { total: 0.01 },
@@ -546,12 +526,7 @@ describe('durable native observations', () => {
       })
       // A resumed active run still waits for its next checkpoint/terminal settlement.
       if (!paused) await logger.settleWorkflowExecutionUsage('execution')
-      await recordModelUsage(
-        usageScope,
-        { totalTokens: 100 },
-        { total: 0.01, status: 'estimated' },
-        'in-flight'
-      )
+      await recordModelUsage(usageScope, { totalTokens: 100 }, { total: 0.01 }, 'in-flight')
       expect(state.log.cost).toMatchObject({
         total: expect.closeTo(6.28, 12),
         tokens: { total: 250 },
@@ -601,12 +576,7 @@ describe('durable native observations', () => {
     await logger.completeWorkflowExecution(completion)
     state.failLedger = true
     await expect(
-      recordModelUsage(
-        usageScope,
-        { totalTokens: 100 },
-        { total: 0.01, status: 'estimated' },
-        'late'
-      )
+      recordModelUsage(usageScope, { totalTokens: 100 }, { total: 0.01 }, 'late')
     ).rejects.toThrow('ledger unavailable')
     expect(state.log.executionData.billing.nativeUsage.late).toMatchObject({
       tokens: { total: 100 },
@@ -614,18 +584,8 @@ describe('durable native observations', () => {
     })
     expect(state.ledgers.user?.totalCost).toBe(2.25)
     state.failLedger = false
-    await recordModelUsage(
-      usageScope,
-      { totalTokens: 100 },
-      { total: 0.01, status: 'estimated' },
-      'late'
-    )
-    await recordModelUsage(
-      usageScope,
-      { totalTokens: 100 },
-      { total: 0.01, status: 'estimated' },
-      'late'
-    )
+    await recordModelUsage(usageScope, { totalTokens: 100 }, { total: 0.01 }, 'late')
+    await recordModelUsage(usageScope, { totalTokens: 100 }, { total: 0.01 }, 'late')
     expect(state.ledgers.user).toMatchObject({
       totalCost: 2.26,
       totalTokensUsed: 250,
@@ -787,24 +747,17 @@ describe('canonical workflow usage settlement', () => {
     expect(state.ledgers.user?.totalCost).toBe(0.25)
   })
 
-  it('settles published model tariffs once, including costs marked as estimates', async () => {
-    const original = span()
-    const priced = {
-      ...original,
-      inference: {
-        ...original.inference,
-        cost: { ...original.inference.cost, estimated: true, status: 'estimated' as const },
-      },
-    }
+  it('settles published model tariffs once', async () => {
+    const priced = span()
     await replaceObservations(priced.inference)
     const result = await logger.completeWorkflowExecution({ ...completion, traceSpans: [priced] })
-    expect(result.cost).toMatchObject({ total: 2.25, modelCost: 2, estimated: true })
+    expect(result.cost).toMatchObject({ total: 2.25, modelCost: 2 })
     expect(state.ledgers.user).toMatchObject({ totalCost: 2.25, totalTokensUsed: 150 })
     await logger.settleWorkflowExecutionUsage('execution')
     expect(state.ledgers.user?.totalCost).toBe(2.25)
   })
 
-  it('reports BYOK provider estimates without charging them to the Studio ledger', async () => {
+  it('reports BYOK catalog costs without charging them to the Studio ledger', async () => {
     const original = span()
     const byok = {
       ...original,
@@ -823,7 +776,7 @@ describe('canonical workflow usage settlement', () => {
     expect(state.ledgers.user?.totalCost).toBe(0.25)
   })
 
-  it('charges mixed funding once using the saved Studio quote and preserves BYOK step estimates', async () => {
+  it('charges mixed funding once using the saved Studio quote and preserves BYOK step costs', async () => {
     const byok = {
       ...span(),
       inference: { ...span().inference, cost: { ...span().inference.cost, accountCost: null } },
@@ -857,12 +810,12 @@ describe('canonical workflow usage settlement', () => {
 
   it('accrues each persisted native attempt once without requiring matching traces', async () => {
     await observe('nested-native-step', {
-      cost: { total: 0.5, status: 'estimated', estimated: true },
+      cost: { total: 0.5 },
       tokens: { total: 30 },
       generatedFields: ['cost', 'tokens'],
     })
     const result = await logger.completeWorkflowExecution(completion)
-    expect(result.cost).toMatchObject({ modelCost: 2.5, estimated: true })
+    expect(result.cost).toMatchObject({ modelCost: 2.5 })
     expect(state.ledgers.user).toMatchObject({ totalCost: 2.75, totalTokensUsed: 180 })
     await logger.settleWorkflowExecutionUsage('execution')
     expect(state.ledgers.user?.totalCost).toBe(2.75)

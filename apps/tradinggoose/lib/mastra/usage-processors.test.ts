@@ -134,9 +134,13 @@ it('separates provider invocations that reuse the same run label', async () => {
   expect(billing.record.mock.calls.every(([selected]) => selected.runId === scope.runId)).toBe(true)
 })
 
-it.each(['account', 'byok'] as const)(
-  'retains native recovered request usage and unknown attempts (%s)',
-  async (funding) => {
+it.each([
+  ['account', 1],
+  ['byok', 1],
+  ['account', 0],
+] as const)(
+  'retains native recovered request usage and unknown attempts (%s, %i cached reads)',
+  async (funding, cachedInputTokens) => {
     const accounting = await usageProcessors(
       { ...scope, funding },
       createModelUsageAccounting({ ...scope, funding })
@@ -144,6 +148,8 @@ it.each(['account', 'byok'] as const)(
     const storage = new InMemoryStore()
     const memory = new Memory({ storage })
     const threadId = `native-recovery:${funding}`
+    const recoveredUsage = { ...usage, cachedInputTokens }
+    const availableTotal = cachedInputTokens ? 0.0000265 : 0.000028
     const transient = Object.assign(new Error('Transient provider stream failure'), {
       isRetryable: true,
       statusCode: 503,
@@ -171,7 +177,7 @@ it.each(['account', 'byok'] as const)(
                       { type: 'text-start', id: 'answer' },
                       { type: 'text-delta', id: 'answer', delta: 'Recovered answer' },
                       { type: 'text-end', id: 'answer' },
-                      { type: 'finish', usage, finishReason: 'stop' },
+                      { type: 'finish', usage: recoveredUsage, finishReason: 'stop' },
                     ],
             }),
           }
@@ -200,11 +206,11 @@ it.each(['account', 'byok'] as const)(
       expect.stringMatching(/^run:[0-9a-f-]{36}:0:0$/),
       expect.stringMatching(/^run:[0-9a-f-]{36}:0:1$/),
     ])
-    expect(accounting.getUsage()).toEqual(usage)
+    expect(accounting.getUsage()).toEqual(recoveredUsage)
     expect(accounting.getCost()).toMatchObject({
       status: 'partial',
       currency: 'USD',
-      availableTotal: 0.000028,
+      availableTotal,
       ...(funding === 'byok' ? { accountCost: null } : {}),
     })
     expect(billing.record).toHaveBeenCalledOnce()
@@ -218,8 +224,16 @@ it.each(['account', 'byok'] as const)(
     const assistant = persisted.messages.filter((message) => message.role === 'assistant').at(-1)!
     const reloaded = projectNativeMessage(assistant)
     expect(reloaded.runId).toBe(scope.runId)
-    expect(reloaded.usage).toEqual(accounting.getUsage())
-    expect(reloaded.cost).toEqual(accounting.getCost())
+    expect(reloaded.usage).toStrictEqual({
+      ...recoveredUsage,
+      ...(cachedInputTokens ? { cacheStatus: 'hit' } : {}),
+    })
+    expect(assistant.content.metadata?.cost).toEqual({
+      status: 'partial',
+      currency: 'USD',
+      availableTotal,
+    })
+    expect(reloaded.cost).toEqual(assistant.content.metadata?.cost)
   }
 )
 
@@ -393,10 +407,16 @@ it.each([
     })
     expect(result.usage).toMatchObject({ raw: { raw: { is_byok: isByok } } })
     const cost = accounting.getCost()
-    expect(cost).toMatchObject({ currency: 'USD', status: 'estimated' })
+    expect(cost.currency).toBe('USD')
     expect(cost.total).toBeCloseTo(total)
     const assistant = result.messages.find((message) => message.role === 'assistant')!
-    expect(projectNativeMessage(assistant).cost).toEqual(cost)
+    expect(assistant.content.metadata?.cost).toEqual({
+      input: cost.input,
+      output: cost.output,
+      total: cost.total,
+      currency: 'USD',
+    })
+    expect(projectNativeMessage(assistant).cost).toEqual(assistant.content.metadata?.cost)
     expect(billing.admit).toHaveBeenCalledExactlyOnceWith(nativeScope)
     expect(billing.record).toHaveBeenCalledExactlyOnceWith(
       nativeScope,
@@ -480,23 +500,149 @@ it.each(['generate', 'stream'] as const)(
   }
 )
 
-it('prices cached input from the raw native step without counting it at the full input rate', async () => {
-  const reported = {
-    inputTokens: 1000,
-    outputTokens: 100,
-    totalTokens: 1100,
-    cachedInputTokens: 800,
+it.each([
+  [800, 'hit', 0.0016],
+  [0, 'miss', 0.0028],
+] as const)(
+  'persists %i cache reads as %s and prices them once',
+  async (reads, cacheStatus, cost) => {
+    const reported = {
+      inputTokens: 1000,
+      outputTokens: 100,
+      totalTokens: 1100,
+      cachedInputTokens: reads,
+    }
+    const accounting = await generate('stop', reported)
+    await accounting.verifyComplete()
+    expect(accounting.getUsage()).toEqual(reported)
+    if (accounting.outcome.status === 'rejected') throw accounting.outcome.reason
+    const reply = accounting.outcome.value.messages.find((message) => message.role === 'assistant')!
+    expect(projectNativeMessage(reply).usage).toEqual({ ...reported, cacheStatus })
+    expect(accounting.getCost().total).toBeCloseTo(cost)
+    expect(billing.record).toHaveBeenCalledExactlyOnceWith(
+      scope,
+      reported,
+      accounting.getCost(),
+      expect.stringMatching(/^run:[0-9a-f-]{36}:0:0$/)
+    )
   }
-  const accounting = await generate('stop', reported)
-  await accounting.verifyComplete()
-  expect(accounting.getCost().total).toBeCloseTo(0.0016)
-  expect(billing.record).toHaveBeenCalledExactlyOnceWith(
-    scope,
-    { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 },
-    accounting.getCost(),
-    expect.stringMatching(/^run:[0-9a-f-]{36}:0:0$/)
-  )
-})
+)
+
+it.each([
+  { reads: [0, undefined], observed: 0, status: undefined },
+  { reads: [undefined, 0], observed: 0, status: undefined },
+  { reads: [1, undefined], observed: 1, status: 'hit' },
+  { reads: [undefined, 1], observed: 1, status: 'hit' },
+  { reads: [0, 0], observed: 0, status: 'miss' },
+  { reads: [undefined, undefined], observed: undefined, status: undefined },
+  { reads: [0, undefined, 0], observed: 0, status: undefined },
+])(
+  'combines cache reads $reads on one saved assistant message',
+  async ({ reads, observed, status }) => {
+    const storage = new InMemoryStore()
+    const nativeScope = { ...scope, model: 'openai/gpt-6.1-sol' }
+    const accounting = await usageProcessors(nativeScope, createModelUsageAccounting(nativeScope))
+    const reports = reads.map((count) => ({
+      inputTokens: 100,
+      outputTokens: 2,
+      totalTokens: 102,
+      cacheCreationInputTokens: 10,
+      ...(count !== undefined && { cachedInputTokens: count }),
+    }))
+    let step = 0
+    const lookup = vi.fn(async () => 'Result')
+    const agent = new Agent({
+      id: 'cache-steps',
+      name: 'Cache steps',
+      instructions: '',
+      memory: new Memory({ storage }),
+      model: new MastraLanguageModelV2Mock({
+        doStream: async () => {
+          const index = step++
+          const last = index === reports.length - 1
+          const id = String(index)
+          const toolCall: NativeStreamPart = {
+            type: 'tool-call',
+            toolCallId: id,
+            toolName: 'lookup',
+            input: '{}',
+          }
+          return {
+            stream: simulateReadableStream<NativeStreamPart>({
+              chunks: [
+                { type: 'text-start', id },
+                { type: 'text-delta', id, delta: last ? 'Answer' : 'Looking up' },
+                { type: 'text-end', id },
+                ...(last ? [] : [toolCall]),
+                {
+                  type: 'finish',
+                  finishReason: last ? 'stop' : 'tool-calls',
+                  usage: reports[index],
+                },
+              ],
+            }),
+          }
+        },
+      }),
+      tools: {
+        lookup: createTool({
+          id: 'lookup',
+          description: 'Lookup',
+          inputSchema: z.object({}),
+          execute: lookup,
+        }),
+      },
+      inputProcessors: accounting.inputProcessors,
+      outputProcessors: accounting.outputProcessors,
+    })
+    const thread = 'cache-steps'
+    const result = await (
+      await agent.stream('Look up', {
+        runId: scope.runId,
+        savePerStep: true,
+        maxSteps: reads.length,
+        memory: { thread, resource: scope.actorUserId },
+      })
+    ).getFullOutput()
+    await accounting.verifyComplete()
+    expect(lookup).toHaveBeenCalledTimes(reads.length - 1)
+    const expectedUsage = {
+      inputTokens: 100 * reads.length,
+      outputTokens: 2 * reads.length,
+      totalTokens: 102 * reads.length,
+      cacheCreationInputTokens: 10 * reads.length,
+      ...(observed !== undefined && { cachedInputTokens: observed }),
+    }
+    const live = result.messages
+      .filter((message) => message.role === 'assistant')
+      .map(projectNativeMessage)
+    expect(live).toHaveLength(1)
+    const { messages } = await (await storage.getStore('memory'))!.listMessages({
+      threadId: thread,
+      resourceId: scope.actorUserId,
+      perPage: false,
+    })
+    expect(
+      messages.filter((message) => message.role === 'assistant').map(projectNativeMessage)
+    ).toEqual(live)
+    expect(accounting.getUsage()).toEqual(expectedUsage)
+    expect(billing.record.mock.calls.map(([, usage]) => usage)).toEqual(reports)
+    const attempts = billing.record.mock.calls.map(([, , , attemptId]) => attemptId)
+    expect(new Set(attempts).size).toBe(reads.length)
+    expect(attempts).toEqual(billing.begin.mock.calls.map(([, attemptId]) => attemptId))
+    const ledgerTotal = billing.record.mock.calls.reduce(
+      (total, [, , cost]) => total + cost.total,
+      0
+    )
+    // Each report prices 90 ordinary inputs, 10 writes and 2 outputs. A read replaces a $2/M input at $0.10/M.
+    expect(ledgerTotal).toBeCloseTo((225 * reads.length - 1.9 * (observed ?? 0)) / 1_000_000, 12)
+    expect(live[0].cost?.total).toBeCloseTo(ledgerTotal, 12)
+    expect(live[0].usage).toStrictEqual({
+      ...expectedUsage,
+      ...(status && { cacheStatus: status }),
+    })
+  }
+)
 
 it.each(['content-filter', 'error'] as const)(
   'accounts for reported usage without replacing a native %s outcome',
@@ -644,7 +790,7 @@ it.each(
     expect(accounting.getCost().availableTotal).toBeCloseTo(0.0028)
     expect(accounting.getCost()).not.toHaveProperty('total')
   } else {
-    expect(accounting.getCost()).toMatchObject({ status: 'estimated', currency: 'USD' })
+    expect(accounting.getCost()).toMatchObject({ currency: 'USD' })
     expect(accounting.getCost().total).toBeCloseTo(0.0028)
   }
 })

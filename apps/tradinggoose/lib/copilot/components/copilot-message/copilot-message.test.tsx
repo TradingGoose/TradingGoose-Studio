@@ -199,32 +199,40 @@ describe('CopilotMessage', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('shows persisted message tokens and USD provenance and updates metrics on the same message', async () => {
+  it('shows cache status, labeled input and output arrows, and USD on the reply', async () => {
+    const footer = () => container.querySelector('[data-testid="message-usage"]')
+    const values = () => Array.from(footer()?.children ?? [], (field) => field.textContent)
     await renderMessage({
       ...assistantMessage,
-      usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
-      cost: { status: 'estimated', total: 0.002, estimated: true, currency: 'USD' },
+      usage: {
+        inputTokens: 12_345,
+        cachedInputTokens: 0,
+        cacheCreationInputTokens: 12_000,
+        cacheStatus: 'miss',
+        outputTokens: 3,
+        totalTokens: 12_348,
+      },
+      cost: { total: 0.002, currency: 'USD' },
     })
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
-      '15 tokens'
+    expect(values()).toEqual(['Cache miss', '12,345', '3', '0.0020 USD'])
+    expect(footer()?.querySelector('.lucide-arrow-up')?.getAttribute('aria-label')).toBe(
+      'Input tokens'
     )
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
-      'Estimated $0.0020 USD'
+    expect(footer()?.querySelector('.lucide-arrow-down')?.getAttribute('aria-label')).toBe(
+      'Output tokens'
     )
+    expect(footer()?.querySelector('[title], [role="tooltip"]')).toBeNull()
+
+    await renderMessage({ ...assistantMessage, usage: { outputTokens: 0 } })
+    expect(values()).toEqual(['0'])
+    await renderMessage({ ...assistantMessage, cost: { status: 'reported', total: 0 } })
+    expect(values()).toEqual(['0 USD'])
     await renderMessage({
       ...assistantMessage,
       usage: { totalTokens: 20 },
-      cost: { status: 'partial', estimated: true, availableTotal: 0.003, currency: 'USD' },
+      cost: { status: 'partial', availableTotal: 0.003 },
     })
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
-      '20 tokens'
-    )
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
-      'Unavailable USD (estimated $0.0030 available)'
-    )
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).not.toContain(
-      '$0 USD'
-    )
+    expect(footer()).toBeNull()
   })
 
   it('renders assistant content', async () => {

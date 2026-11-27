@@ -70,8 +70,8 @@ describe('frozen execution cost details', () => {
   })
 
   it('shows partial status and the actual available subtotal', async () => {
-    const text = await inspect({ availableTotal: 0.002, status: 'partial', estimated: true })
-    expect(text).toContain('Estimated Unavailable (partial)')
+    const text = await inspect({ availableTotal: 0.002, status: 'partial' })
+    expect(text).toContain('Unavailable (partial)')
     expect(text).toContain('Available subtotal:$0.0020')
   })
 

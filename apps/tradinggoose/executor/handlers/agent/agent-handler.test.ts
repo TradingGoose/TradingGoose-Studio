@@ -1592,7 +1592,7 @@ describe('native structured streams through the workflow executor', () => {
     ['{"answer":42}', true],
     ['{"answer":"invalid"}', false],
   ])('finalizes native output %s and retains completed accounting', async (finalText, valid) => {
-    state.nativeCost = { total: 0.006, status: 'estimated' }
+    state.nativeCost = { total: 0.006 }
     vi.mocked(executeTool).mockResolvedValue({
       success: true,
       output: withInferenceFacts(
@@ -1674,7 +1674,7 @@ describe('native structured streams through the workflow executor', () => {
     const output = log?.output
     expect(output).toMatchObject({
       model: 'openai/gpt-4.1',
-      cost: { total: 0.006, status: 'estimated' },
+      cost: { total: 0.006 },
     })
     expect(output).not.toHaveProperty('toolResults')
     expect(JSON.stringify(getInferenceFacts(output))).not.toContain('"found"')
@@ -1931,10 +1931,10 @@ it('propagates a failed inference tool callback to the native loop', async () =>
     success: false,
     error: 'Vision cancelled',
     output: withInferenceFacts(
-      { tokens: { total: 9 }, cost: { total: 0.002, status: 'estimated' } },
+      { tokens: { total: 9 }, cost: { total: 0.002 } },
       {
         tokens: { total: 9 },
-        cost: { total: 0.002, status: 'estimated' },
+        cost: { total: 0.002 },
         generatedFields: ['tokens', 'cost'],
       }
     ),

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { calculateNativeCost } from './pricing'
-import { resultAccounting, sumNativeCosts, sumNativeUsage } from './usage'
+import { getCacheTokenUsage, resultAccounting, sumNativeCosts, sumNativeUsage } from './usage'
 
 const catalogue = vi.hoisted(() => ({ pricing: vi.fn() }))
 vi.mock('@opencode-ai/models/snapshot', () => {
@@ -48,10 +48,22 @@ describe('public active result facts', () => {
   it('sums disjoint observed steps without inventing missing counts', () => {
     expect(
       sumNativeUsage([
-        { usage: { inputTokens: 2, totalTokens: 5 } },
-        { usage: { inputTokens: 0, totalTokens: 3 } },
+        { usage: { inputTokens: 2, totalTokens: 5, cachedInputTokens: 1 } },
+        {
+          usage: {
+            inputTokens: 4,
+            totalTokens: 7,
+            cachedInputTokens: 2,
+            cacheCreationInputTokens: 0,
+          },
+        },
       ])
-    ).toEqual({ inputTokens: 2, totalTokens: 8 })
+    ).toEqual({
+      inputTokens: 6,
+      totalTokens: 12,
+      cachedInputTokens: 3,
+      cacheCreationInputTokens: 0,
+    })
   })
   it('does not publish invalid or negative upstream counts', () => {
     expect(
@@ -70,8 +82,6 @@ describe('account-funded cost projection', () => {
     output: 0.5,
     total: 2,
     currency: 'USD',
-    estimated: true,
-    status: 'estimated' as const,
     accountCost: null,
   }
   const account = {
@@ -79,7 +89,6 @@ describe('account-funded cost projection', () => {
     output: 0.25,
     total: 1,
     currency: 'USD',
-    status: 'estimated' as const,
   }
 
   it('retains standard reference dollars and the account subtotal through nested aggregation', () => {
@@ -88,7 +97,7 @@ describe('account-funded cost projection', () => {
       input: 2.25,
       output: 0.75,
       total: 3,
-      accountCost: { input: 0.75, output: 0.25, total: 1, status: 'estimated' },
+      accountCost: { input: 0.75, output: 0.25, total: 1 },
     })
     const nested = sumNativeCosts([combined, byok])
     expect(nested).toMatchObject({ total: 5, accountCost: { total: 1 } })
@@ -103,15 +112,15 @@ describe('account-funded cost projection', () => {
     expect(sumNativeCosts([unknownByok, account])).toMatchObject({
       status: 'partial',
       availableTotal: 1,
-      accountCost: { total: 1, status: 'estimated' },
+      accountCost: { total: 1 },
     })
     expect(sumNativeCosts([unknownByok])).toMatchObject({
       status: 'unavailable',
-      accountCost: { total: 0, status: 'reported' },
+      accountCost: { total: 0 },
     })
   })
 
-  it('does not make unknown account prices known by adding a BYOK estimate', () => {
+  it('does not make unknown account prices known by adding a BYOK cost', () => {
     const cost = sumNativeCosts([byok, { status: 'unavailable' }])
     expect(cost).toMatchObject({
       status: 'partial',
@@ -141,7 +150,7 @@ describe('native per-step USD pricing', () => {
             },
           }
         )
-        expect(cost).toMatchObject({ total: 0.0028, currency: 'USD', status: 'estimated' })
+        expect(cost).toMatchObject({ total: 0.0028, currency: 'USD' })
       }
     }
   )
@@ -162,7 +171,7 @@ describe('native per-step USD pricing', () => {
       outputTokens: 100_000,
       cachedInputTokens: 800_000,
     })
-    expect(cost).toMatchObject({ status: 'estimated', currency: 'USD', estimated: true })
+    expect(cost).toMatchObject({ currency: 'USD' })
     expect(cost.input).toBeCloseTo(0.56)
     expect(cost.output).toBeCloseTo(0.8)
     expect(cost.total).toBeCloseTo(1.36)
@@ -201,7 +210,7 @@ describe('native per-step USD pricing', () => {
         inputTokens,
         outputTokens: 1000,
       })
-      expect(cost).toMatchObject({ status: 'estimated', currency: 'USD' })
+      expect(cost).toMatchObject({ currency: 'USD' })
       expect(cost.total).toBeCloseTo(total, 10)
     }
   )
@@ -263,6 +272,10 @@ describe('native per-step USD pricing', () => {
       raw: { inputTokens: { total: 1000, cacheRead: 800, cacheWrite: 100 } },
     }
     for (const usage of [uncached, normalized, rawV3]) {
+      expect(getCacheTokenUsage(usage, metadata)).toEqual({
+        cachedInputTokens: 800,
+        cacheCreationInputTokens: 100,
+      })
       const cost = await calculateNativeCost('anthropic/claude-model', usage, metadata)
       expect(cost.total).toBeCloseTo(0.00141)
     }
@@ -309,7 +322,7 @@ describe('native per-step USD pricing', () => {
     catalogue.pricing.mockReturnValue({ input: 0, output: 0 })
     expect(
       await calculateNativeCost('native/model', { inputTokens: 10, outputTokens: 1 })
-    ).toMatchObject({ total: 0, status: 'estimated' })
+    ).toMatchObject({ total: 0 })
     expect(await calculateNativeCost('native/model', {})).toEqual({ status: 'unavailable' })
     expect(
       await calculateNativeCost('native/model', {
@@ -322,7 +335,7 @@ describe('native per-step USD pricing', () => {
   it('prices input-only embedding usage without inventing output tokens', async () => {
     catalogue.pricing.mockReturnValue({ input: 0.02, output: 0 })
     expect(await calculateNativeCost('openai/embedding', { inputTokens: 1_000_000 })).toMatchObject(
-      { input: 0.02, output: 0, total: 0.02, status: 'estimated' }
+      { input: 0.02, output: 0, total: 0.02 }
     )
   })
   it('uses text rates for ordinary Gemini calls and the audio rate only for reported audio tokens', async () => {
@@ -384,15 +397,12 @@ describe('native per-step USD pricing', () => {
   )
   it('accumulates the same priced steps and preserves partial coverage', () => {
     const known = { total: 0.0123, currency: 'USD', status: 'reported' as const }
-    const estimate = {
+    const priced = {
       input: 0.001,
       output: 0.002,
       total: 0.003,
-      estimated: true,
-      status: 'estimated' as const,
     }
-    expect(sumNativeCosts([known, estimate])).toMatchObject({ status: 'estimated' })
-    expect(sumNativeCosts([known, estimate]).total).toBeCloseTo(0.0153)
+    expect(sumNativeCosts([known, priced]).total).toBeCloseTo(0.0153)
     expect(sumNativeCosts([known, { status: 'unavailable' }])).toMatchObject({
       availableTotal: 0.0123,
       status: 'partial',

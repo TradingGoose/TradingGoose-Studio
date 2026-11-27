@@ -22372,6 +22372,11 @@
         },
         "message": {
           "editPlaceholder": "Edita tu mensaje...",
+          "cache": "Caché",
+          "hit": "acierto",
+          "miss": "fallo",
+          "inputTokens": "Tokens de entrada",
+          "outputTokens": "Tokens de salida",
           "stopGeneration": "Detener generación",
           "sources": "Fuentes:",
           "copy": "Copiar",

@@ -454,16 +454,15 @@ it('accrues model usage when no matching active execution exists', async () => {
   expect(parameters(fixture.writes[0].values.totalTokensUsed)).toEqual([15])
 })
 
-it.each([
-  { total: 0, status: 'reported' as const },
-  { total: 0, status: 'estimated' as const },
-  { total: 1.25, status: 'estimated' as const },
-])('accepts an explicit complete USD cost %j', async (completeCost) => {
-  await recordModelUsage(scope, usage, completeCost)
-  expect(parameters(fixture.writes[0].values.currentPeriodCopilotCost)).toEqual([
-    completeCost.total * 3,
-  ])
-})
+it.each([{ total: 0, status: 'reported' as const }, { total: 0 }, { total: 1.25 }])(
+  'accepts an explicit complete USD cost %j',
+  async (completeCost) => {
+    await recordModelUsage(scope, usage, completeCost)
+    expect(parameters(fixture.writes[0].values.currentPeriodCopilotCost)).toEqual([
+      completeCost.total * 3,
+    ])
+  }
+)
 
 it.each(
   ['copilot', 'title', 'wand'].flatMap((purpose) =>
@@ -501,7 +500,7 @@ it.each(unknownCosts)(
 it.each([
   { status: 'reported' as const, total: Number.NaN },
   { status: 'reported' as const, total: -1 },
-  { status: 'estimated' as const, total: Number.POSITIVE_INFINITY },
+  { total: Number.POSITIVE_INFINITY },
   { status: 'partial' as const, total: -1 },
 ])(
   'refuses malformed reported totals rather than treating them as unknown: %j',
@@ -559,17 +558,13 @@ it('reports the same scaled components as the final account charge', async () =>
       input: 0.75,
       output: 0.5,
       total: 1.25,
-      estimated: true,
       currency: 'USD',
-      status: 'estimated',
     })
   ).toEqual({
     input: 2.25,
     output: 1.5,
     total: 3.75,
-    estimated: true,
     currency: 'USD',
-    status: 'estimated',
   })
   expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([3.75])
 })
@@ -583,7 +578,7 @@ it('uses the existing model-tier multiplier for direct account-funded model work
   expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([report.total])
 })
 
-it('reports BYOK standard estimates without checking or debiting the Studio model balance', async () => {
+it('reports BYOK standard costs without checking or debiting the Studio model balance', async () => {
   fixture.limits.mockResolvedValue({ isExceeded: true, message: 'Allowance exhausted' })
   const byok = { ...scope, funding: 'byok' as const }
   await expect(assertModelUsageAllowed(byok)).resolves.toBeUndefined()
@@ -624,7 +619,6 @@ it('persists native dollar reports using the same Studio-tier amount as account 
     input: expect.closeTo(0.006, 12),
     output: expect.closeTo(0.0024, 12),
     total: expect.closeTo(0.0084, 12),
-    status: 'estimated',
     currency: 'USD',
   })
   const assistant = response.messages.find((message) => message.role === 'assistant')!
@@ -662,9 +656,9 @@ it('persists standard BYOK prices through native generation when the Studio bala
   const response = await agent.generate('hello', { runId: nativeScope.runId, maxSteps: 1 })
   await accounting.verifyComplete()
   const report = accounting.getCost()
-  expect(report).toMatchObject({ total: 0.0028, status: 'estimated', accountCost: null })
+  expect(report).toMatchObject({ total: 0.0028, accountCost: null })
   const assistant = response.messages.find((message) => message.role === 'assistant')!
-  expect(projectNativeMessage(assistant).cost).toMatchObject({ total: 0.0028, status: 'estimated' })
+  expect(projectNativeMessage(assistant).cost).toMatchObject({ total: 0.0028 })
   expect(fixture.writes).toEqual([])
   expect(fixture.limits).not.toHaveBeenCalled()
   expect(fixture.workspace).not.toHaveBeenCalled()

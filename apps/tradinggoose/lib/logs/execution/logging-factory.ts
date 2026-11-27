@@ -99,6 +99,7 @@ export function calculateCostSummary(usage: readonly InferenceFacts[]) {
     )
     return {
       ...cost,
+      status: cost.status ?? 'reported',
       availableTotal: cost.total ?? cost.availableTotal,
       tokens: resultAccounting(usage).tokens,
     }
@@ -106,7 +107,7 @@ export function calculateCostSummary(usage: readonly InferenceFacts[]) {
   for (const facts of usage) {
     if (facts.cost || facts.tokens || facts.model) {
       const reference = sumNativeCosts([facts.cost ?? { status: 'unavailable' }])
-      // BYOK estimates remain on the span; workflow settlement prices account-funded usage.
+      // BYOK costs remain on the span. Workflow settlement uses account-funded costs.
       const cost = reference.accountCost ?? reference
       const component = { ...facts, cost }
       components.push(component)
@@ -131,7 +132,6 @@ export function calculateCostSummary(usage: readonly InferenceFacts[]) {
     modelCost: model.total ?? model.availableTotal,
     status: model.status,
     unavailableComponents,
-    estimated: model.estimated === true,
     models: Object.fromEntries(
       [...modelComponents].map(([name, facts]) => [name, summarize(facts)])
     ),

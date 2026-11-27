@@ -3,7 +3,14 @@ import type { MessageList } from '@mastra/core/agent/message-list'
 import type { InputProcessor, OutputProcessor } from '@mastra/core/processors'
 import type { LanguageModelUsage } from '@mastra/core/stream'
 import { parseNativeToolArguments } from './options'
-import { type NativeCost, type NativeUsage, sumNativeCosts, sumNativeUsage } from './usage'
+import {
+  getCacheTokenUsage,
+  type NativeCost,
+  type NativeUsage,
+  sumCostAmounts,
+  sumNativeCosts,
+  sumNativeUsage,
+} from './usage'
 
 export interface NativeUsageScope {
   actorUserId?: string
@@ -82,7 +89,11 @@ export async function usageProcessors(scope: NativeUsageScope, accounting: Nativ
         if (!steps.get(key)?.usage) {
           const step = {
             stepNumber: args.stepNumber,
-            usage: sumNativeUsage([{ usage: args.usage }]),
+            usage: sumNativeUsage([
+              {
+                usage: { ...args.usage, ...getCacheTokenUsage(args.usage, args.providerMetadata) },
+              },
+            ]),
             cost: { status: 'unavailable' } as NativeCost,
           }
           steps.set(key, step)
@@ -93,6 +104,20 @@ export async function usageProcessors(scope: NativeUsageScope, accounting: Nativ
             .at(-1)
           if (response) {
             const metadata = response.content.metadata ?? {}
+            const previousUsage = metadata.usage as NativeUsage | undefined
+            const usage = sumNativeUsage([{ usage: previousUsage }, step])
+            const unfinishedAttempts = [...steps.values()].filter(
+              (attempt) => attempt.stepNumber === args.stepNumber && !attempt.usage
+            )
+            if ((usage.cachedInputTokens ?? 0) > 0) {
+              usage.cacheStatus = 'hit'
+            } else if (
+              step.usage.cachedInputTokens === 0 &&
+              (!previousUsage || previousUsage.cacheStatus === 'miss') &&
+              unfinishedAttempts.length === 0
+            ) {
+              usage.cacheStatus = 'miss'
+            }
             args.messageList.add(
               {
                 ...response,
@@ -100,17 +125,10 @@ export async function usageProcessors(scope: NativeUsageScope, accounting: Nativ
                   ...response.content,
                   metadata: {
                     ...metadata,
-                    usage: sumNativeUsage([
-                      { usage: metadata.usage as NativeUsage | undefined },
-                      step,
-                    ]),
-                    cost: aggregateCost([
+                    usage,
+                    cost: sumCostAmounts([
                       ...(metadata.cost ? [metadata.cost as NativeCost] : []),
-                      ...[...steps.values()]
-                        .filter(
-                          (attempt) => attempt.stepNumber === args.stepNumber && !attempt.usage
-                        )
-                        .map((attempt) => attempt.cost),
+                      ...unfinishedAttempts.map((attempt) => attempt.cost),
                       step.cost,
                     ]),
                   },
