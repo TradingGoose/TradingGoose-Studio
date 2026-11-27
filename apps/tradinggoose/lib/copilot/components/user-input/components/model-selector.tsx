@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Brain, Check, type LucideIcon } from 'lucide-react'
+import { Brain, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useShallow } from 'zustand/react/shallow'
 import { ProviderIcon } from '@/components/icons/provider-icon'
@@ -19,14 +19,10 @@ import { useCopilotStore } from '@/stores/copilot/store'
 import { isCopilotBusy } from '@/stores/copilot/store-state'
 import { SELECTOR_TRIGGER_CLASS } from '../constants'
 
-function SelectorLabel({ label, icon: Icon }: { label: string; icon?: LucideIcon }) {
+function SelectorLabel({ label }: { label: string }) {
   return (
     <span className='flex min-w-0 items-center gap-1.5 text-left'>
-      {Icon ? (
-        <Icon aria-hidden='true' className='h-3 w-3 shrink-0' />
-      ) : (
-        <ProviderIcon provider={label.split('/')[0]} className='h-3 w-3' />
-      )}
+      <ProviderIcon provider={label.split('/')[0]} className='h-3 w-3' />
       <span className='min-w-0 whitespace-normal [overflow-wrap:anywhere]'>{label}</span>
     </span>
   )
@@ -140,7 +136,8 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
               />
             }
           >
-            <SelectorLabel label={selectedLevel} icon={Brain} />
+            <Brain aria-hidden='true' className='h-3 w-3 text-muted-foreground' />
+            <span>{selectedLevel}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align='start' side={isNearTop ? 'bottom' : 'top'}>
             {option.values.map((value) => (
