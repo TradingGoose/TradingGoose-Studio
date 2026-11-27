@@ -110,6 +110,7 @@ describe('usage onboarding allowance helpers', () => {
       set: vi.fn((values) => ({
         where: vi.fn(async () => {
           updateValues.push(values)
+          Object.assign(statsRows[0], values)
           return []
         }),
       })),
@@ -232,4 +233,56 @@ describe('usage onboarding allowance helpers', () => {
       },
     ])
   })
+
+  it.each([
+    { additionalUsage: 0, remainingAllowance: 18 },
+    { additionalUsage: 2, remainingAllowance: 16 },
+    { additionalUsage: 18, remainingAllowance: 0 },
+    { additionalUsage: 30, remainingAllowance: 0 },
+  ])(
+    'keeps $remainingAllowance after cancellation and reactivation with $additionalUsage new free usage',
+    async ({ additionalUsage, remainingAllowance }) => {
+      const stats = {
+        currentPeriodCost: '7',
+        currentPeriodCopilotCost: '0.75',
+        grantedOnboardingAllowanceUsd: '25',
+        customUsageLimit: '100',
+      }
+      statsRows = [stats]
+
+      const {
+        decrementGrantedOnboardingAllowanceByCurrentPeriodUsage,
+        resetUserDefaultUsageToOnboardingAllowanceBalance,
+      } = await import('./usage')
+
+      await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
+      expect(stats.grantedOnboardingAllowanceUsd).toBe('18')
+
+      await resetUserDefaultUsageToOnboardingAllowanceBalance('user-1')
+      expect(stats.customUsageLimit).toBe('25')
+      expect(stats.currentPeriodCost).toBe('7')
+      expect(Number(stats.customUsageLimit) - Number(stats.currentPeriodCost)).toBe(18)
+
+      stats.currentPeriodCost = (7 + additionalUsage).toString()
+      await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
+      expect(stats).toMatchObject({
+        grantedOnboardingAllowanceUsd: remainingAllowance.toString(),
+        currentPeriodCost: '0',
+        currentPeriodCopilotCost: '0',
+        customUsageLimit: '25',
+      })
+
+      const writesAfterActivation = updateValues.length
+      await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
+      expect(updateValues).toHaveLength(writesAfterActivation)
+
+      await resetUserDefaultUsageToOnboardingAllowanceBalance('user-1')
+      expect(Number(stats.customUsageLimit) - Number(stats.currentPeriodCost)).toBe(
+        remainingAllowance
+      )
+      await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
+      expect(stats.grantedOnboardingAllowanceUsd).toBe(remainingAllowance.toString())
+      expect(stats.currentPeriodCost).toBe('0')
+    }
+  )
 })

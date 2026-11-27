@@ -74,15 +74,18 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
   userId: string,
   dbClient: Pick<typeof db, 'select' | 'update'> = db
 ): Promise<void> {
-  const statsRecords = await dbClient
-    .select({
-      currentPeriodCost: userStats.currentPeriodCost,
-      currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
-      grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
-    })
-    .from(userStats)
-    .where(eq(userStats.userId, userId))
-    .limit(1)
+  const [{ onboardingAllowanceUsd }, statsRecords] = await Promise.all([
+    getResolvedBillingSettings(dbClient),
+    dbClient
+      .select({
+        currentPeriodCost: userStats.currentPeriodCost,
+        currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
+        grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
+      })
+      .from(userStats)
+      .where(eq(userStats.userId, userId))
+      .limit(1),
+  ])
 
   if (statsRecords.length === 0) {
     return
@@ -99,7 +102,11 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
     return
   }
 
-  const remainingAllowance = Math.max(grantedAllowance - currentPeriodCost, 0)
+  const onboardingAllowance = parseNonNegativeBillingAmount(onboardingAllowanceUsd) ?? 0
+  // Cancellation restores already-settled usage as the default ledger's baseline.
+  const settledUsage = Math.max(onboardingAllowance - grantedAllowance, 0)
+  const newUsage = Math.max(currentPeriodCost - settledUsage, 0)
+  const remainingAllowance = Math.max(grantedAllowance - newUsage, 0)
   const nextValues: {
     billedOverageThisPeriod: string
     grantedOnboardingAllowanceUsd: string
