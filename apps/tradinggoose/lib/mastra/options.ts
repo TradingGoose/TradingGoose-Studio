@@ -22,13 +22,12 @@ const MODEL_SETTINGS = z
     frequencyPenalty: numericSetting(),
     stopSequences: z.array(z.string()).optional(),
     seed: numericSetting(z.number().int()),
-    reasoning: z
-      .enum(['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
-      .optional(),
   })
   .strict()
 
-export function trustedModelSettings(value?: unknown): AgentExecutionOptions['modelSettings'] {
+export function trustedModelSettings(
+  value?: unknown
+): NonNullable<AgentExecutionOptions['modelSettings']> {
   const settings = MODEL_SETTINGS.parse(value === undefined ? {} : value)
   return Object.fromEntries(Object.entries(settings).filter(([, setting]) => setting !== undefined))
 }

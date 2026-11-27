@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { environmentVariables } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { z } from 'zod'
 import { ToolArgSchemas } from '@/lib/copilot/registry'
 import {
@@ -10,6 +10,7 @@ import {
   type ServerToolExecutionContext,
   shouldStageServerToolMutationForReview,
   throwIfServerToolAborted,
+  throwStaleServerToolReview,
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { verifyWorkspaceContext } from '@/lib/copilot/tools/server/entities/shared'
@@ -33,9 +34,10 @@ function hashEnvironmentVariableBase(
 async function readEnvironmentVariableSummary(
   scope: 'personal' | 'workspace',
   targetId: string,
-  variableNames: string[]
+  variableNames: string[],
+  store: Pick<typeof db, 'select'> = db
 ) {
-  const existingRows = await db
+  const existingRows = await store
     .select({ key: environmentVariables.key, value: environmentVariables.value })
     .from(environmentVariables)
     .where(
@@ -43,12 +45,21 @@ async function readEnvironmentVariableSummary(
         ? eq(environmentVariables.workspaceId, targetId)
         : eq(environmentVariables.userId, targetId)
     )
-  const existingKeySet = new Set(existingRows.map((row) => row.key))
   const existingValueByKey = new Map(existingRows.map((row) => [row.key, row.value]))
-  const added = variableNames.filter((key) => !existingKeySet.has(key))
-  const updated = variableNames.filter((key) => existingKeySet.has(key))
+  const added = variableNames.filter((key) => !existingValueByKey.has(key))
+  const updated = variableNames.filter((key) => existingValueByKey.has(key))
 
-  return { existingRows, existingValueByKey, added, updated }
+  return {
+    existingValueByKey,
+    added,
+    updated,
+    totalVariableCount: existingRows.length + added.length,
+    reviewBaseStateHash: hashEnvironmentVariableBase(
+      scope,
+      targetId,
+      variableNames.map((key) => [key, existingValueByKey.get(key) ?? null])
+    ),
+  }
 }
 
 function buildEnvironmentVariablesResult(
@@ -65,7 +76,7 @@ function buildEnvironmentVariablesResult(
     message: `${messagePrefix} ${variableNames.length} environment variable(s): ${summary.added.length} added, ${summary.updated.length} updated`,
     variableCount: variableNames.length,
     variableNames,
-    totalVariableCount: summary.existingRows.length + summary.added.length,
+    totalVariableCount: summary.totalVariableCount,
     addedVariables: summary.added,
     updatedVariables: summary.updated,
   }
@@ -87,30 +98,51 @@ async function writeEncryptedEnvironmentVariables(
   scope: 'personal' | 'workspace',
   targetId: string,
   encryptedVariables: Record<string, string>,
+  variableNames: string[],
   context?: ServerToolExecutionContext
 ) {
-  await db.transaction(async (tx) => {
-    for (const [key, encrypted] of Object.entries(encryptedVariables)) {
+  const scopeColumn =
+    scope === 'workspace' ? environmentVariables.workspaceId : environmentVariables.userId
+  const target = [scopeColumn, environmentVariables.key]
+  return db.transaction(async (tx) => {
+    const summary = await readEnvironmentVariableSummary(scope, targetId, variableNames, tx)
+    assertAcceptedServerToolReviewBase(context, summary.reviewBaseStateHash)
+    for (const key of variableNames) {
       throwIfServerToolAborted(context)
-      await tx
-        .insert(environmentVariables)
-        .values({
+      const value = encryptedVariables[key]!
+      const set = { value, updatedAt: new Date() }
+      const previous = summary.existingValueByKey.get(key)
+      let written
+      if (context?.acceptedReviewBaseStateHash && previous !== undefined) {
+        written = await tx
+          .update(environmentVariables)
+          .set(set)
+          .where(
+            and(
+              eq(scopeColumn, targetId),
+              eq(environmentVariables.key, key),
+              eq(environmentVariables.value, previous)
+            )
+          )
+          .returning({ id: environmentVariables.id })
+      } else {
+        const insert = tx.insert(environmentVariables).values({
           id: crypto.randomUUID(),
           ...(scope === 'workspace' ? { workspaceId: targetId } : { userId: targetId }),
           key,
-          value: encrypted,
+          value,
         })
-        .onConflictDoUpdate({
-          target:
-            scope === 'workspace'
-              ? [environmentVariables.workspaceId, environmentVariables.key]
-              : [environmentVariables.userId, environmentVariables.key],
-          set: {
-            value: encrypted,
-            updatedAt: new Date(),
-          },
-        })
+        if (!context?.acceptedReviewBaseStateHash) {
+          await insert.onConflictDoUpdate({ target, set })
+          continue
+        }
+        written = await insert
+          .onConflictDoNothing({ target })
+          .returning({ id: environmentVariables.id })
+      }
+      if (!written.length) throwStaleServerToolReview()
     }
+    return summary
   })
 }
 
@@ -141,18 +173,12 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
       const variableNames = Object.keys(parsedPayload.variables).sort()
       throwIfServerToolAborted(scopedContext)
 
-      const summary = await readEnvironmentVariableSummary(
-        parsedPayload.scope,
-        targetId,
-        variableNames
-      )
-      const reviewBaseStateHash = hashEnvironmentVariableBase(
-        parsedPayload.scope,
-        targetId,
-        variableNames.map((key) => [key, summary.existingValueByKey.get(key) ?? null])
-      )
-
       if (shouldStageServerToolMutationForReview(scopedContext)) {
+        const summary = await readEnvironmentVariableSummary(
+          parsedPayload.scope,
+          targetId,
+          variableNames
+        )
         return {
           requiresReview: true,
           ...buildEnvironmentVariablesResult(
@@ -162,19 +188,19 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
             summary,
             'Review required for'
           ),
-          reviewBaseStateHash,
+          reviewBaseStateHash: summary.reviewBaseStateHash,
         }
       }
 
-      assertAcceptedServerToolReviewBase(scopedContext, reviewBaseStateHash)
       const encryptedVariables = await encryptEnvironmentVariables(
         parsedPayload.variables,
         scopedContext
       )
-      await writeEncryptedEnvironmentVariables(
+      const summary = await writeEncryptedEnvironmentVariables(
         parsedPayload.scope,
         targetId,
         encryptedVariables,
+        variableNames,
         scopedContext
       )
       return buildEnvironmentVariablesResult(

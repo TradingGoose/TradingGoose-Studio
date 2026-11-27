@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { createHttpResponseFromBlock, workflowHasResponseBlock } from '@/lib/workflows/utils'
 import { Executor } from '@/executor'
@@ -6,6 +6,8 @@ import { createMockContext } from '@/executor/__test-utils__/executor-mocks'
 import { saveExecutionContext } from '@/executor/checkpoint'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import { createChatOutputEventReader } from './chat-output'
+
+vi.unmock('@/blocks/registry')
 
 function containerWorkflow(type: 'loop' | 'parallel', mode: string, count: number) {
   const block = (id: string, blockType: string, params = {}): SerializedBlock => ({

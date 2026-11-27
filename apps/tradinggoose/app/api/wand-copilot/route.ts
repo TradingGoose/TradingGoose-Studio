@@ -128,11 +128,11 @@ export async function POST(req: NextRequest) {
   ]
 
   try {
-    const { model } = await resolveCopilotModel()
+    const { providerId, modelId } = await resolveCopilotModel()
     const nativeRequest: CompletionRequest = {
       scope: { actorUserId: session.user.id, workspaceId: null },
       purpose: 'wand',
-      model,
+      model: `${providerId}/${modelId}`,
       messages,
     }
     const response = await createCompletionResponse(nativeRequest, req.signal)

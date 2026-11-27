@@ -52,7 +52,7 @@ describe('local canonical Copilot history', () => {
       ],
     })
     const history = await readNativeThreadHistory(scope, 'thread')
-    expect(history[0]!.parts).toBe(parts)
+    expect(history[0]!.parts).toEqual(parts)
     expect(history[0]!.createdAt).toBe(new Date(1).toISOString())
     expect(state.messages).toHaveBeenCalledWith(
       expect.objectContaining({

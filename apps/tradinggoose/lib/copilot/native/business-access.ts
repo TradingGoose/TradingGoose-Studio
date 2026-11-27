@@ -1,18 +1,16 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
 import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
 import {
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
-import { verifySavedEntityContext } from '@/lib/copilot/tools/server/entities/shared'
-import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
+import { readWorkflowExecutionLog } from '@/lib/execution/workflow-execution-events'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { getMonitorRowById } from '@/app/api/monitors/shared'
 import type { Pending, Scope } from './contract'
-import { NativeTargetError } from './errors'
+import { NativeTargetError, ObserveWorkflowExecution } from './errors'
 import { nativeToolCallId } from './identity'
 
 function record(value: unknown): Record<string, unknown> {
@@ -28,17 +26,9 @@ export async function readAuthorizedWorkflowExecutionLog(
 ) {
   throwIfServerToolAborted(context)
   const args = ToolArgSchemas.run_workflow.parse(pending.originalArgs)
-  const [row] = await db
-    .select()
-    .from(workflowExecutionLogs)
-    .where(
-      and(
-        eq(workflowExecutionLogs.executionId, nativeToolCallId(pending.target)),
-        eq(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, args.entityId)
-      )
-    )
-    .limit(1)
-  if (!row?.endedAt)
+  const executionId = nativeToolCallId(pending.target)
+  const row = await readWorkflowExecutionLog(executionId, args.entityId)
+  if (!row || row.executionId !== executionId)
     throw new NativeTargetError('Original workflow execution has no terminal result', 409)
   const environment = record(record(row.executionData).environment)
   if (
@@ -50,6 +40,14 @@ export async function readAuthorizedWorkflowExecutionLog(
   )
     throw new NativeTargetError('Original execution workspace access has been revoked', 403)
   throwIfServerToolAborted(context)
+  if (row.requiresObservation)
+    throw new ObserveWorkflowExecution({
+      workflowId: args.entityId,
+      taskId: executionId,
+      executionId,
+    })
+  if (!row.endedAt && !record(row.executionData).pause)
+    throw new NativeTargetError('Original workflow execution has no terminal result', 409)
   return row
 }
 
@@ -58,6 +56,7 @@ export async function authorizeNativeCredential(
   credentialId: string,
   businessWorkspaceId?: string
 ) {
+  const { resolveOAuthCredentialAccountForUser } = await import('@/lib/credentials/oauth')
   const resolved = await resolveOAuthCredentialAccountForUser({
     userId: scope.actorUserId,
     credentialId,
@@ -116,6 +115,7 @@ export async function authorizeNativeBusinessResult(
   if (toolName === 'read_monitor' || toolName === 'edit_monitor') {
     if (typeof args.monitorId !== 'string')
       throw new NativeTargetError('Monitor target is required', 422)
+    const { getMonitorRowById } = await import('@/app/api/monitors/shared')
     const monitor = await getMonitorRowById(args.monitorId)
     if (!monitor?.workflow.workspaceId)
       throw new NativeTargetError('Monitor is no longer available', 403)
@@ -139,8 +139,12 @@ export async function authorizeNativeBusinessResult(
   const kind = TOOL_PROMPT_METADATA[toolName].entityKind
   if (kind) {
     for (const entityId of new Set([args.entityId, output.entityId])) {
-      if (typeof entityId === 'string')
+      if (typeof entityId === 'string') {
+        const { verifySavedEntityContext } = await import(
+          '@/lib/copilot/tools/server/entities/shared'
+        )
         await verifySavedEntityContext(executionContext, kind, entityId, 'read')
+      }
     }
   }
 }

@@ -1,15 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  cn,
-  convertScheduleOptionsToCron,
-  formatDate,
-  formatDateTime,
-  formatDuration,
-  formatTime,
-  getInvalidCharacters,
-  isValidName,
-  validateName,
-} from '@/lib/utils'
+import { cn, formatDateTime, validateName } from '@/lib/utils'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 
 const { createCipherivMock, createDecipherivMock, randomBytesMock } = vi.hoisted(() => {
@@ -139,54 +129,6 @@ describe('encryption key compatibility', () => {
   })
 })
 
-describe('convertScheduleOptionsToCron', () => {
-  it.concurrent('should convert minutes schedule to cron', () => {
-    const result = convertScheduleOptionsToCron('minutes', { minutesInterval: '5' })
-    expect(result).toBe('*/5 * * * *')
-  })
-
-  it.concurrent('should convert hourly schedule to cron', () => {
-    const result = convertScheduleOptionsToCron('hourly', { hourlyMinute: '30' })
-    expect(result).toBe('30 * * * *')
-  })
-
-  it.concurrent('should convert daily schedule to cron', () => {
-    const result = convertScheduleOptionsToCron('daily', { dailyTime: '15:30' })
-    expect(result).toBe('15 30 * * *')
-  })
-
-  it.concurrent('should convert weekly schedule to cron', () => {
-    const result = convertScheduleOptionsToCron('weekly', {
-      weeklyDay: 'MON',
-      weeklyDayTime: '09:30',
-    })
-    expect(result).toBe('09 30 * * 1')
-  })
-
-  it.concurrent('should convert monthly schedule to cron', () => {
-    const result = convertScheduleOptionsToCron('monthly', {
-      monthlyDay: '15',
-      monthlyTime: '12:00',
-    })
-    expect(result).toBe('12 00 15 * *')
-  })
-
-  it.concurrent('should use custom cron expression directly', () => {
-    const customCron = '*/15 9-17 * * 1-5'
-    const result = convertScheduleOptionsToCron('custom', { cronExpression: customCron })
-    expect(result).toBe(customCron)
-  })
-
-  it.concurrent('should throw error for unsupported schedule type', () => {
-    expect(() => convertScheduleOptionsToCron('invalid', {})).toThrow('Unsupported schedule type')
-  })
-
-  it.concurrent('should use default values when options are not provided', () => {
-    const result = convertScheduleOptionsToCron('daily', {})
-    expect(result).toBe('00 09 * * *')
-  })
-})
-
 describe('date formatting functions', () => {
   it.concurrent('should format datetime correctly', () => {
     const date = new Date('2023-05-15T14:30:00')
@@ -201,42 +143,6 @@ describe('date formatting functions', () => {
     expect(result).toContain('May 15, 2023')
     expect(result).toContain('4:30 PM')
     expect(result).toContain('UTC+02:00')
-  })
-
-  it.concurrent('should format date correctly', () => {
-    const date = new Date('2023-05-15T14:30:00')
-    const result = formatDate(date)
-    expect(result).toMatch(/May 15, 2023/)
-    expect(result).not.toMatch(/2:30|14:30/)
-  })
-
-  it.concurrent('should format time correctly', () => {
-    const date = new Date('2023-05-15T14:30:00')
-    const result = formatTime(date)
-    expect(result).toMatch(/2:30 PM|14:30/)
-    expect(result).not.toMatch(/2023|May/)
-  })
-})
-
-describe('formatDuration', () => {
-  it.concurrent('should format milliseconds correctly', () => {
-    const result = formatDuration(500)
-    expect(result).toBe('500ms')
-  })
-
-  it.concurrent('should format seconds correctly', () => {
-    const result = formatDuration(5000)
-    expect(result).toBe('5s')
-  })
-
-  it.concurrent('should format minutes and seconds correctly', () => {
-    const result = formatDuration(125000) // 2m 5s
-    expect(result).toBe('2m 5s')
-  })
-
-  it.concurrent('should format hours, minutes correctly', () => {
-    const result = formatDuration(3725000) // 1h 2m 5s
-    expect(result).toBe('1h 2m')
   })
 })
 
@@ -279,50 +185,5 @@ describe('validateName', () => {
   it.concurrent('should handle mixed whitespace and invalid characters', () => {
     const result = validateName('test@#$  name')
     expect(result).toBe('test name')
-  })
-})
-
-describe('isValidName', () => {
-  it.concurrent('should return true for valid names', () => {
-    expect(isValidName('test_name')).toBe(true)
-    expect(isValidName('test123')).toBe(true)
-    expect(isValidName('test name')).toBe(true)
-    expect(isValidName('TestName')).toBe(true)
-    expect(isValidName('')).toBe(true)
-  })
-
-  it.concurrent('should return false for invalid names', () => {
-    expect(isValidName('test@name')).toBe(false)
-    expect(isValidName('test-name')).toBe(false)
-    expect(isValidName('test#name')).toBe(false)
-    expect(isValidName('test$name')).toBe(false)
-    expect(isValidName('test%name')).toBe(false)
-  })
-})
-
-describe('getInvalidCharacters', () => {
-  it.concurrent('should return empty array for valid names', () => {
-    const result = getInvalidCharacters('test_name_123')
-    expect(result).toEqual([])
-  })
-
-  it.concurrent('should return invalid characters', () => {
-    const result = getInvalidCharacters('test@#$name')
-    expect(result).toEqual(['@', '#', '$'])
-  })
-
-  it.concurrent('should return unique invalid characters', () => {
-    const result = getInvalidCharacters('test@@##name')
-    expect(result).toEqual(['@', '#'])
-  })
-
-  it.concurrent('should handle empty string', () => {
-    const result = getInvalidCharacters('')
-    expect(result).toEqual([])
-  })
-
-  it.concurrent('should handle string with only invalid characters', () => {
-    const result = getInvalidCharacters('@#$%')
-    expect(result).toEqual(['@', '#', '$', '%'])
   })
 })

@@ -216,19 +216,12 @@ export function LogsList({
                                   </TableCell>
                                   <TableCell className='px-4 py-3 text-center align-middle'>
                                     <div className='font-medium text-muted-foreground text-xs'>
-                                      {log.cost?.estimated || log.cost?.status === 'estimated'
-                                        ? 'Estimated '
-                                        : ''}
                                       {formatCost(log.cost?.total)}
                                       {log.cost?.status === 'partial' ||
                                       log.cost?.status === 'unavailable' ? (
                                         <span>
                                           {' '}
-                                          (
-                                          {log.cost?.estimated
-                                            ? 'estimated available'
-                                            : 'available'}
-                                          : {formatCost(log.cost?.availableTotal)})
+                                          (available: {formatCost(log.cost?.availableTotal)})
                                         </span>
                                       ) : null}
                                     </div>

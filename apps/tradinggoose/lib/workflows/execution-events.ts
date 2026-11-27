@@ -1,15 +1,3 @@
-export type WorkflowExecutionEventType =
-  | 'execution:started'
-  | 'execution:completed'
-  | 'execution:error'
-  | 'execution:cancelled'
-  | 'execution:paused'
-  | 'block:started'
-  | 'block:completed'
-  | 'block:error'
-  | 'stream:chunk'
-  | 'stream:done'
-
 type WorkflowExecutionTerminalResult = {
   success: boolean
   status?: 'paused'

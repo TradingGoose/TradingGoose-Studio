@@ -1,3 +1,4 @@
+import { getCatalogThinkingLevels } from '@mastra/code-sdk/thinking-catalog'
 import { EMBEDDING_MODELS, GatewayRegistry } from '@mastra/core/llm'
 import { providers as modelCatalog } from '@opencode-ai/models/snapshot'
 import { NextRequest } from 'next/server'
@@ -14,7 +15,6 @@ import {
   assertListedModel,
   getEmbeddingModelRegistry,
   getModelRegistry,
-  getNativeModel,
 } from './registry'
 
 beforeEach(() => {
@@ -57,19 +57,26 @@ it('retains exact native generation identities and capabilities', async () => {
     'openai/gpt-5',
     'google/gemini-2.5-pro',
     'perplexity/sonar-deep-research',
-    'openai/gpt-3.5-turbo',
+    'openai/gpt-4o-mini',
     'openrouter/openai/gpt-audio',
     'poe/openai/gpt-5.4',
     'tinfoil/gpt-oss-120b',
     'xai/grok-4.20-multi-agent-0309',
   ]) {
     await expect(assertListedModel(id)).resolves.toBeUndefined()
-    expect(generation).toContainEqual(getNativeModel(id))
+    expect(generation).toContainEqual(expect.objectContaining({ id }))
   }
   await expect(assertListedModel('openai/text-embedding-3-small-unlisted')).rejects.toThrow()
   await expect(assertListedModel('gpt-4.1')).rejects.toThrow()
-  expect(getNativeModel('xai/grok-4.20-multi-agent-0309')).toMatchObject({ toolCall: false })
-  expect(getNativeModel('openai/gpt-4.1')).toMatchObject({ toolCall: true })
+  expect(generation.find(({ id }) => id === 'xai/grok-4.20-multi-agent-0309')).toMatchObject({
+    toolCall: false,
+  })
+  expect(generation.find(({ id }) => id === 'openai/gpt-4.1')).toMatchObject({ toolCall: true })
+  for (const id of ['openai/gpt-5', 'deepseek/deepseek-v4-pro', 'google/gemini-2.5-pro']) {
+    expect(generation.find((entry) => entry.id === id)?.reasoningOptions?.[0]?.values).toEqual(
+      getCatalogThinkingLevels(id).filter((level) => level !== 'off')
+    )
+  }
 })
 
 it('excludes unsupported gateways and published non-chat APIs from generation', async () => {
@@ -79,13 +86,10 @@ it('excludes unsupported gateways and published non-chat APIs from generation', 
   const excluded = new Set([
     'netlify/openai/gpt-image-1.5',
     'netlify/openai/gpt-4.1',
-    'google/deep-research-preview-04-2026',
-    'google/deep-research-max-preview-04-2026',
     'google/lyria-3-clip-preview',
     'google/lyria-3-pro-preview',
     'openrouter/google/lyria-3-clip-preview',
     'poe/google/lyria',
-    'tinfoil/nomic-embed-text',
     'nvidia/nvidia/synthetic-video-detector',
   ])
   for (const [provider, config] of Object.entries(GatewayRegistry.getInstance().getProviders())) {

@@ -1,10 +1,9 @@
 import { db } from '@tradinggoose/db'
 import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import * as Y from 'yjs'
 import { z } from 'zod'
 import { getStableVibrantColor } from '@/lib/colors'
-import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
+import { WORKFLOW_VARIABLE_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
 import { ENTITY_KIND_WORKFLOW, type ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import type {
@@ -18,7 +17,6 @@ import {
   withWorkspaceArgContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { VariableManager } from '@/lib/variables/variable-manager'
-import { refreshWorkflowListForWorkflow } from '@/lib/workflows/db-helpers'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
   readWorkflowContainerBoundaryEdgeViolation,
@@ -26,20 +24,13 @@ import {
   serializeWorkflowToTgMermaid,
 } from '@/lib/workflows/studio-workflow-mermaid'
 import { isWorkflowVariableType, type WorkflowVariableType } from '@/lib/workflows/value-types'
-import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   type EntityListReadStore,
   lockSavedEntityList,
   readEntityListMembersFromDb,
 } from '@/lib/yjs/server/entity-loaders'
 import { applyWorkflowPatchInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
-import {
-  createWorkflowSnapshot,
-  getVariablesSnapshot,
-  readWorkflowSnapshot,
-  type WorkflowSnapshot,
-} from '@/lib/yjs/workflow-session'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import {
   executeRenameEntityMutation,
   requireUserId,
@@ -221,6 +212,9 @@ export async function loadWorkflowSnapshotForCopilot(
     throw new Error('Workflow not found')
   }
 
+  const { readBootstrappedReviewTargetSnapshot } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
   const snapshot = await readBootstrappedReviewTargetSnapshot({
     workspaceId: workspaceId ?? workflowRow.workspaceId,
     ownerUserId: null,
@@ -233,6 +227,8 @@ export async function loadWorkflowSnapshotForCopilot(
     throw new Error(`Current Yjs workflow state is required for ${workflowId}`)
   }
 
+  const Y = await import('yjs')
+  const { getVariablesSnapshot, readWorkflowSnapshot } = await import('@/lib/yjs/workflow-session')
   const doc = new Y.Doc()
   try {
     Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
@@ -402,6 +398,8 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       context,
       'write'
     )
+    const currentVariablesBaseHash = hashServerToolReviewBase(variables)
+    assertAcceptedServerToolReviewBase(context, currentVariablesBaseHash)
     const nextVariables = buildWorkflowVariablesFromDocument({
       workflowId,
       entityDocument: args.entityDocument,
@@ -423,7 +421,6 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       )
     }
     const nextDocument = serializeWorkflowVariableDocument(nextVariables)
-    const currentVariablesBaseHash = hashServerToolReviewBase(variables)
 
     if (shouldStageServerToolMutationForReview(context)) {
       const currentDocument = serializeWorkflowVariableDocument(variables)
@@ -447,9 +444,9 @@ export const editWorkflowVariableServerTool: BaseServerTool<
       }
     }
 
-    assertAcceptedServerToolReviewBase(context, currentVariablesBaseHash)
     await applyWorkflowPatchInSocketServer(workflowId, requireUserId(context), {
       variables: nextVariables,
+      expectedReviewBaseStateHash: context?.acceptedReviewBaseStateHash,
     })
     return {
       success: true,
@@ -498,6 +495,7 @@ export const createWorkflowServerTool: BaseServerTool<
     const now = new Date()
     const description = typeof args.description === 'string' ? args.description : 'New workflow'
     const color = getStableVibrantColor(workflowId)
+    const { createWorkflowSnapshot } = await import('@/lib/yjs/workflow-session')
     const workflowState = createWorkflowSnapshot()
 
     await db.transaction(async (tx) => {
@@ -526,6 +524,7 @@ export const createWorkflowServerTool: BaseServerTool<
     })
 
     try {
+      const { applyWorkflowState } = await import('@/lib/yjs/server/apply-workflow-state')
       await applyWorkflowState(workflowId, userId, workflowState, {})
     } catch (error) {
       await db.transaction(async (tx) => {
@@ -534,6 +533,7 @@ export const createWorkflowServerTool: BaseServerTool<
       })
       throw error
     }
+    const { refreshWorkflowListForWorkflow } = await import('@/lib/workflows/db-helpers')
     await refreshWorkflowListForWorkflow(workflowId)
 
     return {

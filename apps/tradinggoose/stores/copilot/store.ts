@@ -11,6 +11,7 @@ import {
 import type { StoreApi } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/traditional'
+import { BrowserStorage } from '@/lib/browser-storage'
 import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
 import {
@@ -36,8 +37,11 @@ import {
 import { OAuthRequestAccessClientTool } from '@/lib/copilot/tools/client/other/oauth-request-access'
 import { isCopilotServerToolReviewResult } from '@/lib/copilot/tools/client/server-tool-response'
 import { RunWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/run-workflow'
+import { workflowReadback } from '@/lib/copilot/tools/client/workflow/workflow-result'
 import { readSseData, waitToReconnect } from '@/lib/events/stream'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { reasoningEffortSchema } from '@/lib/mastra/reasoning'
+import { observeQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
 import { getQueryClient } from '@/app/query-provider'
 import { organizationKeys } from '@/hooks/queries/organization'
 import { subscriptionKeys } from '@/hooks/queries/subscription'
@@ -46,6 +50,7 @@ import { projectNativeHistory } from './history'
 import {
   listNativeThreads,
   postNativeCommand,
+  readEarlierNativeMessages,
   readNativeCommand,
   readNativeCommandResponse,
 } from './native-api'
@@ -88,18 +93,25 @@ const refreshBillingUsage = () => {
 async function requireCopilotStream(response: Response) {
   if (!response.ok) await readNativeCommandResponse(response)
   if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream'))
-    throw new Error('Copilot stream is unavailable')
+    throw new Error(`Copilot returned no event stream (HTTP ${response.status}).`)
   return response.body
 }
 const initialState = {
   accessLevel: 'limited' as const,
   selectedModel: null as string | null,
+  reasoning: undefined as CopilotStore['reasoning'],
   currentChat: null as CopilotChat | null,
   chats: [] as CopilotChat[],
   messages: [] as CopilotStore['messages'],
   conversationWorkspaceId: null as string | null,
   currentRunId: null as string | null,
   workflowChatDeployment: null as CopilotStore['workflowChatDeployment'],
+  chatsWorkspaceId: null as string | null,
+  chatsError: null,
+  historyError: null,
+  historyPage: null,
+  loadingEarlier: false,
+  earlierError: null,
   isLoadingChats: false,
   isSendingMessage: false,
   isAwaitingContinuation: false,
@@ -110,6 +122,22 @@ const initialState = {
 }
 
 function createCopilotStoreInstance(channelId: string) {
+  const preferenceKey = parseCopilotWorkspaceChannelId(channelId)
+    ? `copilot-model:${channelId}`
+    : undefined
+  const readPreference = () => {
+    if (!preferenceKey) return {}
+    const saved = BrowserStorage.getItem<{ selectedModel?: unknown; reasoning?: unknown } | null>(
+      preferenceKey,
+      null
+    )
+    return typeof saved?.selectedModel === 'string'
+      ? {
+          selectedModel: saved.selectedModel,
+          reasoning: reasoningEffortSchema.safeParse(saved.reasoning).data,
+        }
+      : {}
+  }
   let epoch = 0
   let owner = new AbortController()
   let threadsGeneration = 0
@@ -121,7 +149,12 @@ function createCopilotStoreInstance(channelId: string) {
     threadId?: string
   } | null = null
   let titleAbort: AbortController | null = null
+  // Keep a Stop retryable across chat navigation until Studio confirms it.
+  const workflowStops = new Map<string, { runId: string; toolId: string; pending: boolean }>()
+  const chatKey = (chat: CopilotChat) => JSON.stringify([chat.workspaceId, chat.threadId])
+  const stopFor = (chat: CopilotChat | null) => chat && workflowStops.get(chatKey(chat))
   let observation: AbortController | null = null
+  let olderRead: AbortController | null = null
   let admission: ReturnType<typeof readNativeCommandResponse> | undefined
   const inFlightTools = new Set<string>()
   const attemptedTools = new Set<string>()
@@ -240,12 +273,16 @@ function createCopilotStoreInstance(channelId: string) {
         selectedEpoch === epoch &&
         get().currentChat?.threadId === chat.threadId &&
         get().currentChat?.workspaceId === chat.workspaceId
-      const applyHistory = (
+      const applyHistory = async (
         history: HistoryResponse,
+        signal: AbortSignal,
         activeRunId: string | null = null,
-        submittedRunId?: string
+        submittedRunId?: string,
+        refreshRunId = activeRunId ?? submittedRunId,
+        readbackId?: string
       ) => {
-        if (history.threadId !== get().currentChat?.threadId)
+        const chat = get().currentChat
+        if (!chat || history.threadId !== chat.threadId)
           throw new Error('Observed Copilot history belongs to another conversation')
         const messages = projectNativeHistory(history.items)
         const pending = history.pending
@@ -259,6 +296,50 @@ function createCopilotStoreInstance(channelId: string) {
             )
           )
         )
+        const retained = stopFor(chat)
+        const targetId =
+          readbackId ??
+          (retained && !retained.pending && !currentRunId ? retained.toolId : undefined)
+        // A long turn can place its attested workflow result before the visible history page.
+        if (
+          targetId &&
+          !toolCallsById[targetId] &&
+          !pending.some((item) => nativeToolCallId(item.target) === targetId)
+        ) {
+          for (let page = 0, more = history.hasMore; more; page++) {
+            const older = await readEarlierNativeMessages(
+              chat,
+              history.items[0]?.createdAt,
+              page,
+              signal
+            )
+            signal.throwIfAborted()
+            const result = projectNativeHistory(older.items)
+              .flatMap((message) => message.contentBlocks ?? [])
+              .filter((block) => block.type === 'tool_call')
+              .find((block) => block.toolCall.id === targetId)
+            if (result) {
+              toolCallsById[targetId] = result.toolCall
+              break
+            }
+            more = older.hasMore
+          }
+        }
+        let stop = stopFor(chat)
+        let isAborting = get().isAborting
+        if (stop) {
+          const card = toolCallsById[stop.toolId]
+          if (
+            (currentRunId && stop.runId !== currentRunId) ||
+            (!stop.pending &&
+              card &&
+              workflowReadback(card.name, card.result)?.executionId === stop.toolId)
+          ) {
+            workflowStops.delete(chatKey(chat))
+            stop = undefined
+          }
+          isAborting = !!stop?.pending
+        }
         let projected = { ...get(), messages, toolCallsById }
         for (const item of pending) {
           const id = nativeToolCallId(item.target)
@@ -288,20 +369,49 @@ function createCopilotStoreInstance(channelId: string) {
         }
         for (const id of Object.keys(get().toolCallsById))
           if (!projected.toolCallsById[id]) unregisterClientTool(id)
+        const previous = get()
+        const first = messages[0]
+        const overlap =
+          history.hasMore && first && previous.historyPage?.page
+            ? previous.messages.findIndex((item) => item.id === first.id)
+            : -1
+        const historyPage = history.hasMore
+          ? { through: history.items[0]?.createdAt, page: 0, hasMore: true }
+          : null
         set({
-          messages: projected.messages,
+          historyError: null,
+          historyPage: overlap >= 0 ? previous.historyPage : historyPage,
+          messages:
+            overlap > 0
+              ? [...previous.messages.slice(0, overlap), ...projected.messages]
+              : projected.messages,
           toolCallsById: projected.toolCallsById,
-          isAwaitingContinuation: pending.length > 0,
+          isAborting,
+          isAwaitingContinuation: pending.length > 0 || (!activeRunId && !!stop),
           isSendingMessage: !!activeRunId && pending.length === 0,
-          currentRunId,
+          currentRunId: currentRunId ?? stop?.runId ?? null,
         })
-        for (const call of Object.values(projected.toolCallsById)) void refreshToolResult(call)
+        if (refreshRunId) {
+          for (const item of history.items) {
+            if (item.runId !== refreshRunId) continue
+            for (const part of item.parts) {
+              if (part.type !== 'tool-invocation') continue
+              const id = nativeToolCallId({
+                runId: refreshRunId,
+                toolCallId: part.toolInvocation.toolCallId,
+              })
+              const call = projected.toolCallsById[id]
+              if (call) void refreshToolResult(call)
+            }
+          }
+        }
       }
       const observeChat = async (
         chat: CopilotChat,
         submittedRunId?: string,
-        onReady?: () => void
-      ) => {
+        onReady?: () => void,
+        submitted?: CopilotRequest
+      ): Promise<boolean> => {
         observation?.abort()
         const abort = new AbortController()
         observation = abort
@@ -311,10 +421,64 @@ function createCopilotStoreInstance(channelId: string) {
           onReady?.()
           onReady = undefined
         }
+        const submittedReadback =
+          submitted?.command === 'tool.execute' &&
+          submitted.action === 'readback' &&
+          submitted.target.toolName === 'run_workflow'
+            ? submitted
+            : undefined
+        const staleReadback = () => {
+          set({
+            isSendingMessage: false,
+            error: 'The workflow readback no longer matches the pending tool.',
+          })
+          return false
+        }
+        const followWorkflow = async (history: HistoryResponse): Promise<boolean> => {
+          const instruction = history.workflowObservation!
+          const { handle, target } = instruction
+          const call = get().toolCallsById[nativeToolCallId(target)]
+          if (
+            history.readbackRequestId !== instruction.requestId ||
+            (submitted &&
+              (submittedReadback?.requestId !== instruction.requestId ||
+                stableStringifyJsonValue(submittedReadback.target) !==
+                  stableStringifyJsonValue(target))) ||
+            call?.pending?.stage !== 'result' ||
+            target.toolName !== 'run_workflow' ||
+            stableStringifyJsonValue(call.pending.target) !== stableStringifyJsonValue(target) ||
+            call.pending.originalArgs.entityId !== handle.workflowId ||
+            handle.executionId !== nativeToolCallId(target) ||
+            handle.taskId !== handle.executionId
+          )
+            return staleReadback()
+          if (stopFor(chat)) return false
+          set({ isSendingMessage: true })
+          updateTool(call.id, ClientToolCallState.executing)
+          try {
+            await observeQueuedWorkflowExecution(handle, { signal: abort.signal })
+            if (!current() || get().isAborting) return false
+            return await invoke({
+              command: 'tool.execute',
+              action: 'readback',
+              requestId: instruction.nextRequestId,
+              workspaceId: chat.workspaceId,
+              target,
+            })
+          } catch (error) {
+            if (current()) {
+              fail(error)
+              updateTool(call.id, ClientToolCallState.error)
+              set({ isSendingMessage: false })
+            }
+            return false
+          }
+        }
         let messageId: string | undefined
         try {
           while (current()) {
             let retryable = true
+            let receivedHistory = false
             try {
               const response = await postNativeCommand(
                 serializeCopilotRequest({
@@ -337,7 +501,9 @@ function createCopilotStoreInstance(channelId: string) {
                 const event = JSON.parse(data) as CopilotThreadEvent
                 if (!current()) return false
                 if (event.type === 'thread.history') {
-                  applyHistory(event.result, event.activeRunId, submittedRunId)
+                  await applyHistory(event.result, abort.signal, event.activeRunId, submittedRunId)
+                  if (!current()) return false
+                  receivedHistory = true
                   messageId = undefined
                   if (event.error) set({ error: event.error.message })
                   // History refresh does not clear a request failure.
@@ -349,12 +515,32 @@ function createCopilotStoreInstance(channelId: string) {
                   if (event.interruptedRunId && submittedRunId === event.interruptedRunId)
                     return false
                   ready()
+                  if (!event.activeRunId && event.result.workflowObservation)
+                    return await followWorkflow(event.result)
                   continue
                 }
                 if (event.type === 'thread.status') {
-                  applyHistory(event.history, null, submittedRunId)
+                  if (
+                    submittedReadback &&
+                    (submittedRunId !== event.runId ||
+                      event.history.readbackRequestId !== submittedReadback.requestId)
+                  )
+                    return staleReadback()
+                  await applyHistory(
+                    event.history,
+                    abort.signal,
+                    null,
+                    submittedRunId,
+                    event.runId,
+                    submittedReadback && ['success', 'suspended'].includes(event.status)
+                      ? nativeToolCallId(submittedReadback.target)
+                      : undefined
+                  )
+                  if (!current()) return false
+                  if (event.status === 'suspended' && event.history.workflowObservation)
+                    return await followWorkflow(event.history)
                   set({
-                    isAborting: false,
+                    isAborting: !!stopFor(chat)?.pending,
                     error:
                       event.error?.message ??
                       get().error ??
@@ -364,6 +550,15 @@ function createCopilotStoreInstance(channelId: string) {
                   })
                   refreshBillingUsage()
                   if (submittedRunId) {
+                    if (submittedReadback && ['success', 'suspended'].includes(event.status)) {
+                      const card = get().toolCallsById[nativeToolCallId(submittedReadback.target)]
+                      if (
+                        !card ||
+                        card.pending ||
+                        workflowReadback(card.name, card.result)?.executionId !== card.id
+                      )
+                        return staleReadback()
+                    }
                     if (event.status === 'suspended' && event.runId === submittedRunId)
                       scheduleBrowserTools()
                     return ['success', 'suspended'].includes(event.status)
@@ -400,10 +595,20 @@ function createCopilotStoreInstance(channelId: string) {
                     ]
                   )
               }
+              if (!submittedRunId && !receivedHistory)
+                throw new Error('Copilot history response ended without a snapshot.')
             } catch (error) {
               if (!current()) return false
+              const historyReadFailed = !submittedRunId && !receivedHistory
+              if (historyReadFailed) {
+                set({
+                  historyError:
+                    error instanceof Error ? error.message : 'Copilot history is unavailable.',
+                })
+                ready()
+              }
               if (!retryable) {
-                fail(error)
+                if (!historyReadFailed) fail(error)
                 set({
                   isSendingMessage: false,
                   isAwaitingContinuation: Boolean(get().currentRunId),
@@ -444,7 +649,7 @@ function createCopilotStoreInstance(channelId: string) {
         messageId = assistantForCommand(),
         body = serializeCopilotRequest(command),
         onAccepted?: () => void
-      ) => {
+      ): Promise<boolean> => {
         observation?.abort()
         const id = epoch
         const ownerSignal = owner.signal
@@ -520,9 +725,9 @@ function createCopilotStoreInstance(channelId: string) {
           rememberCopilotWorkspaceSelection(channelId, command.workspaceId, result.threadId)
           onAccepted?.()
           if (!current() || get().isAborting) return false
-          const success = await observeChat(chat, result.runId)
+          const success = await observeChat(chat, result.runId, undefined, command)
           if (success && current()) publishInitialTitle()
-          return success && current()
+          return success && ownsChat(chat, id)
         } catch (error) {
           if (id === epoch) {
             const message = fail(error)
@@ -681,7 +886,6 @@ function createCopilotStoreInstance(channelId: string) {
               throw new Error('This tool does not have a server preview decision')
             const instance = ensureClientToolInstance(call.name, id)
             if (!instance) throw new Error('Native browser tool is unavailable')
-            instance.setExecutionContext({ workspaceId: call.provenance?.workspaceId })
             const key = stableStringifyJsonValue(pending.target)
             if (
               attemptedTools.has(key) &&
@@ -697,6 +901,7 @@ function createCopilotStoreInstance(channelId: string) {
               )
             attemptedTools.add(key)
             const originalArgs = ToolArgSchemas[call.name].parse(pending.originalArgs)
+            instance.setExecutionContext({ workspaceId: call.provenance?.workspaceId })
             const businessAbort = new AbortController()
             try {
               set({ abortController: businessAbort })
@@ -722,6 +927,7 @@ function createCopilotStoreInstance(channelId: string) {
       }
       return {
         ...initialState,
+        ...readPreference(),
         openWorkflowChatDeployment: async (toolCallId, scope) => {
           if (get().workflowChatDeployment)
             throw new Error('A workflow deployment dialog is already owned by this conversation')
@@ -823,7 +1029,7 @@ function createCopilotStoreInstance(channelId: string) {
         },
         setDraft: (update) =>
           set((state) => ({ draft: typeof update === 'function' ? update(state.draft) : update })),
-        setSelectedModel: async (selectedModel) => {
+        setSelectedModel: (selectedModel) => {
           if (isCopilotBusy(get()) || get().selectedModel === selectedModel) return
           const dialog = get().workflowChatDeployment
           if (dialog)
@@ -833,22 +1039,37 @@ function createCopilotStoreInstance(channelId: string) {
               'Native model selection changed'
             )
           titleAbort?.abort()
-          set({ selectedModel })
+          if (preferenceKey) BrowserStorage.setItem(preferenceKey, { selectedModel })
+          set({ selectedModel, reasoning: undefined })
+        },
+        setReasoning: (reasoning) => {
+          if (isCopilotBusy(get()) || get().reasoning === reasoning) return
+          if (preferenceKey)
+            BrowserStorage.setItem(preferenceKey, { selectedModel: get().selectedModel, reasoning })
+          set({ reasoning })
         },
         loadChats: async (options) => {
           const workspaceId =
             options?.workspaceId !== undefined ? options.workspaceId : get().conversationWorkspaceId
           const generation = ++threadsGeneration
+          const signal = owner.signal
           const id = epoch
           set({
             isLoadingChats: true,
+            chatsWorkspaceId: workspaceId,
+            ...(get().chatsWorkspaceId === workspaceId
+              ? {}
+              : {
+                  chats: get().chats.filter((chat) => chat.workspaceId === workspaceId),
+                  chatsError: null,
+                }),
             ...(!get().currentChat && !get().isSendingMessage && !get().isAwaitingContinuation
               ? { conversationWorkspaceId: workspaceId }
               : {}),
           })
           try {
             if (admission) await admission
-            const threads = await listNativeThreads(workspaceId)
+            const threads = await listNativeThreads(workspaceId, signal)
             if (generation !== threadsGeneration || id !== epoch) return
             const chats: CopilotChat[] = threads.map((thread) => ({
               threadId: thread.id,
@@ -857,14 +1078,19 @@ function createCopilotStoreInstance(channelId: string) {
               createdAt: new Date(thread.createdAt),
               updatedAt: new Date(thread.updatedAt),
             }))
-            set({ chats })
+            set({ chats, chatsError: null })
             // Opening history must not cancel or erase an active first turn or current selection.
             if (
               get().conversationWorkspaceId === workspaceId &&
               (get().currentChat || get().isSendingMessage || get().isAwaitingContinuation)
             ) {
               const currentChat = get().currentChat
-              if (currentChat && !get().abortController && !observation)
+              if (
+                currentChat &&
+                !get().abortController &&
+                (!observation || get().historyError) &&
+                !stopFor(currentChat)
+              )
                 await restoreChat(currentChat)
               return
             }
@@ -873,23 +1099,77 @@ function createCopilotStoreInstance(channelId: string) {
             if (selected) await get().selectChat(selected)
             else await get().createNewChat(workspaceId)
           } catch (error) {
-            if (generation === threadsGeneration && id === epoch) fail(error)
+            if (generation === threadsGeneration && id === epoch)
+              set({
+                chatsError:
+                  error instanceof Error ? error.message : 'Copilot thread list is unavailable.',
+              })
           } finally {
             if (generation === threadsGeneration) set({ isLoadingChats: false })
           }
         },
+        loadEarlierMessages: async () => {
+          const { currentChat: chat, historyPage: cursor, loadingEarlier } = get()
+          if (!chat || !cursor?.hasMore || loadingEarlier) return
+          const selected = epoch
+          const abort = new AbortController()
+          olderRead = abort
+          set({ loadingEarlier: true, earlierError: null })
+          try {
+            const result = await readEarlierNativeMessages(
+              chat,
+              cursor.through,
+              cursor.page,
+              abort.signal
+            )
+            const latest = get().historyPage
+            if (
+              abort.signal.aborted ||
+              !ownsChat(chat, selected) ||
+              !latest ||
+              latest.page !== cursor.page ||
+              latest.through !== cursor.through
+            )
+              return
+            const current = get().messages
+            const held = new Set(current.map((item) => item.id))
+            const older = projectNativeHistory(result.items).filter((item) => !held.has(item.id))
+            set({
+              messages: [...older, ...current],
+              historyPage: { ...cursor, page: cursor.page + 1, hasMore: result.hasMore },
+            })
+          } catch (error) {
+            if (!abort.signal.aborted && ownsChat(chat, selected))
+              set({
+                earlierError:
+                  error instanceof Error ? error.message : 'Earlier history is unavailable.',
+              })
+          } finally {
+            if (olderRead === abort) {
+              olderRead = null
+              set({ loadingEarlier: false })
+            }
+          }
+        },
         selectChat: async (chat) => {
+          const stop = stopFor(chat)
+          const sameChat = ownsChat(chat, epoch)
+          if (sameChat && stop) return
           get().detachStream()
           ++epoch
           set({
             currentChat: chat,
+            historyPage: sameChat ? get().historyPage : null,
+            loadingEarlier: false,
+            earlierError: null,
+            historyError: null,
             conversationWorkspaceId: chat.workspaceId,
-            currentRunId: null,
-            messages: [],
+            currentRunId: stop?.runId ?? null,
+            messages: sameChat ? get().messages : [],
             toolCallsById: {},
             error: null,
-            isAwaitingContinuation: false,
-            isAborting: false,
+            isAwaitingContinuation: !!stop,
+            isAborting: !!stop?.pending,
             isSendingMessage: false,
           })
           rememberCopilotWorkspaceSelection(channelId, chat.workspaceId, chat.threadId)
@@ -902,6 +1182,10 @@ function createCopilotStoreInstance(channelId: string) {
           rememberCopilotWorkspaceSelection(channelId, scope, null)
           set({
             currentChat: null,
+            historyPage: null,
+            loadingEarlier: false,
+            earlierError: null,
+            historyError: null,
             conversationWorkspaceId: scope,
             currentRunId: null,
             messages: [],
@@ -916,6 +1200,7 @@ function createCopilotStoreInstance(channelId: string) {
         deleteChat: async (threadId) => {
           const chat = get().chats.find((item) => item.threadId === threadId)
           if (!chat) throw new Error('Native thread ownership is unavailable')
+          const stop = stopFor(chat)
           const result = await readNativeCommand({
             command: 'thread.delete',
             workspaceId: chat.workspaceId,
@@ -927,12 +1212,14 @@ function createCopilotStoreInstance(channelId: string) {
             result.threadId !== threadId
           )
             throw new Error('Native thread deletion was not verified')
+          if (stop && stopFor(chat) === stop) workflowStops.delete(chatKey(chat))
           set((state) => ({ chats: state.chats.filter((item) => item.threadId !== threadId) }))
-          if (get().currentChat?.threadId === threadId) await get().createNewChat(chat.workspaceId)
+          if (ownsChat(chat, epoch)) await get().createNewChat(chat.workspaceId)
         },
         sendMessage: async (message, options = {}) => {
           if ((!message.trim() && !options.images?.length) || isCopilotBusy(get())) return false
           const model = get().selectedModel
+          const reasoning = get().reasoning
           if (!model) {
             set({ error: 'Select an available Copilot model before sending a message.' })
             return false
@@ -951,6 +1238,7 @@ function createCopilotStoreInstance(channelId: string) {
             return false
           }
           const workspaceId = chat ? chat.workspaceId : get().conversationWorkspaceId
+          if (chat) workflowStops.delete(chatKey(chat))
           get().detachStream()
           const id = ++epoch
           titleAbort?.abort()
@@ -976,6 +1264,7 @@ function createCopilotStoreInstance(channelId: string) {
               ...(chat ? { threadId: chat.threadId } : {}),
               ...(editing ? { messageId: options.messageId } : {}),
               model,
+              ...(reasoning ? { reasoning } : {}),
               input: {
                 contexts,
                 content: options.images?.length
@@ -1018,13 +1307,20 @@ function createCopilotStoreInstance(channelId: string) {
           if (dialog)
             get().settleWorkflowChatDeployment(dialog.id, 'closed', 'Native tool selection changed')
           const current = get()
+          const chat = current.currentChat
+          let stop = stopFor(chat)
+          if (current.currentRunId && stop?.runId !== current.currentRunId) stop = undefined
+          if (stop?.pending) return false
+          const currentRunId = current.currentRunId ?? stop?.runId
           let cancellationEpoch = epoch
+          const returnedToStop = () =>
+            stop && stopFor(get().currentChat) === stop && get().currentRunId === stop.runId
           let target =
-            current.currentChat && current.currentRunId
+            chat && currentRunId
               ? {
-                  workspaceId: current.currentChat.workspaceId,
-                  threadId: current.currentChat.threadId,
-                  runId: current.currentRunId,
+                  workspaceId: chat.workspaceId,
+                  threadId: chat.threadId,
+                  runId: currentRunId,
                 }
               : undefined
           titleAbort?.abort()
@@ -1035,15 +1331,26 @@ function createCopilotStoreInstance(channelId: string) {
               const result = await admission
               if (result.status !== 'accepted') throw new Error('Copilot command was not accepted')
               target = {
-                workspaceId: current.currentChat
-                  ? current.currentChat.workspaceId
-                  : current.conversationWorkspaceId,
+                workspaceId: chat ? chat.workspaceId : current.conversationWorkspaceId,
                 threadId: result.threadId,
                 runId: result.runId,
               }
             }
             if (cancellationEpoch === epoch) {
               cancellationEpoch = ++epoch
+              if (stop) stop.pending = true
+              else if (chat && currentRunId) {
+                const workflow = Object.values(current.toolCallsById).find(
+                  (call) =>
+                    call.pending?.stage === 'result' &&
+                    call.pending.target.toolName === 'run_workflow' &&
+                    call.pending.target.runId === currentRunId
+                )
+                if (workflow) {
+                  stop = { runId: currentRunId, toolId: workflow.id, pending: true }
+                  workflowStops.set(chatKey(chat), stop)
+                }
+              }
               get().detachStream()
               set((state) => ({
                 ...settleDisplayOnlyTools(state),
@@ -1054,20 +1361,19 @@ function createCopilotStoreInstance(channelId: string) {
               }))
             }
             if (!target) return !current.isSendingMessage
-            const result = await readNativeCommand(
-              {
-                command: 'cancel',
-                ...target,
-              },
-              ownerSignal
-            )
-            if (cancellationEpoch !== epoch) return false
+            const result = await readNativeCommand({ command: 'cancel', ...target }, ownerSignal)
             if (result.status !== 'cancel_requested' || result.runId !== target.runId)
               throw new Error('Native cancellation was not verified')
+            const originalSelection = cancellationEpoch === epoch
+            const returnedChat = !originalSelection && returnedToStop() ? get().currentChat : null
+            if (chat && stop && stopFor(chat) === stop) workflowStops.delete(chatKey(chat))
+            if (!originalSelection && !returnedChat) return false
+            if (returnedChat && observation) void restoreChat(returnedChat)
             set((state) => applyNativeCancellation(state, result))
-            return true
+            return originalSelection
           } catch (error) {
-            if (cancellationEpoch === epoch) {
+            if (stop) stop.pending = false
+            if (cancellationEpoch === epoch || returnedToStop()) {
               set({ isAborting: false, isSendingMessage: false })
               fail(error)
             }
@@ -1083,15 +1389,18 @@ function createCopilotStoreInstance(channelId: string) {
           ++threadsGeneration
           observation?.abort()
           observation = null
+          olderRead?.abort()
+          olderRead = null
           get().abortController?.abort()
           for (const [id, call] of Object.entries(get().toolCallsById)) {
             if (getClientTool(id) && call.pending && call.state === ClientToolCallState.executing)
               updateTool(id, ClientToolCallState.error)
             unregisterClientTool(id)
           }
-          set({ abortController: null, isLoadingChats: false })
+          set({ abortController: null, isLoadingChats: false, loadingEarlier: false })
         },
         reset: () => {
+          workflowStops.clear()
           ++epoch
           owner.abort()
           owner = new AbortController()
@@ -1101,7 +1410,7 @@ function createCopilotStoreInstance(channelId: string) {
           inFlightTools.clear()
           attemptedTools.clear()
           refreshedTools.clear()
-          set({ ...initialState, draft: emptyDraft() })
+          set({ ...initialState, ...readPreference(), draft: emptyDraft() })
         },
         readPendingTool: async (toolCallId) => {
           const call = get().toolCallsById[toolCallId]
@@ -1193,7 +1502,8 @@ function createCopilotStoreInstance(channelId: string) {
               ? { readback: { credentialId: readback.credentialId } }
               : {}),
           })
-          if (!ownsChat(chat, generation)) return
+          if (!ownsChat(chat, generation))
+            throw new DOMException('Workflow observation detached', 'AbortError')
           if (!success) throw new Error('Authoritative readback did not complete')
         },
         setToolState: updateTool,

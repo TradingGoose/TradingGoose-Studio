@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
+import { recoverInterruptedLocalDocuments } from '@/lib/knowledge/documents/claim'
 import {
   bulkDocumentOperation,
   createDocumentRecords,
@@ -104,6 +105,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         ? (sortOrderParam as SortOrder)
         : undefined
 
+    await recoverInterruptedLocalDocuments(knowledgeBaseId)
     const result = await getDocuments(
       knowledgeBaseId,
       {

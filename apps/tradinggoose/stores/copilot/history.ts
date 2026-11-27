@@ -2,6 +2,7 @@ import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import { COPILOT_CONTEXT_PART, type Json } from '@/lib/copilot/native/contract'
 import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { workflowReadback } from '@/lib/copilot/tools/client/workflow/workflow-result'
 import { isServerToolReviewRejectedResult } from '@/lib/copilot/tools/shared/review-result'
 import type { NativeHistoryMessage } from '@/lib/mastra/messages'
 import type { CopilotMessage, CopilotToolCall } from './types'
@@ -55,7 +56,8 @@ export function projectNativeHistoryMessage(message: NativeHistoryMessage): Copi
               ? ClientToolCallState.rejected
               : invocation.isError === true
                 ? ClientToolCallState.error
-                : ClientToolCallState.success
+                : (workflowReadback(invocation.toolName, invocation.result)?.state ??
+                  ClientToolCallState.success)
             : invocation.state === 'output-error'
               ? ClientToolCallState.error
               : invocation.state === 'output-denied'

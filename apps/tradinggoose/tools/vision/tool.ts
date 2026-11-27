@@ -90,7 +90,7 @@ export const visionTool: ToolConfig<VisionParams, VisionResponse> = {
     },
     cost: {
       type: 'object',
-      description: 'Reported or estimated model cost in USD, with availability status',
+      description: 'Studio model cost in USD',
       optional: true,
     },
   },

@@ -218,8 +218,6 @@ describe('GenericBlockHandler', () => {
                 total: 521,
               },
               model: 'text-embedding-3-small',
-              status: 'estimated',
-              estimated: true,
             },
           },
         }
@@ -237,8 +235,6 @@ describe('GenericBlockHandler', () => {
             input: 0.00001042,
             output: 0,
             total: 0.00001042,
-            status: 'estimated',
-            estimated: true,
           },
           tokens: {
             prompt: 521,

@@ -1,12 +1,14 @@
 import { expect, it } from 'vitest'
 import { CopilotRequestSchema } from './contract'
 
-it('accepts the browser command with ordered native content parts', () => {
+it('accepts a selected level with ordered native content parts', () => {
+  const reasoning = { type: 'effort', value: 'high' }
   const input = {
     command: 'message',
     requestId: crypto.randomUUID(),
     workspaceId: 'workspace',
     model: 'openai/gpt-4.1',
+    reasoning,
     input: {
       content: [
         { type: 'text', text: 'Inspect this' },
@@ -32,8 +34,6 @@ it.each([
   { scope: { actorUserId: 'other', workspaceId: 'workspace' } },
   { stream: false },
   { workflowId: 'workflow' },
-  { providerOptions: {} },
-  { providerOptions: { openai: { reasoningEffort: 'low' } } },
   {
     providerOptions: {
       anthropic: {
@@ -49,7 +49,11 @@ it.each([
       },
     },
   },
+  { providerOptions: { openai: { reasoningEffort: 'high' } } },
   { reasoningEffort: 'low' },
+  { reasoning: { type: 'effort', value: '' } },
+  { reasoning: { type: 'effort', value: 4 } },
+  { reasoning: { type: 'effort', value: 'high', providerOptions: {} } },
   { fileAttachments: [{ key: 'old-object-reference' }] },
 ])('rejects additional authority and retired transport fields: %j', (fields) => {
   expect(() =>
@@ -85,3 +89,29 @@ it.each([
     })
   ).toThrow()
 })
+
+it.each(['tool.approve', 'tool.decline', 'tool.execute', 'tool.result'])(
+  'rejects settings on %s continuations',
+  (command) => {
+    expect(
+      CopilotRequestSchema.safeParse({
+        command,
+        requestId: crypto.randomUUID(),
+        workspaceId: 'workspace',
+        target: {
+          threadId: 'thread',
+          runId: 'run',
+          toolCallId: 'call',
+          resourceId: 'resource',
+          toolName: 'sleep',
+        },
+        ...(command === 'tool.execute'
+          ? { action: 'readback' }
+          : command === 'tool.result'
+            ? { assertion: { kind: 'timer.completed', data: {} } }
+            : {}),
+        reasoning: { type: 'effort', value: 'high' },
+      }).success
+    ).toBe(false)
+  }
+)

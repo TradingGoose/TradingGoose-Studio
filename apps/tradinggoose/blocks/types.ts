@@ -85,24 +85,11 @@ export type SubBlockCondition = {
   and?: SubBlockCondition | SubBlockCondition[]
 } & (
   | { operator?: never; value: string | number | boolean | Array<string | number | boolean> }
-  | { operator: 'modelCapability'; value: 'temperature' | 'structuredOutput' }
-)
-
-export type ExtractToolOutput<T> = T extends ToolResponse ? T['output'] : never
-
-export type ToolOutputToValueType<T> = T extends Record<string, any>
-  ? {
-      [K in keyof T]: T[K] extends string
-        ? 'string'
-        : T[K] extends number
-          ? 'number'
-          : T[K] extends boolean
-            ? 'boolean'
-            : T[K] extends object
-              ? 'json'
-              : 'any'
+  | {
+      operator: 'modelCapability'
+      value: 'structuredOutput' | 'effort'
     }
-  : never
+)
 
 export type BlockOutput =
   | PrimitiveValueType
@@ -307,8 +294,4 @@ export interface BlockConfig<T extends ToolResponse = ToolResponse> {
     enabled: boolean
     available: string[] // List of trigger IDs this block supports
   }
-}
-
-export interface OutputConfig {
-  type: BlockOutput
 }

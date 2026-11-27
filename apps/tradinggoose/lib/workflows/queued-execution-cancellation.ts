@@ -1,27 +1,48 @@
+import { setTimeout as delay } from 'node:timers/promises'
+import { aborted } from 'node:util'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, or, sql } from 'drizzle-orm'
 import { authorizeWorkflowScope } from '@/lib/auth/workflow-scope'
 import {
   isPendingExecutionPayload,
   PENDING_EXECUTION_CANCELLATION_ERROR,
   PENDING_EXECUTION_LOCK_NAMESPACE,
+  pendingExecutionCancellationUpdate,
+  reconcileStoppedWorkflowOwner,
   settlePendingExecutionOwner,
 } from '@/lib/execution/pending-execution'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import type { WorkflowCheckpointLogData } from '@/lib/workflows/human-in-the-loop/types'
 
-type PendingExecutionCancellationResult =
-  | { status: 'not_found' }
-  | { status: 'cancelling' | 'finished'; pendingExecutionId?: string }
+type WorkflowCancellation = { status: 'cancelling' | 'finished'; pendingExecutionId?: string }
+type PendingExecutionCancellationResult = { status: 'not_found' } | WorkflowCancellation
 
-export async function cancelPendingWorkflowExecution(params: {
+type WorkflowCancellationTarget = {
   pendingExecutionId: string
   userId: string
   workspaceId?: string
-  /** Trusted worker cleanup after an authorized parent cancellation, never supplied by API input. */
+  workflowId?: string
+}
+
+function workflowOwnerScope(target: WorkflowCancellationTarget) {
+  return and(
+    eq(pendingExecution.userId, target.userId),
+    eq(pendingExecution.executionType, 'workflow'),
+    target.workflowId ? eq(pendingExecution.workflowId, target.workflowId) : undefined,
+    target.workspaceId ? eq(pendingExecution.workspaceId, target.workspaceId) : undefined
+  )
+}
+
+type WorkflowCancellationRequest = WorkflowCancellationTarget & {
+  /** Trusted cleanup after an authorized parent cancellation, never supplied by API input. */
   descendantCancellation?: boolean
   wake?: boolean
-}): Promise<PendingExecutionCancellationResult> {
+}
+
+export async function cancelPendingWorkflowExecution(
+  params: WorkflowCancellationRequest
+): Promise<PendingExecutionCancellationResult> {
   let [row] = await db
     .select({
       id: pendingExecution.id,
@@ -32,14 +53,7 @@ export async function cancelPendingWorkflowExecution(params: {
       workspaceId: pendingExecution.workspaceId,
     })
     .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.id, params.pendingExecutionId),
-        eq(pendingExecution.userId, params.userId),
-        eq(pendingExecution.executionType, 'workflow'),
-        ...(params.workspaceId ? [eq(pendingExecution.workspaceId, params.workspaceId)] : [])
-      )
-    )
+    .where(and(eq(pendingExecution.id, params.pendingExecutionId), workflowOwnerScope(params)))
     .limit(1)
 
   const executionId =
@@ -49,6 +63,12 @@ export async function cancelPendingWorkflowExecution(params: {
   const executionLogScope = and(
     eq(workflowExecutionLogs.executionId, executionId),
     sql`${workflowExecutionLogs.executionData}->'environment'->>'userId' = ${params.userId}`,
+    params.workflowId
+      ? eq(
+          sql<string>`coalesce(${workflowExecutionLogs.workflowId}, ${workflowExecutionLogs.workflowSummary}->>'id')`,
+          params.workflowId
+        )
+      : undefined,
     ...(params.workspaceId ? [eq(workflowExecutionLogs.workspaceId, params.workspaceId)] : [])
   )
   const cancelDescendants = async () => {
@@ -58,20 +78,18 @@ export async function cancelPendingWorkflowExecution(params: {
     )
     await cancelPendingExecutionDescendants(executionId)
   }
-  const cancellation = {
-    payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${new Date().toISOString()})`,
-    updatedAt: new Date(),
-  }
+  const cancellation = pendingExecutionCancellationUpdate()
   let cancellationOwnerId: string | undefined
+  const checkRowAccess = row?.status === 'processing' || Boolean(params.workflowId)
+  if (row?.workflowId && checkRowAccess && !params.descendantCancellation) {
+    const access = await authorizeWorkflowScope(
+      { success: true, userId: params.userId },
+      row.workflowId,
+      'write'
+    )
+    if (!access.ok || access.workspaceId !== row.workspaceId) return { status: 'not_found' }
+  }
   if (row?.status === 'processing' && row.workflowId) {
-    if (!params.descendantCancellation) {
-      const access = await authorizeWorkflowScope(
-        { success: true, userId: params.userId },
-        row.workflowId,
-        'write'
-      )
-      if (!access.ok || access.workspaceId !== row.workspaceId) return { status: 'not_found' }
-    }
     const cancellingRows = await db
       .update(pendingExecution)
       .set(cancellation)
@@ -89,13 +107,14 @@ export async function cancelPendingWorkflowExecution(params: {
     const [log] = await db.select().from(workflowExecutionLogs).where(executionLogScope).limit(1)
     if (
       log?.workflowId &&
+      (!params.workflowId || !log.endedAt || row?.status === 'processing') &&
       (row?.status === 'processing' || (log.executionData as WorkflowCheckpointLogData).checkpoint)
     ) {
       if (
         !params.descendantCancellation &&
         !(
-          row?.status === 'processing' &&
-          row.workflowId === log.workflowId &&
+          checkRowAccess &&
+          row?.workflowId === log.workflowId &&
           row.workspaceId === log.workspaceId
         )
       ) {
@@ -113,7 +132,8 @@ export async function cancelPendingWorkflowExecution(params: {
           .where(eq(workflowExecutionLogs.id, log.id))
           .for('update')
           .limit(1)
-        if (!current || current.endedAt) return null
+        if (!current) return 'not_found' as const
+        if (current.endedAt) return 'finished' as const
         const data = current.executionData as WorkflowCheckpointLogData
         const checkpoint = data.checkpoint
         const activeJobId = checkpoint?.activeJobId
@@ -135,7 +155,7 @@ export async function cancelPendingWorkflowExecution(params: {
         if (!checkpoint)
           return cancellationOwnerId
             ? { active: true, pendingExecutionId: cancellationOwnerId }
-            : null
+            : ('not_found' as const)
         const { pause: _pause, ...cancelledData } = data
         await tx
           .update(workflowExecutionLogs)
@@ -145,7 +165,9 @@ export async function cancelPendingWorkflowExecution(params: {
           .where(eq(workflowExecutionLogs.id, current.id))
         return { active: false, pendingExecutionId: cancellationOwnerId }
       })
-      if (!decision) return { status: 'finished', pendingExecutionId: cancellationOwnerId }
+      if (decision === 'not_found') return { status: 'not_found' }
+      if (decision === 'finished')
+        return { status: 'finished', pendingExecutionId: cancellationOwnerId }
       if (decision.queued) {
         row = decision.queued
         cancellationOwnerId = decision.pendingExecutionId
@@ -237,9 +259,151 @@ export async function cancelPendingWorkflowExecution(params: {
   }
 
   const [log] = await db
-    .select({ endedAt: workflowExecutionLogs.endedAt })
+    .select({
+      endedAt: workflowExecutionLogs.endedAt,
+      workspaceId: workflowExecutionLogs.workspaceId,
+    })
     .from(workflowExecutionLogs)
     .where(executionLogScope)
     .limit(1)
-  return { status: log?.endedAt ? 'finished' : 'not_found' }
+  if (!log?.endedAt) return { status: 'not_found' }
+  if (
+    params.workflowId &&
+    (!log.workspaceId || !(await checkWorkspaceAccess(log.workspaceId, params.userId)).hasAccess)
+  )
+    return { status: 'not_found' }
+  return { status: 'finished' }
+}
+
+export function workflowExecutionOwnerScope(target: WorkflowCancellationTarget) {
+  return and(
+    workflowOwnerScope(target),
+    or(
+      eq(pendingExecution.id, target.pendingExecutionId),
+      and(
+        eq(pendingExecution.source, 'human_in_the_loop'),
+        eq(
+          sql<string>`${pendingExecution.payload}->>'resumeExecutionId'`,
+          target.pendingExecutionId
+        )
+      )
+    )
+  )
+}
+
+async function waitForWorkflowOwners(
+  target: WorkflowCancellationRequest,
+  result: WorkflowCancellation | undefined,
+  signal: AbortSignal,
+  authorizeChildWork?: () => Promise<void>
+) {
+  const owners = workflowExecutionOwnerScope(target)
+  const signalled = new Set<string>()
+  const recordCancellation = async (outcome: WorkflowCancellation) => {
+    if (!outcome.pendingExecutionId) return
+    signalled.add(outcome.pendingExecutionId)
+    if (outcome.status === 'finished') {
+      // The log may have ended before the authorized owner or its children finished.
+      const { cancelPendingExecutionDescendants } = await import(
+        '@/background/pending-execution-worker'
+      )
+      await cancelPendingExecutionDescendants(target.pendingExecutionId)
+    }
+  }
+  signal.throwIfAborted()
+  if (result) await recordCancellation(result)
+  for (;;) {
+    signal.throwIfAborted()
+    const remaining = await db
+      .select({
+        id: pendingExecution.id,
+        billingScopeType: pendingExecution.billingScopeType,
+        cancelling: sql<boolean>`${pendingExecution.status} = 'processing' and ${pendingExecution.payload}->>'cancelRequestedAt' is not null`,
+      })
+      .from(pendingExecution)
+      .where(owners)
+    if (!remaining.length) return
+    await authorizeChildWork?.()
+    for (const { id, cancelling, billingScopeType } of remaining) {
+      if (signalled.has(id) || (target.descendantCancellation && cancelling)) {
+        if (cancelling && billingScopeType !== 'local') {
+          const recovery = reconcileStoppedWorkflowOwner(id, signal)
+          await Promise.race([
+            recovery,
+            aborted(signal, recovery).then(() => signal.throwIfAborted()),
+          ])
+        }
+        continue
+      }
+      signal.throwIfAborted()
+      const outcome = await cancelPendingWorkflowExecution({ ...target, pendingExecutionId: id })
+      if (outcome.status === 'not_found')
+        throw new Error('Workflow cancellation could not be verified')
+      signalled.add(id)
+      await recordCancellation(outcome)
+    }
+    await delay(500, undefined, { signal })
+  }
+}
+
+export async function waitForPendingWorkflowExecutionDrain(
+  target: WorkflowCancellationTarget & { workflowId: string },
+  result: WorkflowCancellation,
+  signal: AbortSignal
+) {
+  const { readWorkflowCheckpointChildren } = await import(
+    '@/lib/workflows/human-in-the-loop/service'
+  )
+  const visited = new Set([target.pendingExecutionId])
+  // A finished log alone proves read access. Cascading Stop requires write access to its parent.
+  let parentWriteVerified = result.status === 'cancelling' || !!result.pendingExecutionId
+  const authorizeChildWork = async () => {
+    if (parentWriteVerified) return
+    const access = await authorizeWorkflowScope(
+      { success: true, userId: target.userId },
+      target.workflowId,
+      'write'
+    )
+    if (!access.ok || (target.workspaceId && access.workspaceId !== target.workspaceId)) {
+      throw new Error('Workflow cancellation could not be verified')
+    }
+    signal.throwIfAborted()
+    parentWriteVerified = true
+    const { cancelPendingExecutionDescendants } = await import(
+      '@/background/pending-execution-worker'
+    )
+    await cancelPendingExecutionDescendants(target.pendingExecutionId)
+  }
+  const executions: Array<{ target: WorkflowCancellationRequest; result?: WorkflowCancellation }> =
+    [{ target, result }]
+  for (const execution of executions) {
+    await waitForWorkflowOwners(
+      execution.target,
+      execution.result,
+      signal,
+      execution.target.descendantCancellation ? authorizeChildWork : undefined
+    )
+    signal.throwIfAborted()
+    // After owner retirement, its child links are final. A finished child may still own a continuation.
+    const children = await readWorkflowCheckpointChildren(execution.target.pendingExecutionId, true)
+    for (const child of children) {
+      if (visited.has(child.id)) continue
+      visited.add(child.id)
+      const childTarget = {
+        pendingExecutionId: child.id,
+        userId: child.userId,
+        workflowId: child.workflowId,
+        workspaceId: child.workspaceId,
+        descendantCancellation: true,
+        wake: false,
+      }
+      signal.throwIfAborted()
+      if (!child.endedAt) await authorizeChildWork()
+      const outcome = child.endedAt ? undefined : await cancelPendingWorkflowExecution(childTarget)
+      if (outcome?.status === 'not_found')
+        throw new Error('Workflow cancellation could not be verified')
+      executions.push({ target: childTarget, result: outcome })
+    }
+  }
+  signal.throwIfAborted()
 }

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { buildInitialSubBlockStates } from '@/lib/workflows/subblock-values'
-import { AgentBlock } from '@/blocks/blocks/agent'
 import { DatadogBlock } from '@/blocks/blocks/datadog'
 import { LoopBlock } from '@/blocks/blocks/loop'
 import { Mem0Block } from '@/blocks/blocks/mem0'
@@ -15,11 +14,7 @@ import { WaitBlock } from '@/blocks/blocks/wait'
 import { YouTubeBlock } from '@/blocks/blocks/youtube'
 import { ZepBlock } from '@/blocks/blocks/zep'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
-import {
-  sanitizeAgentToolsInBlocks,
-  validateToolReference,
-  validateWorkflowState,
-} from './validation'
+import { sanitizeAgentBlocks, validateToolReference, validateWorkflowState } from './validation'
 
 const validationMocks = vi.hoisted(() => ({
   getBlock: vi.fn(),
@@ -79,7 +74,7 @@ function workflowWithValues(
   }
 }
 
-describe('sanitizeAgentToolsInBlocks', () => {
+describe('sanitizeAgentBlocks', () => {
   beforeEach(() => {
     validationMocks.getBlock.mockReset()
     validationMocks.loggerError.mockClear()
@@ -87,7 +82,7 @@ describe('sanitizeAgentToolsInBlocks', () => {
   })
 
   it('retains ID-only custom tool selections and removes noncanonical runtime IDs', () => {
-    const { blocks, warnings } = sanitizeAgentToolsInBlocks({
+    const { blocks, warnings } = sanitizeAgentBlocks({
       agent_1: {
         type: 'agent',
         name: 'Agent',
@@ -232,27 +227,6 @@ describe('canonical sub-block validation', () => {
   })
 
   it.each([
-    ['gpt-4.1', 1.5, true],
-    ['claude-haiku-4-5', 1.5, true],
-  ])('preserves optional clearable temperature for %s', (model, temperature, valid) => {
-    validationMocks.getBlock.mockReturnValue(AgentBlock)
-    expect(validateWorkflowState(workflowWithValues('agent', { model, temperature })).valid).toBe(
-      valid
-    )
-  })
-
-  it('retains temperature when switching to a model with a lower maximum', () => {
-    validationMocks.getBlock.mockReturnValue(AgentBlock)
-    const state = workflowWithValues('agent', { model: 'gpt-4.1', temperature: 1.5 })
-    expect(validateWorkflowState(state).valid).toBe(true)
-    state.blocks.sample.subBlocks.model.value = 'claude-haiku-4-5'
-    const result = validateWorkflowState(state, { sanitize: true })
-    expect(result.valid).toBe(true)
-    expect(result.sanitizedState?.blocks.sample.subBlocks.temperature.value).toBe(1.5)
-    expect(state.blocks.sample.subBlocks.temperature.value).toBe(1.5)
-  })
-
-  it.each([
     [false, false, 'run'],
     [false, true, 'run'],
     [true, false, 'run'],
@@ -290,20 +264,6 @@ describe('canonical sub-block validation', () => {
       }
     }
   )
-
-  it.each([
-    ['openai/gpt-4.1', 1, true],
-    ['openai/gpt-4.1', 15, true],
-    ['gpt-4.1', 16, true],
-    ['gpt-4.1', '', true],
-    ['claude-haiku-4-5', 1, true],
-    ['openrouter/custom/manual', 1, true],
-  ])('uses native output token positivity for %s: %s', (model, maxTokens, valid) => {
-    validationMocks.getBlock.mockReturnValue(AgentBlock)
-    expect(validateWorkflowState(workflowWithValues('agent', { model, maxTokens })).valid).toBe(
-      valid
-    )
-  })
 
   it.each([
     ['advancedMode', 'basic', 'advanced'],

@@ -201,7 +201,8 @@ describe('built-in Copilot authenticated boundary', () => {
     expect((await post({ ...listing, ...extra })).status).toBe(422)
     expect(mocks.execute).not.toHaveBeenCalled()
   })
-  it('processes contexts and preserves model/access selection without an external manifest', async () => {
+  it('preserves native effort with model/access selection', async () => {
+    const reasoning = { type: 'effort', value: 'low' }
     const body = {
       command: 'message',
       requestId: crypto.randomUUID(),
@@ -209,11 +210,13 @@ describe('built-in Copilot authenticated boundary', () => {
       model: 'test/model',
       input: { content: 'hello', contexts: [] },
       accessLevel: 'full',
+      reasoning,
     }
     expect((await post(body)).status).toBe(200)
     const command = mocks.execute.mock.calls[0]![0]
     expect(command).toMatchObject({
       accessLevel: 'full',
+      reasoning,
       model: 'test/model',
       workspaceId: 'workspace',
       input: { content: 'hello', contexts: [] },
@@ -224,6 +227,8 @@ describe('built-in Copilot authenticated boundary', () => {
   it.each([
     {},
     { openai: { reasoningEffort: 'low' } },
+    { anthropic: { thinking: { type: 'enabled', transport: 'websocket' } } },
+    { openai: { reasoning: { apiKey: 'untrusted-key' } } },
     {
       anthropic: {
         mcpServers: [

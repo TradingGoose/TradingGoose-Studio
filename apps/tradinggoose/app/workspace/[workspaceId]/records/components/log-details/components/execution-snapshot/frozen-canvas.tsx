@@ -305,9 +305,6 @@ function PinnedLogs({
             <div className='flex items-center gap-2'>
               <DollarSign className='h-4 w-4 text-muted-foreground' />
               <span className='text-foreground text-sm'>
-                {formatted.cost.estimated || formatted.cost.status === 'estimated'
-                  ? 'Estimated '
-                  : ''}
                 {formatCost(formatted.cost.total)}
                 {formatted.cost.status === 'partial' ? ' (partial)' : ''}
               </span>
@@ -348,9 +345,6 @@ function PinnedLogs({
               <div className='flex justify-between border-border border-t pt-1 font-medium text-foreground'>
                 <span>Total:</span>
                 <span>
-                  {formatted.cost.estimated || formatted.cost.status === 'estimated'
-                    ? 'Estimated '
-                    : ''}
                   {formatCost(formatted.cost.total)}
                   {formatted.cost.status === 'partial' ? ' (partial)' : ''}
                 </span>

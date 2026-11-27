@@ -1,3 +1,4 @@
+import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import {
   ensureUniqueBlockIds,
   ensureUniqueEdgeIds,
@@ -10,7 +11,8 @@ export async function applyWorkflowState(
   workflowId: string,
   actorUserId: string,
   workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>
+  variables?: Record<string, any>,
+  expectedReviewBaseStateHash?: string
 ): Promise<void> {
   const syncedAt = new Date()
   const appliedWorkflowState = createWorkflowSnapshot({
@@ -30,9 +32,11 @@ export async function applyWorkflowState(
   try {
     await applyWorkflowPatchInSocketServer(workflowId, actorUserId, {
       workflowState: storedWorkflowState,
+      expectedReviewBaseStateHash,
       ...(variables === undefined ? {} : { variables }),
     })
   } catch (error) {
+    if (expectedReviewBaseStateHash && error instanceof StructuredServerToolError) throw error
     throw new WorkflowRealtimeRequiredError(error)
   }
 }

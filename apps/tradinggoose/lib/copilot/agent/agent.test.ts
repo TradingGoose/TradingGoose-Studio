@@ -8,7 +8,12 @@ import { Memory } from '@mastra/memory'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
 import { createCopilotAgent } from './agent'
-import { createCopilotRequestContext, getCopilotExecution } from './context'
+import {
+  createCopilotRequestContext,
+  getCopilotExecution,
+  resolveCopilotRunToolContext,
+} from './context'
+import { executeCopilotWorkerTool } from './worker-server'
 
 const m = vi.hoisted(() => ({
   model: undefined as any,
@@ -17,7 +22,6 @@ const m = vi.hoisted(() => ({
   business: vi.fn(),
   active: vi.fn(),
   effect: vi.fn(),
-  global: vi.fn(),
 }))
 vi.mock('@/lib/copilot/native/target', async () => ({
   ...(await import('@/lib/copilot/native/errors')),
@@ -28,9 +32,8 @@ vi.mock('@/lib/copilot/native/business-access', () => ({
 }))
 vi.mock('@/lib/copilot/tools/server/router', () => ({
   routeExecution: m.route,
-  isWorkspaceAgnosticServerTool: m.global,
 }))
-vi.mock('./state', () => ({
+vi.mock('./receipts', () => ({
   assertCopilotRunActive: m.active,
   claimCopilotEffect: m.effect,
 }))
@@ -68,6 +71,9 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     storage: memory.storage,
     recovery: { workflows: 'off', durableAgents: 'off' },
   })
+  const continuation: Partial<
+    Pick<Parameters<typeof executeCopilotWorkerTool>[0], 'pending' | 'decision'>
+  > = {}
   const execution: Parameters<typeof createCopilotRequestContext>[0] = {
     run: {
       runId,
@@ -79,8 +85,29 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     model: m.model,
     signal: new AbortController().signal,
     assertOwnership: async () => {},
+    executeTool: async (toolName, args, toolCallId) =>
+      executeCopilotWorkerTool(
+        {
+          run: live.run,
+          pending: continuation.pending ?? {
+            stage: 'result',
+            target: {
+              ...nativeConversationIdentity(live.run.scope),
+              threadId: live.run.threadId,
+              runId: live.run.runId,
+              toolCallId,
+              toolName,
+            },
+            context: resolveCopilotRunToolContext(live.run, toolName, args),
+            originalArgs: args,
+          },
+          decision: continuation.decision,
+        },
+        live.signal
+      ),
   }
   const requestContext = createCopilotRequestContext(execution)
+  const live = getCopilotExecution(requestContext)!
   const options = {
     runId,
     requestContext,
@@ -90,7 +117,7 @@ function harness(accessLevel: 'limited' | 'full' = 'full') {
     },
     maxSteps: 2,
   }
-  return { agent, execution: getCopilotExecution(requestContext)!, options }
+  return { agent, execution: getCopilotExecution(requestContext)!, continuation, options }
 }
 beforeEach(() => {
   vi.clearAllMocks()
@@ -98,7 +125,6 @@ beforeEach(() => {
   m.authorize.mockResolvedValue({ actorUserId: 'actor', workspaceId: 'workspace' })
   m.business.mockResolvedValue(undefined)
   m.active.mockResolvedValue(undefined)
-  m.global.mockReset().mockReturnValue(false)
   m.effect.mockResolvedValue(undefined)
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -107,7 +133,6 @@ describe('Studio-owned Copilot tools', () => {
     'keeps global documentation billing in conversation scope %j instead of an attached entity',
     async (workspaceId) => {
       m.model = model('search_documentation', { query: 'workflow documentation' })
-      m.global.mockImplementation((name) => name === 'search_documentation')
       m.route.mockResolvedValueOnce({ results: [] })
       const h = harness()
       h.execution.run.scope.workspaceId = workspaceId
@@ -129,7 +154,7 @@ describe('Studio-owned Copilot tools', () => {
     }
   )
 
-  it('executes a real registered read schema through the local router and validates its result', async () => {
+  it('executes a real registered read schema through the Studio execution boundary and validates its result', async () => {
     m.model = model('list_workflows', { workspaceId: 'workspace' })
     m.route.mockResolvedValueOnce({
       entityKind: 'workflow',
@@ -349,7 +374,7 @@ describe('Studio-owned Copilot tools', () => {
     m.model = model('deploy_workflow', args)
     const h = harness()
     expect((await h.agent.generate('Deploy workflow', h.options)).finishReason).toBe('suspended')
-    h.execution.pending = {
+    h.continuation.pending = {
       target: {
         threadId: h.execution.run.threadId,
         resourceId: h.options.memory.resource,
@@ -360,11 +385,11 @@ describe('Studio-owned Copilot tools', () => {
       originalArgs: args,
       stage: 'result',
     }
-    h.execution.decision = {
+    h.continuation.decision = {
       action: 'result',
       result: { needsApiKey: true, message: 'Select a valid API key before deploying.' },
     }
-    const result = await h.agent.resumeGenerate(h.execution.decision, {
+    const result = await h.agent.resumeGenerate(h.continuation.decision, {
       ...h.options,
       toolCallId: 'business-call',
     })

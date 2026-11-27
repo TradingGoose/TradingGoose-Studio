@@ -8,7 +8,7 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
+import { readWorkflowSnapshot, setVariables, setWorkflowState } from '@/lib/yjs/workflow-session'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 
 const mockDb = {
@@ -736,7 +736,7 @@ describe('Database Helpers', () => {
       })
     })
 
-    it('should sanitize invalid embedded custom tools while saving workflow blocks', async () => {
+    it('saves declared Agent fields and valid custom tools back to the workflow document', async () => {
       let capturedBlockInserts: any[] = []
       const workflowState = {
         blocks: {
@@ -746,6 +746,9 @@ describe('Database Helpers', () => {
             name: 'Agent',
             position: { x: 0, y: 0 },
             subBlocks: {
+              model: { id: 'model', type: 'combobox', value: 'google/gemini-2.5-flash' },
+              reasoningEffort: { id: 'reasoningEffort', type: 'combobox', value: 'high' },
+              temperature: { id: 'temperature', type: 'short-input', value: 0 },
               tools: {
                 id: 'tools',
                 type: 'tool-input',
@@ -788,11 +791,14 @@ describe('Database Helpers', () => {
         return callback(tx)
       })
 
-      const result = await dbHelpers.saveWorkflowToNormalizedTables(mockWorkflowId, workflowState)
-      const savedTools = capturedBlockInserts[0].subBlocks.tools.value
+      const doc = new Y.Doc()
+      setWorkflowState(doc, workflowState)
+      await dbHelpers.saveWorkflowYjsDocToDb(mockWorkflowId, doc)
+      const fields = capturedBlockInserts[0].subBlocks
 
-      expect(result.success).toBe(true)
-      expect(savedTools).toEqual([
+      expect(Object.keys(fields).sort()).toEqual(['model', 'reasoningEffort', 'tools'])
+      expect(fields.reasoningEffort.value).toBe('high')
+      expect(fields.tools.value).toEqual([
         {
           type: 'custom-tool',
           title: 'Valid tool',
@@ -800,7 +806,8 @@ describe('Database Helpers', () => {
           schema: { function: { parameters: { type: 'object', properties: {} } } },
         },
       ])
-      expect(result.normalizedState?.blocks.agent.subBlocks?.tools.value).toEqual(savedTools)
+      expect(readWorkflowSnapshot(doc).blocks.agent.subBlocks).toEqual(fields)
+      doc.destroy()
     })
 
     it('should regenerate edge ids that conflict with another workflow', async () => {

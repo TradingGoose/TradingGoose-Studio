@@ -1,5 +1,6 @@
 'use client'
 
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { ChatContextSchema } from '@/lib/copilot/chat-context-schema'
 import {
   buildCopilotContextIdentityKey,
@@ -7,7 +8,6 @@ import {
   isHiddenCopilotContext,
 } from '@/lib/copilot/chat-contexts'
 import type { MonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
-import type { ChatContext } from '@/stores/copilot/types'
 import {
   COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS,
   isCopilotWorkspaceEntityMentionOption,

@@ -8,7 +8,7 @@ import {
 } from './result'
 
 it('rejects unfinished native tool loops while accepting final model answers', () => {
-  expect(() => assertNativeCompletion({ finishReason: 'tool-calls' })).toThrow('step limit')
+  expect(() => assertNativeCompletion({ finishReason: 'tool-calls' })).toThrow('tool-calls')
   for (const finishReason of ['stop', 'length'])
     expect(() => assertNativeCompletion({ finishReason })).not.toThrow()
 })

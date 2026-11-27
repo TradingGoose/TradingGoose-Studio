@@ -100,7 +100,9 @@ You can edit an earlier prompt to truncate and regenerate the messages that foll
 
 ## Billing
 
-Copilot shares Studio's usage checks and billing ledger. Model estimates use standard published models.dev prices and reported token usage. For Studio-account usage, the selected subscription plan's Copilot multiplier applies to known costs, and the dollar amount shown in reports and history matches the accrued charge. If no cost can be established, Copilot, titles, and Wand can still complete: calls and reported tokens are recorded, cost remains unavailable, and no USD charge is added to Studio's ledger for that unpriced usage.
+The reply footer shows ↑ input tokens, ↓ output tokens and the cost in USD. When the model reports cache reads, **hit** means it reused some input and **miss** means it reused none. The saved reply keeps the reported cache read and write counts.
+
+Copilot shares Studio's usage checks and billing ledger. Studio prices token usage with the pinned OpenCode models.dev catalog. For Studio-account usage, the selected subscription plan's Copilot multiplier applies to known costs, and the dollar amount shown in reports and history matches the accrued charge. If no cost can be established, Copilot, titles, and Wand can still complete: calls and reported tokens are recorded, cost remains unavailable, and no USD charge is added to Studio's ledger for that unpriced usage.
 
 <Callout type="info">
   Automatic context trimming does not make an additional model call.

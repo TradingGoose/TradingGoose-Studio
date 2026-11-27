@@ -184,6 +184,27 @@ describe('applyEntityStateInSocketServer', () => {
 })
 
 describe('applyWorkflowPatchInSocketServer', () => {
+  it('returns a socket writer’s stale review without retrying the patch', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: 'Reviewed edit is stale',
+          code: 'stale_server_tool_review',
+          retryable: true,
+        }),
+        { status: 409 }
+      )
+    )
+    const { applyWorkflowPatchInSocketServer } = await import('./snapshot-bridge')
+    await expect(
+      applyWorkflowPatchInSocketServer('workflow-1', 'user-1', {
+        variables: {},
+        expectedReviewBaseStateHash: 'reviewed',
+      })
+    ).rejects.toMatchObject({ status: 409, code: 'stale_server_tool_review', retryable: true })
+    expect(mockFetch).toHaveBeenCalledOnce()
+  })
+
   it('retries only transient admission conflicts without an attempt budget', async () => {
     vi.useFakeTimers()
     mockFetch

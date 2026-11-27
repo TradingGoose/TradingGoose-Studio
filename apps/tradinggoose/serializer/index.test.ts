@@ -8,6 +8,7 @@
  * used by the executor.
  */
 import { describe, expect, it, vi } from 'vitest'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import {
   createAgentWithToolsWorkflowState,
   createComplexWorkflowState,
@@ -243,35 +244,7 @@ vi.mock('@/blocks', () => ({
           username: { type: 'string' },
         },
       },
-      // Mock agent block with memories for testing
-      agentWithMemories: {
-        name: 'Agent with Memories',
-        description: 'AI Agent with memory support',
-        category: 'ai',
-        bgColor: '#2196F3',
-        tools: {
-          access: ['llm_chat'],
-          config: {
-            tool: () => 'llm_chat',
-          },
-        },
-        subBlocks: [
-          { id: 'systemPrompt', type: 'long-input', title: 'System Prompt' }, // mode: 'both' (default)
-          { id: 'userPrompt', type: 'long-input', title: 'User Prompt' }, // mode: 'both' (default)
-          { id: 'memories', type: 'short-input', title: 'Memories', additional: true },
-          { id: 'temperature', type: 'short-input', title: 'Temperature', additional: true },
-          { id: 'responseFormat', type: 'code', title: 'Response Format', additional: true },
-          { id: 'model', type: 'dropdown', title: 'Model' }, // mode: 'both' (default)
-        ],
-        inputs: {
-          systemPrompt: { type: 'string' },
-          userPrompt: { type: 'string' },
-          memories: { type: 'array' },
-          temperature: { type: 'number' },
-          responseFormat: { type: 'string' },
-          model: { type: 'string' },
-        },
-      },
+      agentWithMemories: AgentBlock,
     }
 
     return mockConfigs[type] || null
@@ -1037,11 +1010,11 @@ describe('Serializer', () => {
         const serialized = serializer.serializeWorkflow({ 'agent-1': agent }, [], {})
         const agentBlock = serialized.blocks.find((block) => block.id === 'agent-1')
 
+        expect(agentBlock?.config.params).not.toHaveProperty('temperature')
         expect(agentBlock?.config.params).toMatchObject({
           systemPrompt: 'You are helpful',
           userPrompt: 'Hello',
           memories: [{ role: 'user', content: 'My name is John' }],
-          temperature: 0,
           responseFormat: '{}',
           model: 'anthropic/claude-sonnet-5-5',
         })

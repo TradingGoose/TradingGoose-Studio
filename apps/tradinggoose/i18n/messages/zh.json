@@ -422,25 +422,12 @@
         "waitlist": "嘟！隆重推出 TradingGoose-Studio",
         "open": "嘟！TradingGoose-Studio 已上线"
       },
-      "leadWords": [
-        "构建",
-        "测试",
-        "运行"
-      ],
-      "highlightWords": [
-        "交易分析",
-        "信号检测",
-        "风险评估"
-      ],
+      "leadWords": ["构建", "测试", "运行"],
+      "highlightWords": ["交易分析", "信号检测", "风险评估"],
       "titleConnector": "你的",
       "suffix": "与 TradingGoose",
       "description": "连接你自己的数据提供商，编写自定义指标以监控市场价格，并将其接入工作流，从而触发交易、卖出、买入或你定义的任何操作。",
-      "featureBadges": [
-        "AI Agent 工作流",
-        "自定义指标",
-        "自带数据",
-        "集成"
-      ],
+      "featureBadges": ["AI Agent 工作流", "自定义指标", "自带数据", "集成"],
       "learnMore": "了解更多",
       "logoAlt": "TradingGoose 标志"
     },
@@ -656,21 +643,13 @@
           "badge": "工作空间",
           "title": "组件布局",
           "description": "拆分工作区，将组件并排或堆叠放置。为每个工作区保存并切换命名的布局。",
-          "bullets": [
-            "递归拆分",
-            "每个工作区保存的布局",
-            "共享组件操作菜单"
-          ]
+          "bullets": ["递归拆分", "每个工作区保存的布局", "共享组件操作菜单"]
         },
         {
           "badge": "图表",
           "title": "指标与实时数据",
           "description": "内置指标以及一个用于编写自定义指标的 PineTS 编辑器。连接您自己的数据提供商，实时监控价格。",
-          "bullets": [
-            "可配置的指标输入",
-            "每根 K 线实时重新执行",
-            "十字准线图例与图表标记"
-          ]
+          "bullets": ["可配置的指标输入", "每根 K 线实时重新执行", "十字准线图例与图表标记"]
         },
         {
           "badge": "工作流",
@@ -759,13 +738,7 @@
         "experience": {
           "label": "工作年限 *",
           "placeholder": "请选择经验级别",
-          "options": [
-            "0-1 年",
-            "1-3 年",
-            "3-5 年",
-            "5-10 年",
-            "10 年以上"
-          ]
+          "options": ["0-1 年", "1-3 年", "3-5 年", "5-10 年", "10 年以上"]
         },
         "location": {
           "label": "所在地 *",
@@ -3796,6 +3769,11 @@
           }
         },
         "subBlocks": {
+          "agent": {
+            "reasoningEffort": {
+              "title": "推理强度"
+            }
+          },
           "loop": {
             "loopType": {
               "title": "循环类型",
@@ -3902,10 +3880,7 @@
             },
             "headers": {
               "title": "响应头",
-              "columns": [
-                "键",
-                "值"
-              ],
+              "columns": ["键", "值"],
               "description": "要包含在响应中的其他 HTTP 头"
             }
           },
@@ -19069,10 +19044,7 @@
             },
             "variables": {
               "title": "变量",
-              "columns": [
-                "键",
-                "值"
-              ]
+              "columns": ["键", "值"]
             },
             "apiKey": {
               "title": "Anthropic API 密钥",
@@ -22335,6 +22307,9 @@
         "searchPlaceholder": "搜索标的..."
       },
       "copilot": {
+        "reasoning": {
+          "label": "思考 / 推理"
+        },
         "models": {
           "loading": "正在加载模型…",
           "unconfigured": "尚未配置 Copilot",
@@ -22384,6 +22359,11 @@
         },
         "message": {
           "editPlaceholder": "编辑你的消息...",
+          "cache": "缓存",
+          "hit": "命中",
+          "miss": "未命中",
+          "inputTokens": "输入令牌",
+          "outputTokens": "输出令牌",
           "stopGeneration": "停止生成",
           "sources": "来源：",
           "copy": "复制",
@@ -22414,7 +22394,10 @@
           "updated": "更新于 {value}",
           "justNow": "刚刚",
           "loading": "加载中…",
+          "showEarlier": "显示更早的消息",
+          "showOlderChats": "显示更早的对话",
           "loadingChatHistory": "正在加载聊天记录...",
+          "loadError": "无法加载聊天记录。",
           "noChatsYet": "还没有聊天",
           "openChatHistory": "打开聊天历史",
           "deleteChatAria": "删除聊天",
@@ -23360,8 +23343,8 @@
           "concurrencyLimit": "最大并发执行数",
           "concurrencyLimitHint": "最大并行执行数。",
           "concurrencyLimitBlank": "草稿阶段可留空。",
-          "workflowExecutionTimeLimit": "工作流执行时间限制",
-          "workflowExecutionTimeLimitHint": "单个工作流的最长处理时间（秒）。",
+          "workflowExecutionTimeLimit": "后台执行时限",
+          "workflowExecutionTimeLimitHint": "每个 Trigger 工作流或文档可运行的最长秒数。本地文档处理不限时。",
           "workflowExecutionTimeLimitBlank": "留空表示执行时间不受限制。",
           "syncRateLimit": "同步执行 / 分钟",
           "syncRateLimitHint": "每分钟同步执行限制。",
@@ -23572,11 +23555,7 @@
         "body": "你的组织账单层级已在 {brandName} 生效。现在你拥有更高容量、高级控制和组织范围访问权限。",
         "cta": "访问你的账户",
         "nextStepsTitle": "后续步骤",
-        "nextSteps": [
-          "- 邀请团队成员加入组织",
-          "- 配置工作区权限",
-          "- 使用新限制开始构建工作流"
-        ],
+        "nextSteps": ["- 邀请团队成员加入组织", "- 配置工作区权限", "- 使用新限制开始构建工作流"],
         "help": "需要入门帮助？回复此邮件，我们的团队会协助你。"
       },
       "planWelcome": {

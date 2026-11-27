@@ -1,9 +1,9 @@
 /** @vitest-environment node */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  cancelQueuedWorkflowExecution,
   observeQueuedWorkflowExecution,
   queueWorkflowExecution,
-  runQueuedWorkflowExecution,
   WorkflowQueueAdmissionError,
 } from './queued-execution-client'
 
@@ -57,6 +57,16 @@ describe('queued workflow observation', () => {
     await expect(queueWorkflowExecution(runParams)).rejects.toBe(error)
   })
 
+  it('sends an explicit editor cancellation to its admitted task', async () => {
+    const request = vi.fn().mockResolvedValue(Response.json({ status: 'cancelling' }))
+    vi.stubGlobal('fetch', request)
+    await cancelQueuedWorkflowExecution('admitted-job')
+    expect(request).toHaveBeenCalledExactlyOnceWith('/api/jobs/admitted-job', {
+      method: 'DELETE',
+      cache: 'no-store',
+    })
+  })
+
   it.each(['close', 'error'])(
     'reconnects after stream %s and skips replayed event IDs',
     async (end) => {
@@ -77,7 +87,10 @@ describe('queued workflow observation', () => {
         .mockResolvedValueOnce(streamResponse(encode([started, completed])))
       vi.stubGlobal('fetch', fetchMock)
       const onEvent = vi.fn().mockImplementationOnce(() => disconnect())
-      await expect(runQueuedWorkflowExecution(runParams, { onEvent })).resolves.toEqual(result)
+      const handle = await queueWorkflowExecution(runParams)
+      await expect(
+        observeQueuedWorkflowExecution(handle, { callbacks: { onEvent } })
+      ).resolves.toEqual(result)
       expect(fetchMock).toHaveBeenCalledTimes(3)
       expect(fetchMock).toHaveBeenLastCalledWith(
         '/api/jobs/execution-1',
@@ -119,29 +132,6 @@ describe('queued workflow observation', () => {
     )
   })
 
-  it('cancels the admitted job when its execution signal aborts', async () => {
-    const controller = new AbortController()
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith('/queue')) return receipt()
-      if (init?.method === 'DELETE') return Response.json({ status: 'cancelling' })
-      return streamResponse(
-        new ReadableStream({
-          start() {
-            setTimeout(() => controller.abort(), 0)
-          },
-        })
-      )
-    })
-    vi.stubGlobal('fetch', fetchMock)
-    await expect(
-      runQueuedWorkflowExecution({ ...runParams, signal: controller.signal })
-    ).rejects.toMatchObject({ name: 'AbortError' })
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/jobs/execution-1',
-      expect.objectContaining({ method: 'DELETE' })
-    )
-  })
-
   it.each(['fetch', 'stream'])(
     'detaches during %s without cancelling or enqueueing its job',
     async (phase) => {
@@ -175,37 +165,9 @@ describe('queued workflow observation', () => {
     }
   )
 
-  it('waits for an in-flight admission before sending cancellation', async () => {
-    const controller = new AbortController()
-    let release!: () => void
-    const admission = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith('/queue')) {
-        expect(init?.signal).toBeUndefined()
-        await admission
-        return receipt('admitted-job')
-      }
-      expect(init?.method).toBe('DELETE')
-      return Response.json({ status: 'cancelling' })
-    })
-    vi.stubGlobal('fetch', fetchMock)
-    const run = runQueuedWorkflowExecution({ ...runParams, signal: controller.signal })
-    controller.abort()
-    release()
-    await expect(run).rejects.toMatchObject({ name: 'AbortError' })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      '/api/jobs/admitted-job',
-      expect.objectContaining({ method: 'DELETE' })
-    )
-  })
-
   it.each(['completed', 'paused'] as const)(
-    'returns %s results and removes cancellation listeners',
+    'returns the %s result to the observer',
     async (status) => {
-      const controller = new AbortController()
       const result = {
         success: true,
         ...(status === 'paused' ? { status } : {}),
@@ -213,19 +175,17 @@ describe('queued workflow observation', () => {
         logs: [],
       }
       const terminal = { ...started, type: `execution:${status}`, eventId: 2, data: { result } }
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(receipt())
-        .mockResolvedValueOnce(streamResponse(encode([started, terminal])))
+      const fetchMock = vi.fn().mockResolvedValueOnce(streamResponse(encode([started, terminal])))
       vi.stubGlobal('fetch', fetchMock)
       const onEvent = vi.fn()
       await expect(
-        runQueuedWorkflowExecution({ ...runParams, signal: controller.signal }, { onEvent })
+        observeQueuedWorkflowExecution(
+          { taskId: started.executionId, executionId: started.executionId },
+          { callbacks: { onEvent } }
+        )
       ).resolves.toEqual(result)
       expect(onEvent.mock.calls).toEqual([[started], [terminal]])
-      controller.abort()
-      await Promise.resolve()
-      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(fetchMock).toHaveBeenCalledOnce()
     }
   )
 
@@ -257,8 +217,9 @@ describe('queued workflow observation', () => {
       return streamResponse(encode([{ ...started, type: 'execution:completed', data: { result } }]))
     })
     vi.stubGlobal('fetch', fetchMock)
+    const handle = await queueWorkflowExecution({ ...runParams, native })
     await expect(
-      runQueuedWorkflowExecution({ ...runParams, native, signal: controller.signal })
+      observeQueuedWorkflowExecution(handle, { signal: controller.signal })
     ).resolves.toEqual(result)
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })

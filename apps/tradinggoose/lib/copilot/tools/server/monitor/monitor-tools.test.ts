@@ -1,8 +1,9 @@
+import type { webhook } from '@tradinggoose/db/schema'
+import type { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  MONITOR_DOCUMENT_FORMAT,
-  serializeMonitorDocument,
-} from '@/lib/copilot/monitor/monitor-documents'
+import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
+import { serializeMonitorDocument } from '@/lib/copilot/monitor/monitor-documents'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { editMonitorServerTool } from '@/lib/copilot/tools/server/monitor/edit-monitor'
 import { listMonitorsServerTool } from '@/lib/copilot/tools/server/monitor/list-monitors'
@@ -13,27 +14,40 @@ import {
   type ListingIdentity,
   type ListingResolved,
 } from '@/lib/listing/identity'
-import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { normalizePortfolioMonitorConfig } from '@/lib/monitors/portfolio-config'
+import {
+  INDICATOR_MONITOR_PROVIDER,
+  type MonitorProviderConfigEnvelope,
+  PORTFOLIO_MONITOR_PROVIDER,
+} from '@/lib/monitors/sources'
+import { getMonitorReviewBaseHash, updateMonitorForUser } from '@/app/api/monitors/update-service'
 
 const mocks = vi.hoisted(() => ({
   getMonitorRowById: vi.fn(),
   listMonitorRows: vi.fn(),
   resolveListingIdentities: vi.fn(),
-  toMonitorRecord: vi.fn(),
-  updateMonitorForUser: vi.fn(),
+  update: vi.fn(),
+  reconcile: vi.fn(),
+  workflow: vi.fn(),
+  access: vi.fn(),
   verifyWorkspaceContext: vi.fn(),
 }))
 
-vi.mock('@/app/api/monitors/shared', () => ({
+vi.mock('@/app/api/monitors/shared', async (original) => ({
+  ...(await original<typeof import('@/app/api/monitors/shared')>()),
+  ensureWorkflowInWorkspace: mocks.workflow,
+  ensureMonitorTriggerBlockInDeployedState: vi.fn(),
+  ensureTriggerCapableIndicator: vi.fn(),
   getMonitorRowById: mocks.getMonitorRowById,
   listMonitorRows: mocks.listMonitorRows,
-  toMonitorRecord: mocks.toMonitorRecord,
 }))
 
-vi.mock('@/app/api/monitors/update-service', () => ({
-  updateMonitorForUser: mocks.updateMonitorForUser,
+vi.mock('@tradinggoose/db', async () => ({
+  ...(await import('@tradinggoose/db/schema')),
+  db: { update: mocks.update },
 }))
-
+vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: mocks.access }))
+vi.mock('@/app/api/monitors/reconcile', () => ({ notifyMonitorsReconcile: mocks.reconcile }))
 vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
   verifyWorkspaceContext: mocks.verifyWorkspaceContext,
 }))
@@ -65,7 +79,8 @@ const MONITOR_RECORD = {
   isActive: true,
   providerConfig: {
     monitor: {
-      providerId: 'polygon',
+      providerId: 'alpaca',
+      providerParams: { feed: 'iex' },
       interval: '1m',
       listing: LISTING_IDENTITY,
       indicatorId: 'rsi',
@@ -87,8 +102,29 @@ const MONITOR_DOCUMENT = serializeMonitorDocument({
 })
 
 const MONITOR_ROW = {
-  webhook: { id: MONITOR_RECORD.monitorId },
-  workflow: { workspaceId: 'workspace-1' },
+  webhook: {
+    id: MONITOR_RECORD.monitorId,
+    path: 'indicator',
+    provider: MONITOR_RECORD.source,
+    workflowId: MONITOR_RECORD.workflowId,
+    blockId: null,
+    createdAt: new Date(MONITOR_RECORD.createdAt),
+    updatedAt: new Date(MONITOR_RECORD.updatedAt),
+    isActive: true,
+    providerConfig: {
+      triggerId: 'indicator_trigger',
+      version: 1,
+      monitor: {
+        ...MONITOR_RECORD.providerConfig.monitor,
+        triggerBlockId: MONITOR_RECORD.blockId,
+        auth: {
+          encryptedSecrets: { apiKey: 'fixture-key', apiSecret: 'fixture-secret' },
+          secretVersion: 1,
+        },
+      },
+    } satisfies MonitorProviderConfigEnvelope,
+  },
+  workflow: { id: MONITOR_RECORD.workflowId, workspaceId: 'workspace-1' },
 }
 
 const expectIdentityOnlyDocument = (document: string) => {
@@ -100,15 +136,44 @@ const expectIdentityOnlyDocument = (document: string) => {
 }
 
 describe('Copilot monitor presentation resolution', () => {
+  let current: Omit<typeof webhook.$inferSelect, 'providerConfig'> & {
+    providerConfig: MonitorProviderConfigEnvelope
+  }
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.getMonitorRowById.mockResolvedValue(MONITOR_ROW)
+    current = structuredClone(MONITOR_ROW.webhook)
+    mocks.getMonitorRowById.mockImplementation(async () => ({ ...MONITOR_ROW, webhook: current }))
     mocks.listMonitorRows.mockResolvedValue([MONITOR_ROW, MONITOR_ROW])
     mocks.resolveListingIdentities.mockResolvedValue({
       [getListingIdentityKey(LISTING_IDENTITY)]: RESOLVED_LISTING,
     })
-    mocks.toMonitorRecord.mockResolvedValue(MONITOR_RECORD)
-    mocks.updateMonitorForUser.mockResolvedValue(MONITOR_RECORD)
+    mocks.access.mockResolvedValue({ exists: true, hasAccess: true, canWrite: true })
+    mocks.workflow.mockResolvedValue({ isDeployed: true })
+    mocks.update.mockReturnValue({
+      set: (patch: Partial<typeof current>) => ({
+        where: (condition: SQL) => ({
+          returning: () => {
+            const query = new PgDialect().sqlToQuery(condition)
+            expect(query.params.slice(0, 3)).toEqual([
+              current.id,
+              current.provider,
+              current.workflowId,
+            ])
+            if (query.sql.includes('"is_active" =')) {
+              expect(query.sql).toContain(`"provider_config"->'monitor')::jsonb =`)
+              if (
+                !query.params.includes(current.isActive) ||
+                !query.params.includes(JSON.stringify(current.providerConfig.monitor))
+              )
+                return []
+            }
+            const { providerConfig = current.providerConfig, ...fields } = patch
+            current = { ...current, ...fields, providerConfig }
+            return [current]
+          },
+        }),
+      }),
+    })
     mocks.verifyWorkspaceContext.mockResolvedValue({
       userId: 'user-1',
       workspaceId: 'workspace-1',
@@ -160,13 +225,182 @@ describe('Copilot monitor presentation resolution', () => {
     )
 
     expect(mocks.resolveListingIdentities).toHaveBeenCalledWith([LISTING_IDENTITY], signal)
-    expect(mocks.updateMonitorForUser).not.toHaveBeenCalled()
+    expect(mocks.update).not.toHaveBeenCalled()
     expect(result.requiresReview).toBe(true)
     expect(ToolResultSchemas.edit_monitor.parse(result)).toMatchObject({
       workspaceId: 'workspace-1',
     })
     expect(result.monitorName).toBe('rsi on AAPL (1m)')
     expectIdentityOnlyDocument(result.monitorDocument)
+  })
+
+  it.each([
+    'before the writer reads',
+    'during configuration preparation',
+    'during an activation change',
+  ])('preserves an ordinary monitor edit made %s and accepts a fresh review', async (timing) => {
+    const args = { monitorId: current.id, monitorDocument: MONITOR_DOCUMENT }
+    const context = { userId: 'user-1', accessLevel: 'full' as const }
+    const stage = () => editMonitorServerTool.execute(args, { ...context, accessLevel: 'limited' })
+    const accept = (acceptedReviewBaseStateHash: string) =>
+      editMonitorServerTool.execute(args, { ...context, acceptedReviewBaseStateHash })
+    const preview = await stage()
+    const editorSave = () =>
+      updateMonitorForUser({
+        monitorId: current.id,
+        userId: 'editor',
+        requestId: 'editor',
+        logger: { warn: vi.fn() },
+        body: {
+          workspaceId: 'workspace-1',
+          ...(timing === 'during an activation change' ? { isActive: false } : { interval: '5m' }),
+        },
+      })
+    if (timing === 'before the writer reads') {
+      mocks.verifyWorkspaceContext.mockImplementationOnce(async () => {
+        await editorSave()
+        return { userId: 'user-1', workspaceId: 'workspace-1' }
+      })
+    } else {
+      mocks.workflow.mockImplementationOnce(async () => {
+        await editorSave()
+        return { isDeployed: true }
+      })
+    }
+
+    await expect(accept(preview.reviewBaseStateHash)).rejects.toMatchObject({
+      status: 409,
+      code: 'stale_server_tool_review',
+    })
+    expect(current.providerConfig.monitor.interval).toBe(
+      timing === 'during an activation change' ? '1m' : '5m'
+    )
+    expect(current.isActive).toBe(timing !== 'during an activation change')
+    expect(mocks.reconcile).toHaveBeenCalledOnce()
+    expect(mocks.access).toHaveBeenCalledWith('workspace-1', 'editor')
+
+    const fresh = await stage()
+    await expect(accept(fresh.reviewBaseStateHash)).resolves.toMatchObject({ success: true })
+    expect(current.isActive).toBe(true)
+    expect(current.providerConfig.monitor.interval).toBe('1m')
+    expect(mocks.reconcile).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ['a pause', 60],
+    ['a new poll interval', 120],
+  ] as const)('applies an approved edit (%s) after a poll', async (_edit, pollIntervalSeconds) => {
+    const providerConfig = normalizePortfolioMonitorConfig({
+      triggerBlockId: 'block-1',
+      providerId: 'robinhood',
+      serviceId: 'robinhood',
+      credentialId: 'credential-1',
+      connectionOwnerUserId: 'editor',
+      accountId: 'account-1',
+      condition: {
+        root: {
+          combinator: 'and',
+          rules: [{ metric: 'summary.totalPortfolioValue', operator: 'gt', value: 0 }],
+        },
+      },
+    })
+    current = {
+      ...current,
+      provider: PORTFOLIO_MONITOR_PROVIDER,
+      providerConfig: { ...providerConfig, runtimeState: { wasTrue: false } },
+    }
+    const context = { userId: 'user-1', accessLevel: 'full' as const }
+    const { monitorDocument } = await readMonitorServerTool.execute(
+      { monitorId: current.id },
+      context
+    )
+    const args = {
+      monitorId: current.id,
+      monitorDocument: serializeMonitorDocument({
+        ...JSON.parse(monitorDocument),
+        isActive: false,
+        pollIntervalSeconds,
+      }),
+    }
+    const preview = await editMonitorServerTool.execute(args, {
+      ...context,
+      accessLevel: 'limited',
+    })
+    const progress = { wasTrue: true, lastFiredAt: '2026-11-26T00:01:00Z' }
+    mocks.workflow.mockImplementationOnce(async () => {
+      current = {
+        ...current,
+        providerConfig: { ...current.providerConfig, runtimeState: progress },
+      }
+      expect(getMonitorReviewBaseHash(current)).toBe(preview.reviewBaseStateHash)
+      return { isDeployed: true }
+    })
+
+    await expect(
+      editMonitorServerTool.execute(args, {
+        ...context,
+        acceptedReviewBaseStateHash: preview.reviewBaseStateHash,
+      })
+    ).resolves.toMatchObject({ success: true })
+    expect(current.isActive).toBe(false)
+    expect(current.providerConfig.monitor.pollIntervalSeconds).toBe(pollIntervalSeconds)
+    expect(current.providerConfig.runtimeState).toEqual(
+      pollIntervalSeconds === providerConfig.monitor.pollIntervalSeconds ? progress : undefined
+    )
+    expect(mocks.reconcile).toHaveBeenCalledOnce()
+  })
+
+  it('requires a fresh approval to replace monitor credentials rotated since preview', async () => {
+    const args = {
+      monitorId: current.id,
+      monitorDocument: serializeMonitorDocument({
+        ...JSON.parse(MONITOR_DOCUMENT),
+        auth: { secrets: { apiKey: 'proposal-key', apiSecret: 'proposal-secret' } },
+      }),
+    }
+    const preview = await editMonitorServerTool.execute(args, {
+      userId: 'user-1',
+      accessLevel: 'limited',
+    })
+    expect(preview.preview.documentDiff.before).not.toContain('fixture-secret')
+    await updateMonitorForUser({
+      monitorId: current.id,
+      userId: 'editor',
+      requestId: 'editor',
+      logger: { warn: vi.fn() },
+      body: {
+        workspaceId: 'workspace-1',
+        auth: { secrets: { apiKey: 'editor-key', apiSecret: 'editor-secret' } },
+      },
+    })
+    const edited = structuredClone(current.providerConfig)
+    await expect(
+      editMonitorServerTool.execute(args, {
+        userId: 'user-1',
+        accessLevel: 'full',
+        acceptedReviewBaseStateHash: preview.reviewBaseStateHash,
+      })
+    ).rejects.toMatchObject({ status: 409, code: 'stale_server_tool_review' })
+    expect(current.providerConfig).toEqual(edited)
+    expect(mocks.reconcile).toHaveBeenCalledOnce()
+  })
+
+  it('retains the writer’s workspace authorization on an accepted review', async () => {
+    const args = { monitorId: current.id, monitorDocument: MONITOR_DOCUMENT }
+    const { reviewBaseStateHash } = await editMonitorServerTool.execute(args, {
+      userId: 'user-1',
+      accessLevel: 'limited',
+    })
+    mocks.access.mockResolvedValueOnce({ exists: true, hasAccess: true, canWrite: false })
+    await expect(
+      editMonitorServerTool.execute(args, {
+        userId: 'user-1',
+        accessLevel: 'full',
+        acceptedReviewBaseStateHash: reviewBaseStateHash,
+      })
+    ).rejects.toMatchObject({ status: 403 })
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(mocks.reconcile).not.toHaveBeenCalled()
   })
 
   it('resolves the accepted edit response name after updating the monitor', async () => {
@@ -180,7 +414,7 @@ describe('Copilot monitor presentation resolution', () => {
       { userId: 'user-1', accessLevel: 'full', signal }
     )
 
-    expect(mocks.updateMonitorForUser).toHaveBeenCalledTimes(1)
+    expect(mocks.update).toHaveBeenCalledTimes(1)
     expect(mocks.resolveListingIdentities).toHaveBeenCalledWith([LISTING_IDENTITY], signal)
     expect(result.success).toBe(true)
     expect(ToolResultSchemas.edit_monitor.parse(result)).toMatchObject({

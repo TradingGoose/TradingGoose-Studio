@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import enMessages from '@/i18n/messages/en.json'
 import esMessages from '@/i18n/messages/es.json'
 import zhMessages from '@/i18n/messages/zh.json'
-import type { ChatContext } from '@/stores/copilot/types'
 import {
   getCopilotMentionCopy,
   getPastChatMentionLabel,

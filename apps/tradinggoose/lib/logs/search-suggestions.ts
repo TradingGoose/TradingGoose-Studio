@@ -57,13 +57,6 @@ export class SearchSuggestions {
     this.monitorRows = options.monitorRows ?? []
   }
 
-  updateData(options: Partial<SearchSuggestionsOptions>) {
-    if (options.policy) this.policy = options.policy
-    if (options.workflowsData) this.workflowsData = options.workflowsData
-    if (options.foldersData) this.foldersData = options.foldersData
-    if (options.monitorRows) this.monitorRows = options.monitorRows
-  }
-
   getSuggestions(input: string): SuggestionGroup | null {
     const trimmed = input.trim()
     const negated = trimmed.startsWith('-')

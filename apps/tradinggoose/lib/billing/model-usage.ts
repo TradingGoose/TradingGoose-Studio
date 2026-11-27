@@ -151,7 +151,8 @@ export async function recordModelUsage(
   if (cost.total !== undefined && (!Number.isFinite(cost.total) || cost.total < 0))
     throw new Error(`Model cost is unavailable for ${scope.model}`)
   const usdCost =
-    ['reported', 'estimated'].includes(cost.status) &&
+    cost.status !== 'partial' &&
+    cost.status !== 'unavailable' &&
     (cost.currency === undefined || cost.currency === 'USD')
       ? cost.total
       : undefined

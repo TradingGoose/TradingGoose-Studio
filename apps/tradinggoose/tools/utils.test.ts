@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getToolAsync } from '@/tools'
+import { transformTable } from '@/tools/http/utils'
 import { mem0GetMemoriesTool } from '@/tools/mem0/get_memories'
 import type { ToolConfig } from '@/tools/types'
 import {
   createCustomToolRequestBody,
   createParamSchema,
   formatRequestParams,
-  transformTable,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
 

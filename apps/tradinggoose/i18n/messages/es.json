@@ -422,16 +422,8 @@
         "waitlist": "Honk! Presentamos TradingGoose-Studio",
         "open": "Honk! TradingGoose-Studio ya está aquí"
       },
-      "leadWords": [
-        "Construir",
-        "Probar",
-        "Ejecutar"
-      ],
-      "highlightWords": [
-        "Análisis de Trading",
-        "Detección de Señales",
-        "Evaluación de Riesgos"
-      ],
+      "leadWords": ["Construir", "Probar", "Ejecutar"],
+      "highlightWords": ["Análisis de Trading", "Detección de Señales", "Evaluación de Riesgos"],
       "titleConnector": "tu",
       "suffix": "con TradingGoose",
       "description": "Conecta tus propios proveedores de datos, escribe indicadores personalizados para monitorear los precios del mercado y enlázalos en flujos de trabajo que activen operaciones de compra, venta o cualquier acción que definas.",
@@ -759,13 +751,7 @@
         "experience": {
           "label": "Años de experiencia *",
           "placeholder": "Selecciona el nivel de experiencia",
-          "options": [
-            "0-1 años",
-            "1-3 años",
-            "3-5 años",
-            "5-10 años",
-            "10+ años"
-          ]
+          "options": ["0-1 años", "1-3 años", "3-5 años", "5-10 años", "10+ años"]
         },
         "location": {
           "label": "Ubicación *",
@@ -3796,6 +3782,11 @@
           }
         },
         "subBlocks": {
+          "agent": {
+            "reasoningEffort": {
+              "title": "Nivel de razonamiento"
+            }
+          },
           "loop": {
             "loopType": {
               "title": "Tipo de bucle",
@@ -3902,10 +3893,7 @@
             },
             "headers": {
               "title": "Encabezados de Response",
-              "columns": [
-                "Clave",
-                "Valor"
-              ],
+              "columns": ["Clave", "Valor"],
               "description": "Encabezados HTTP adicionales para incluir en la respuesta"
             }
           },
@@ -19069,10 +19057,7 @@
             },
             "variables": {
               "title": "Variables",
-              "columns": [
-                "Clave",
-                "Valor"
-              ]
+              "columns": ["Clave", "Valor"]
             },
             "apiKey": {
               "title": "Clave de API de Anthropic",
@@ -22335,6 +22320,9 @@
         "searchPlaceholder": "Buscar listados..."
       },
       "copilot": {
+        "reasoning": {
+          "label": "Pensamiento / Razonamiento"
+        },
         "models": {
           "loading": "Cargando modelos…",
           "unconfigured": "Copilot no está configurado",
@@ -22384,6 +22372,11 @@
         },
         "message": {
           "editPlaceholder": "Edita tu mensaje...",
+          "cache": "Caché",
+          "hit": "acierto",
+          "miss": "fallo",
+          "inputTokens": "Tokens de entrada",
+          "outputTokens": "Tokens de salida",
           "stopGeneration": "Detener generación",
           "sources": "Fuentes:",
           "copy": "Copiar",
@@ -22414,7 +22407,10 @@
           "updated": "Actualizado {value}",
           "justNow": "Justo ahora",
           "loading": "Cargando…",
+          "showEarlier": "Mostrar mensajes anteriores",
+          "showOlderChats": "Mostrar chats anteriores",
           "loadingChatHistory": "Cargando historial del chat...",
+          "loadError": "No se pudo cargar el historial de chats.",
           "noChatsYet": "Aún no hay chats",
           "openChatHistory": "Abrir historial de chats",
           "deleteChatAria": "Eliminar chat",
@@ -23360,8 +23356,8 @@
           "concurrencyLimit": "Máx. ejecuciones concurrentes",
           "concurrencyLimitHint": "Máximo de ejecuciones en paralelo.",
           "concurrencyLimitBlank": "Déjalo en blanco mientras está en borrador.",
-          "workflowExecutionTimeLimit": "Límite de tiempo de ejecución del flujo",
-          "workflowExecutionTimeLimitHint": "Tiempo máximo de procesamiento de un flujo, en segundos.",
+          "workflowExecutionTimeLimit": "Límite de tiempo de ejecución en segundo plano",
+          "workflowExecutionTimeLimitHint": "Duración máxima en segundos de cada flujo de trabajo o documento en Trigger. El procesamiento local tiene duración ilimitada.",
           "workflowExecutionTimeLimitBlank": "Déjalo en blanco para tiempo de ejecución ilimitado.",
           "syncRateLimit": "Ejecuciones síncronas / min",
           "syncRateLimitHint": "Límite de ejecuciones síncronas por minuto.",

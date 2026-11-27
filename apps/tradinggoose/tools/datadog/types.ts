@@ -80,22 +80,12 @@ export interface QueryTimeseriesResponse extends ToolResponse {
   output: QueryTimeseriesOutput
 }
 
-export interface ListMetricsParams extends DatadogBaseParams {
-  from?: number // Unix timestamp - only return metrics active since this time
-  host?: string // Filter by host name
-  tags?: string // Filter by tags (comma-separated)
-}
-
 export interface ListMetricsOutput {
   metrics: string[]
 }
 
 export interface ListMetricsResponse extends ToolResponse {
   output: ListMetricsOutput
-}
-
-export interface GetMetricMetadataParams extends DatadogBaseParams {
-  metricName: string
 }
 
 export interface MetricMetadata {
@@ -161,27 +151,12 @@ export interface CreateEventResponse extends ToolResponse {
   output: CreateEventOutput
 }
 
-export interface GetEventParams extends DatadogBaseParams {
-  eventId: string
-}
-
 export interface GetEventOutput {
   event: EventData
 }
 
 export interface GetEventResponse extends ToolResponse {
   output: GetEventOutput
-}
-
-export interface QueryEventsParams extends DatadogBaseParams {
-  start: number // Unix timestamp
-  end: number // Unix timestamp
-  priority?: EventPriority
-  sources?: string // Comma-separated source names
-  tags?: string // Comma-separated tags
-  unaggregated?: boolean
-  excludeAggregate?: boolean
-  page?: number
 }
 
 export interface QueryEventsOutput {
@@ -278,27 +253,12 @@ export interface GetMonitorResponse extends ToolResponse {
   output: GetMonitorOutput
 }
 
-export interface UpdateMonitorParams extends DatadogBaseParams {
-  monitorId: string
-  name?: string
-  query?: string
-  message?: string
-  tags?: string // Comma-separated tags
-  priority?: number
-  options?: string // JSON string of MonitorOptions
-}
-
 export interface UpdateMonitorOutput {
   monitor: MonitorData
 }
 
 export interface UpdateMonitorResponse extends ToolResponse {
   output: UpdateMonitorOutput
-}
-
-export interface DeleteMonitorParams extends DatadogBaseParams {
-  monitorId: string
-  force?: boolean
 }
 
 export interface DeleteMonitorOutput {
@@ -340,12 +300,6 @@ export interface MuteMonitorOutput {
 
 export interface MuteMonitorResponse extends ToolResponse {
   output: MuteMonitorOutput
-}
-
-export interface UnmuteMonitorParams extends DatadogBaseParams {
-  monitorId: string
-  scope?: string
-  allScopes?: boolean
 }
 
 export interface UnmuteMonitorOutput {
@@ -480,31 +434,12 @@ export interface CancelDowntimeResponse extends ToolResponse {
   output: CancelDowntimeOutput
 }
 
-// ========================
-// SLO TYPES
-// ========================
-
-export type SloType = 'metric' | 'monitor' | 'time_slice'
-
 export interface SloThreshold {
   timeframe: '7d' | '30d' | '90d' | 'custom'
   target: number // Target percentage (e.g., 99.9)
   target_display?: string
   warning?: number
   warning_display?: string
-}
-
-export interface CreateSloParams extends DatadogBaseParams {
-  name: string
-  type: SloType
-  description?: string
-  tags?: string // Comma-separated tags
-  thresholds: string // JSON string of SloThreshold[]
-  // For metric-based SLO
-  query?: string // JSON string of { numerator: string, denominator: string }
-  // For monitor-based SLO
-  monitorIds?: string // Comma-separated monitor IDs
-  groups?: string // Comma-separated group names
 }
 
 export interface SloData {
@@ -525,13 +460,6 @@ export interface CreateSloOutput {
 
 export interface CreateSloResponse extends ToolResponse {
   output: CreateSloOutput
-}
-
-export interface GetSloHistoryParams extends DatadogBaseParams {
-  sloId: string
-  fromTs: number // Unix timestamp
-  toTs: number // Unix timestamp
-  target?: number // Target SLO percentage
 }
 
 export interface SloHistoryData {
@@ -560,23 +488,6 @@ export interface GetSloHistoryResponse extends ToolResponse {
   output: GetSloHistoryOutput
 }
 
-// ========================
-// DASHBOARD TYPES
-// ========================
-
-export type DashboardLayoutType = 'ordered' | 'free'
-
-export interface CreateDashboardParams extends DatadogBaseParams {
-  title: string
-  layoutType: DashboardLayoutType
-  description?: string
-  widgets?: string // JSON string of widget definitions
-  isReadOnly?: boolean
-  notifyList?: string // Comma-separated user handles to notify
-  templateVariables?: string // JSON string of template variable definitions
-  tags?: string // Comma-separated tags
-}
-
 export interface DashboardData {
   id: string
   title: string
@@ -598,23 +509,12 @@ export interface CreateDashboardResponse extends ToolResponse {
   output: CreateDashboardOutput
 }
 
-export interface GetDashboardParams extends DatadogBaseParams {
-  dashboardId: string
-}
-
 export interface GetDashboardOutput {
   dashboard: DashboardData
 }
 
 export interface GetDashboardResponse extends ToolResponse {
   output: GetDashboardOutput
-}
-
-export interface ListDashboardsParams extends DatadogBaseParams {
-  filterShared?: boolean
-  filterDeleted?: boolean
-  count?: number
-  start?: number
 }
 
 export interface DashboardSummary {
@@ -637,21 +537,6 @@ export interface ListDashboardsOutput {
 
 export interface ListDashboardsResponse extends ToolResponse {
   output: ListDashboardsOutput
-}
-
-// ========================
-// HOSTS TYPES
-// ========================
-
-export interface ListHostsParams extends DatadogBaseParams {
-  filter?: string // Filter hosts by name, alias, or tag
-  sortField?: string // Field to sort by
-  sortDir?: 'asc' | 'desc'
-  start?: number // Starting offset
-  count?: number // Max hosts to return
-  from?: number // Unix timestamp - hosts seen in last N seconds
-  includeMutedHostsData?: boolean
-  includeHostsMetadata?: boolean
 }
 
 export interface HostData {
@@ -698,13 +583,6 @@ export interface ListHostsResponse extends ToolResponse {
 export type IncidentSeverity = 'SEV-1' | 'SEV-2' | 'SEV-3' | 'SEV-4' | 'SEV-5' | 'UNKNOWN'
 export type IncidentState = 'active' | 'stable' | 'resolved'
 
-export interface CreateIncidentParams extends DatadogBaseParams {
-  title: string
-  customerImpacted: boolean
-  severity?: IncidentSeverity
-  fields?: string // JSON string of additional fields
-}
-
 export interface IncidentData {
   id: string
   type: string
@@ -734,13 +612,6 @@ export interface CreateIncidentOutput {
 
 export interface CreateIncidentResponse extends ToolResponse {
   output: CreateIncidentOutput
-}
-
-export interface ListIncidentsParams extends DatadogBaseParams {
-  query?: string
-  pageSize?: number
-  pageOffset?: number
-  include?: string // Comma-separated: users, attachments
 }
 
 export interface ListIncidentsOutput {

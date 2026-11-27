@@ -5,11 +5,12 @@ import { getReadableWorkflowState, resolveWorkflowTarget } from './workflow-revi
 
 const mockGetRegisteredWorkflowSession = vi.hoisted(() => vi.fn())
 const mockAcquireWritableWorkflowSessionLease = vi.hoisted(() => vi.fn())
-const mockRunQueuedWorkflowExecution = vi.hoisted(() => vi.fn())
+const mockQueueWorkflowExecution = vi.hoisted(() => vi.fn())
 
 vi.unmock('@/blocks/registry')
 vi.mock('@/lib/workflows/queued-execution-client', () => ({
-  runQueuedWorkflowExecution: mockRunQueuedWorkflowExecution,
+  queueWorkflowExecution: mockQueueWorkflowExecution,
+  observeQueuedWorkflowExecution: vi.fn(),
 }))
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
@@ -72,7 +73,7 @@ describe('workflow-review-tool-utils', () => {
         workflowId: 'workflow-live',
         triggerBlockId: 'trigger',
       })
-    const requests = mockRunQueuedWorkflowExecution.mock.calls.map(([request]) => request)
+    const requests = mockQueueWorkflowExecution.mock.calls.map(([request]) => request)
     expect(requests.map((request) => request.executionId)).toEqual(targets.map(nativeToolCallId))
     expect(requests[0].executionId).not.toBe(requests[1].executionId)
     expect(requests[0].executionId).toBe(requests[2].executionId)

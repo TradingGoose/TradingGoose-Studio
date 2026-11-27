@@ -11,17 +11,17 @@ TradingGoose applies charges to the user or organization billing owner of the au
 
 - **Workflow execution** combines the configured base charge and tier execution multiplier with model costs and the tier model multiplier. Repeated settlement adds only newly completed usage. Child workflows settle independently.
 - **Function and custom-tool runtime** uses the configured per-second charge and tier Function multiplier multiplied by actual runtime milliseconds divided by 1000. A contacted runtime attempt can incur this charge even when its code fails.
-- **Model and embedding work** starts from reported token usage and standard published models.dev prices, including BYOK model estimates. BYOK estimates are report-only and do not debit the Studio model balance. For direct account-funded model calls, dollar reports and assistant records include the applicable Studio subscription-tier multiplier and match the accrued charge. Workflow steps retain standard estimates until settlement; the final workflow execution total applies its saved billing quote once to Studio-funded model usage, with existing execution fees unchanged.
+- **Model and embedding work** uses token usage and prices from the pinned OpenCode models.dev catalog. BYOK costs are informational and incur no Studio model debit. For direct account-funded model calls, dollar reports and assistant records include the applicable Studio subscription-tier multiplier and match the accrued charge. Workflow steps retain catalog costs until settlement; the final workflow execution total applies its saved billing quote once to Studio-funded model usage, with existing execution fees unchanged.
 
 Usage checks run before model contact. A request can fail after generation if billing cannot complete.
 
 <Callout type="info">
-  Costs distinguish estimates, partial and unavailable amounts. A published zero price is different from a missing price. Unknown costs are not reported as a known zero.
+  Records identify partial or unavailable costs. A published zero price is different from a missing price. Unknown costs are not reported as a known zero.
 </Callout>
 
 ## Usage and Reloaded History
 
-Reported prompt, completion and total token counts remain optional. Cost estimates account for reported token categories, including cache and reasoning tokens, and applicable context tiers.
+Reported prompt, completion and total token counts remain optional. Studio pricing accounts for reported token categories, including cache and reasoning tokens, and applicable context tiers.
 
 Copilot conversations and Workflow Agent history are saved in Studio's database. Reloaded history retains message parts, tool calls and results, and available assistant usage and cost metadata. Workflow Records aggregate known model and tool costs; incomplete coverage remains marked partial or unavailable. Use **Settings → Subscription** for applied current-period usage.
 
@@ -31,7 +31,7 @@ The available billing tiers and model catalog are configured by the TradingGoose
 
 If you receive an access code for a private tier, enter it in **Settings → Subscription**. Codes are case-sensitive, although surrounding whitespace is ignored. A valid code makes the corresponding private plan available to your user.
 
-A billing tier can also impose a maximum duration on each queued workflow execution. An execution that reaches that limit is terminated and recorded with the error `Workflow execution time limit exceeded`.
+The billing tier sets the maximum duration of each workflow or document run on Trigger. An unlimited tier has no duration limit. Local document processing can run as long as needed.
 
 ## Cost Optimization Strategies
 

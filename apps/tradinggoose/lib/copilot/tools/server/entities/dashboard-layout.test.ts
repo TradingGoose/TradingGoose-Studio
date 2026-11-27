@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
 import * as fx from '@/lib/copilot/tools/server/dashboard-layout/test-fixtures'
-import { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
 import {
   createLayoutServerTool,
   listLayoutsServerTool,

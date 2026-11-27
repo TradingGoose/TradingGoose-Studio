@@ -237,16 +237,6 @@ export function getMarketProviderConfig(providerId: string): MarketProviderConfi
   return MARKET_PROVIDER_DEFINITIONS[providerId]?.config || null
 }
 
-export function getMarketProviderAvailability(providerId: string): MarketDataAvailability {
-  return (
-    MARKET_PROVIDER_DEFINITIONS[providerId]?.config.availability || {
-      assetClass: [],
-      series: false,
-      live: false,
-    }
-  )
-}
-
 export function getMarketProviderCapabilities(
   providerId: string
 ): MarketProviderCapabilities | null {
@@ -285,20 +275,6 @@ export function getMarketLiveCapabilities(providerId: string): MarketLiveInputCa
 
 export function getMarketProviderIntervals(providerId: string): MarketInterval[] {
   return getMarketSeriesCapabilities(providerId)?.intervals ?? []
-}
-
-export function getMarketProviderExchangeCodes(providerId: string): string[] {
-  return MARKET_PROVIDER_DEFINITIONS[providerId]?.config.exchangeCodes || []
-}
-
-export function getMarketProviderKinds(providerId: string): MarketDataType[] {
-  const availability = getMarketProviderAvailability(providerId)
-  const kinds = new Set<MarketDataType>()
-
-  if (availability.series) kinds.add('series')
-  if (availability.live) kinds.add('live')
-
-  return Array.from(kinds)
 }
 
 const toMarketProviderOption = (provider: MarketProviderDefinition): MarketProviderOption => ({
@@ -479,12 +455,6 @@ export function getMarketProviderParamCatalog(kind: MarketDataType): MarketProvi
   }
 
   return { order, registry }
-}
-
-export function getMarketProviderParamRegistry(
-  kind: MarketDataType
-): Record<string, MarketProviderParamRegistryEntry> {
-  return getMarketProviderParamCatalog(kind).registry
 }
 
 export function coerceMarketProviderParamValue(

@@ -4,12 +4,15 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { CopilotThreadEvent, HistoryResponse } from '@/lib/copilot/native/contract'
 import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
+import { projectNativeHistory } from '@/stores/copilot/history'
 import {
   CopilotStoreProvider,
   getCopilotStore,
   resetCopilotStoreRegistry,
   useCopilotStore,
 } from '@/stores/copilot/store'
+import { createStreamingMessage } from '@/stores/copilot/store-messages'
+import { appendNativeText } from '@/stores/copilot/streaming'
 import { CopilotMessage } from './copilot-message'
 
 const runtimeContext = { workspaceId: 'workspace-fixture', implicitContexts: [] }
@@ -25,7 +28,9 @@ function Messages() {
       key={message.id}
       message={message}
       runtimeContext={runtimeContext}
-      isStreaming={isSendingMessage && message.role === 'assistant'}
+      isLastMessage={message.id === messages.at(-1)?.id}
+      isLastUserMessage={message.id === messages.filter((item) => item.role === 'user').at(-1)?.id}
+      isTurnInProgress={isSendingMessage}
       panelWidth={400}
       isDimmed={false}
       onEditModeChange={onEditModeChange}
@@ -134,6 +139,53 @@ it.each(['text.delta', 'reasoning.delta'] as const)(
   }
 )
 
+it('shows the active wait indicator without allocating rows for empty saved replies', () => {
+  const store = getCopilotStore(channelId)
+  const saved = projectNativeHistory([
+    {
+      id: 'empty-saved-answer',
+      role: 'assistant',
+      createdAt: new Date().toISOString(),
+      parts: [{ type: 'text', text: '' }],
+    },
+  ])
+  const current = createStreamingMessage()
+  flushSync(() => store.setState({ messages: [...saved, current], isSendingMessage: true }))
+  expect(container.children).toHaveLength(1)
+  expect(container.querySelector('.animate-bounce')).toBeTruthy()
+
+  const answer = appendNativeText(current, 'text', 'Here is the answer.')
+  flushSync(() => store.setState({ messages: [...saved, answer], isSendingMessage: false }))
+  expect(container.children).toHaveLength(1)
+  expect(container).toHaveTextContent('Here is the answer.')
+  expect(container.querySelector('.animate-bounce')).toBeNull()
+  expect(store.getState().messages.map((item) => item.id)).toEqual([saved[0].id, current.id])
+
+  flushSync(() =>
+    store.setState({ messages: [{ ...saved[0], usage: { outputTokens: 0 } }, answer] })
+  )
+  expect(container.children).toHaveLength(2)
+  expect(
+    container.firstElementChild?.querySelector('[data-testid="message-usage"]')
+  ).toHaveTextContent('0')
+})
+
+it('lets Markdown lay out streamed paragraphs and lists while preserving explicit breaks and code', () => {
+  const current = createStreamingMessage()
+  const text = 'First.  \nNext line.\n\n- One\n- Two\n\n```txt\n  indented\n```'
+  flushSync(() =>
+    getCopilotStore(channelId).setState({
+      messages: [appendNativeText(current, 'text', text)],
+      isSendingMessage: true,
+    })
+  )
+  const paragraph = container.querySelector('p')!
+  expect(paragraph.querySelector('br')).toBeTruthy()
+  expect(container.querySelectorAll('li')).toHaveLength(2)
+  expect(container.querySelector('pre')?.textContent).toContain('  indented')
+  expect(paragraph.closest('.whitespace-pre-wrap')).toBeNull()
+})
+
 it('restores answer controls when a still-typing text segment is replaced', async () => {
   vi.stubGlobal(
     'requestAnimationFrame',
@@ -166,4 +218,6 @@ it('restores answer controls when a still-typing text segment is replaced', asyn
   )
   expect(container.textContent).toContain('Final answer')
   expect(cancel).toHaveBeenCalledWith(1)
+  replace('', 3)
+  expect(container.querySelector('button')).toHaveTextContent('Continue')
 })

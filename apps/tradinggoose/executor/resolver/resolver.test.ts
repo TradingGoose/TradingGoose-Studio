@@ -342,10 +342,12 @@ describe('InputResolver', () => {
         ...sampleWorkflow.blocks[1],
         id: 'test-block',
         metadata: { id: 'historical_data' },
+        inputs: { retired: 'string' },
         config: {
           tool: 'historical_data_fetch',
           params: {
             provider: 'alpaca',
+            retired: '{{RETIRED_MARKET_SETTING}}',
             listing: { listing_id: 'AAPL', base_id: '', quote_id: '', listing_type: 'default' },
             rangeMode,
             rangePresetId: selected === 'custom' ? '<disabled-block.result>' : '1d',
@@ -356,6 +358,7 @@ describe('InputResolver', () => {
         },
       }
       const inputs = resolver.resolveInputs(block, mockContext)
+      expect(inputs).not.toHaveProperty('retired')
       if (selected === 'latest') {
         expect(inputs).not.toHaveProperty('start')
         expect(inputs).not.toHaveProperty('end')
@@ -482,7 +485,11 @@ describe('InputResolver', () => {
       'omits missing properties and array items through <%s.*> in nested inputs',
       (source) => {
         mockContext.blockStates.get('trigger-block').output.items = [{ value: 2 }]
-        const consumer = { ...sampleWorkflow.blocks[1], metadata: { id: 'generic' } }
+        const consumer: SerializedBlock = {
+          ...sampleWorkflow.blocks[1],
+          metadata: { id: 'generic' },
+          inputs: { payload: 'json' },
+        }
         for (const path of ['missing', 'missing[0].value', 'items[0].missing', 'items[99][0]']) {
           const reference = `<${source}.${path}>`
           consumer.config = { tool: 'generic', params: { payload: [{ value: reference }] } }
@@ -618,6 +625,8 @@ describe('InputResolver', () => {
         },
         inputs: {
           explicitEnv: 'string',
+          from: 'string',
+          to: 'string',
         },
         outputs: {},
         enabled: true,
@@ -900,7 +909,7 @@ describe('InputResolver', () => {
             item: '<loop.currentItem>',
           },
         },
-        inputs: {},
+        inputs: { item: 'json' },
         outputs: {},
         metadata: { id: BlockType.FUNCTION, name: 'Process Item' },
         enabled: true,
@@ -948,7 +957,7 @@ describe('InputResolver', () => {
         id: 'loop-1',
         position: { x: 0, y: 0 },
         config: { tool: BlockType.LOOP, params: {} },
-        inputs: {},
+        inputs: { index: 'number', items: 'array' },
         outputs: {},
         metadata: { id: BlockType.LOOP, name: 'Test Loop' },
         enabled: true,
@@ -963,7 +972,7 @@ describe('InputResolver', () => {
             index: '<loop.index>',
           },
         },
-        inputs: {},
+        inputs: { index: 'number' },
         outputs: {},
         metadata: { id: BlockType.FUNCTION, name: 'Process Index' },
         enabled: true,
@@ -1054,7 +1063,7 @@ describe('InputResolver', () => {
             allItems: '<loop.items>', // Direct reference to all items
           },
         },
-        inputs: {},
+        inputs: { allItems: 'array' },
         outputs: {},
         metadata: { id: BlockType.FUNCTION, name: 'Process All Items' },
         enabled: true,
@@ -1128,7 +1137,7 @@ describe('InputResolver', () => {
               tool: BlockType.FUNCTION,
               params: { code: '<parallel.currentItem>', allItems: '<parallel.items>' },
             },
-            inputs: {},
+            inputs: { code: 'string', allItems: 'array' },
             outputs: {},
             metadata: { id: BlockType.FUNCTION, name: 'Function 1' },
             enabled: true,
@@ -1727,6 +1736,7 @@ describe('InputResolver', () => {
               },
             },
           }
+          vi.mocked(getBlock).mockReturnValueOnce(ResponseBlock)
           const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
           expect((await new ResponseBlockHandler().execute(block, inputs)).response).toMatchObject({
             status: 201,
@@ -1762,6 +1772,7 @@ describe('InputResolver', () => {
           config: {
             tool: BlockType.RESPONSE,
             params: {
+              dataMode: 'structured',
               builderData: [
                 {
                   id: 'price',
@@ -1787,6 +1798,7 @@ describe('InputResolver', () => {
             },
           },
         }
+        vi.mocked(getBlock).mockReturnValueOnce(ResponseBlock)
         const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
         const { response } = await new ResponseBlockHandler().execute(block, inputs)
         expect(response.status).toBe(200)
@@ -1813,6 +1825,7 @@ describe('InputResolver', () => {
           config: {
             tool: BlockType.RESPONSE,
             params: {
+              dataMode: 'structured',
               builderData: [
                 { id: 'details', name: 'details', type: 'object', value: details },
                 { id: 'positions', name: 'positions', type: 'array', value: positions },
@@ -1840,6 +1853,7 @@ describe('InputResolver', () => {
           },
         ]) {
           block.config.params = params
+          vi.mocked(getBlock).mockReturnValueOnce(ResponseBlock)
           const inputs = connectionResolver.resolveInputs(block, contextWithConnections)
           const { response } = await new ResponseBlockHandler().execute(block, inputs)
           expect(response.status).toBe(200)
@@ -1858,12 +1872,14 @@ describe('InputResolver', () => {
         config: {
           tool: BlockType.RESPONSE,
           params: {
+            dataMode: 'structured',
             builderData: [
               { id: 'payload', name: 'payload', type: 'string', value: '<start.payload>' },
             ],
           },
         },
       }
+      vi.mocked(getBlock).mockReturnValueOnce(ResponseBlock)
       const { response } = await new ResponseBlockHandler().execute(
         block,
         connectionResolver.resolveInputs(block, contextWithConnections)
@@ -1984,6 +2000,7 @@ describe('InputResolver', () => {
       const functionBlock = workflowWithConnections.blocks[2] // function-1
       const testBlock: SerializedBlock = {
         ...functionBlock,
+        inputs: { nameRef: 'string', normalizedRef: 'string', idRef: 'string' },
         config: {
           tool: BlockType.FUNCTION,
           params: {
@@ -2117,7 +2134,7 @@ describe('InputResolver', () => {
           metadata: { id: BlockType.RESPONSE, name: 'Test Response Block' },
           position: { x: 500, y: 500 },
           config: { tool: BlockType.RESPONSE, params: { test: '<agent-1.content>' } },
-          inputs: {},
+          inputs: { test: 'string' as const },
           outputs: {},
           enabled: true,
         }
@@ -2250,6 +2267,40 @@ describe('InputResolver', () => {
       useModelRegistry.setState({ providers: [] })
     })
 
+    it.each(['<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
+      'validates the selected level after resolving %s',
+      (model) => {
+        mockGetBlock.mockReturnValue(AgentBlock)
+        const run = (id: string, fields: Record<string, unknown>) => {
+          mockWorkflowVars.stringVar.value = id
+          mockEnvironmentVars.MODEL = id
+          mockContext.blockStates.get('trigger-block').output.model = id
+          return resolver.resolveInputs(
+            {
+              ...sampleWorkflow.blocks[1],
+              metadata: { id: BlockType.AGENT },
+              config: { tool: BlockType.AGENT, params: { ...fields, model } },
+            },
+            mockContext,
+            getNativeModel
+          )
+        }
+        const id = 'google/gemini-2.5-flash'
+        expect(run(id, { reasoningEffort: 'low' })).toEqual({ model: id, reasoningEffort: 'low' })
+        expect(() => run('openai/gpt-4.1', { reasoningEffort: 'low' })).toThrow(/unsupported/)
+        expect(() => run('openai/gpt-5', { reasoningEffort: 'max' })).toThrow(/unsupported/)
+        expect(run(id, {})).toEqual({ model: id })
+        expect(() => run(id, { reasoningEffort: 'default' })).toThrow(/unsupported/)
+        expect(run('openai/gpt-4.1', {})).toEqual({ model: 'openai/gpt-4.1' })
+        expect(run('unknown/model', {})).toEqual({ model: 'unknown/model' })
+        mockContext.blockStates.get('trigger-block').output.level = 'high'
+        expect(run(id, { reasoningEffort: '<start.level>' })).toEqual({
+          model: id,
+          reasoningEffort: 'high',
+        })
+      }
+    )
+
     it.each(['openai/gpt-5', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
       'resolves model reference %s before applying native capability metadata',
       async (model) => {
@@ -2266,53 +2317,28 @@ describe('InputResolver', () => {
             tool: BlockType.AGENT,
             params: {
               model,
-              temperature: '<disabled-block.result>',
               responseFormat,
-              maxTokens: 512,
+              maxTokens: '<disabled-block.result>',
+              reasoningEffort: 'high',
             },
           },
         }
         expect(resolver.resolveInputs(block, mockContext, getNativeModel)).toEqual({
           model: 'openai/gpt-5',
           responseFormat: JSON.parse(responseFormat),
-          maxTokens: 512,
+          reasoningEffort: 'high',
         })
       }
     )
 
-    it.each([
-      ['openai/gpt-4.1', true],
-      ['openai/gpt-5', false],
-      ['unknown/model', true],
-    ] as const)(
-      'applies native temperature support for %s without browser metadata',
-      async (model, supported) => {
-        useModelRegistry.setState({ providers: [] })
-        mockGetBlock.mockReturnValue(AgentBlock)
-        mockWorkflowVars.stringVar.value = model
-        const block = {
-          ...sampleWorkflow.blocks[1],
-          metadata: { id: BlockType.AGENT },
-          config: {
-            tool: BlockType.AGENT,
-            params: { temperature: 0, model: '<variable.stringVar>' },
-          },
-        }
-        expect(resolver.resolveInputs(block, mockContext, getNativeModel)).toEqual({
-          model,
-          ...(supported && { temperature: 0 }),
-        })
-      }
-    )
-
-    it.each(['openai/gpt-3.5-turbo', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
+    it.each(['groq/llama-3.3-70b-versatile', '<variable.stringVar>', '{{MODEL}}', '<start.model>'])(
       'excludes unsupported structured output after resolving %s',
       async (model) => {
         useModelRegistry.setState({ providers: [] })
         mockGetBlock.mockReturnValue(AgentBlock)
-        mockWorkflowVars.stringVar.value = 'openai/gpt-3.5-turbo'
-        mockEnvironmentVars.MODEL = 'openai/gpt-3.5-turbo'
-        mockContext.blockStates.get('trigger-block').output.model = 'openai/gpt-3.5-turbo'
+        mockWorkflowVars.stringVar.value = 'groq/llama-3.3-70b-versatile'
+        mockEnvironmentVars.MODEL = 'groq/llama-3.3-70b-versatile'
+        mockContext.blockStates.get('trigger-block').output.model = 'groq/llama-3.3-70b-versatile'
         expect(
           resolver.resolveInputs(
             {
@@ -2320,13 +2346,13 @@ describe('InputResolver', () => {
               metadata: { id: BlockType.AGENT },
               config: {
                 tool: BlockType.AGENT,
-                params: { model, responseFormat: '<disabled-block.result>', temperature: 0 },
+                params: { model, responseFormat: '<disabled-block.result>' },
               },
             },
             mockContext,
             getNativeModel
           )
-        ).toEqual({ model: 'openai/gpt-3.5-turbo', temperature: 0 })
+        ).toEqual({ model: 'groq/llama-3.3-70b-versatile' })
       }
     )
 
@@ -2336,11 +2362,11 @@ describe('InputResolver', () => {
         mockGetBlock.mockReturnValue({
           subBlocks: [
             {
-              id: 'temperature',
+              id: 'responseFormat',
               condition: {
                 field: 'model',
                 operator: 'modelCapability',
-                value: 'temperature',
+                value: 'structuredOutput',
                 and: { field: 'enabled', value: true },
               },
             },
@@ -2354,7 +2380,7 @@ describe('InputResolver', () => {
               config: {
                 tool: 'agent',
                 params: {
-                  temperature: enabled ? 0 : '<disabled-block.result>',
+                  responseFormat: enabled ? { schema: {} } : '<disabled-block.result>',
                   model,
                   enabled,
                 },
@@ -2362,7 +2388,7 @@ describe('InputResolver', () => {
             },
             mockContext
           )
-        ).toEqual({ model, enabled, ...(enabled && { temperature: 0 }) })
+        ).toEqual({ model, enabled, ...(enabled && { responseFormat: { schema: {} } }) })
       }
     )
 
@@ -2791,8 +2817,7 @@ describe('InputResolver', () => {
       expect(result).toHaveProperty('param2', 'value2')
     })
 
-    it('should return all inputs when block config is not found', () => {
-      // Mock getBlock to return undefined
+    it('reads the serialized input declaration when the block has no registry entry', () => {
       mockGetBlock.mockReturnValue(undefined)
 
       const unknownBlock: SerializedBlock = {
@@ -2804,18 +2829,17 @@ describe('InputResolver', () => {
           params: {
             param1: 'value1',
             param2: 'value2',
+            retired: '{{RETIRED_SETTING}}',
           },
         },
-        inputs: {},
+        inputs: { param1: 'string', param2: 'string' },
         outputs: {},
         enabled: true,
       }
 
       const result = resolver.resolveInputs(unknownBlock, mockContext)
 
-      // Should include all inputs when block config is not found
-      expect(result).toHaveProperty('param1', 'value1')
-      expect(result).toHaveProperty('param2', 'value2')
+      expect(result).toEqual({ param1: 'value1', param2: 'value2' })
     })
 
     it('should handle negated conditions correctly', () => {

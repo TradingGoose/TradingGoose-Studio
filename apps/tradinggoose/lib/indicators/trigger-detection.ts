@@ -110,5 +110,3 @@ export const detectTriggerUsage = (pineCode: string): boolean => {
   const normalized = stripPineCommentsAndStrings(pineCode)
   return TRIGGER_USAGE_PATTERN.test(normalized)
 }
-
-export const isIndicatorTriggerCapable = (pineCode: string): boolean => detectTriggerUsage(pineCode)

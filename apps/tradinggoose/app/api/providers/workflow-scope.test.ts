@@ -1,14 +1,15 @@
 /** @vitest-environment node */
-import '@/lib/mastra/__test-utils__/managed-services'
+
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import type { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { generateInternalToken, verifyInternalTokenDetailed } from '@/lib/auth/internal'
+import { generateInternalToken, verifyInternalTokenDetailed } from '@/lib/auth/internal-token'
 import { calculateCostSummary } from '@/lib/logs/execution/logging-factory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { getInferenceFacts } from '@/lib/mastra/result'
 import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import { createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
@@ -67,10 +68,6 @@ vi.mock('@tradinggoose/db', () => {
   }
 })
 vi.mock('@/lib/auth', () => ({ getSession: boundary.session }))
-vi.mock('@/lib/env', async (original) => ({
-  ...(await original<object>()),
-  env: { INTERNAL_API_SECRET: 'test-internal-signing-secret-123456' },
-}))
 vi.mock('@/lib/permissions/utils', () => ({ checkWorkspaceAccess: boundary.access }))
 vi.mock('@/lib/billing/calculations/usage-monitor', () => ({
   checkServerSideUsageLimits: boundary.admit,
@@ -87,9 +84,9 @@ vi.mock('@/lib/billing/workspace-billing', () => {
   return { resolveWorkspaceBillingContext: resolve, resolveWorkflowBillingContext: resolve }
 })
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
-vi.mock('@/lib/mastra/connections', async (original) => ({
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
   ...(await original<object>()),
-  createConfiguredLanguageModel: () =>
+  createNativeModel: () =>
     new MastraLanguageModelV2Mock({
       doGenerate: async () => {
         boundary.contact()
@@ -122,6 +119,8 @@ const context: ExecutionContext = {
   activeExecutionPath: new Set(),
 }
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-key' }
+  vi.stubEnv('INTERNAL_API_SECRET', 'test-internal-signing-secret-123456')
   vi.clearAllMocks()
   boundary.requests.length = 0
   boundary.finishReason = 'stop'
@@ -174,7 +173,10 @@ beforeEach(() => {
     )
   )
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+})
 function assertScope() {
   expect(boundary.requests).toHaveLength(1)
   const url = new URL(boundary.requests[0].url)
@@ -484,7 +486,6 @@ it.each([true, false])(
       expect(body).toMatchObject({
         content: 'exact scoped output',
         cost: {
-          status: 'estimated',
           total: expect.closeTo(0.000012, 10),
           accountCost: null,
         },
@@ -605,7 +606,7 @@ it('retains filtered provider usage in the HTTP failure and records it once', as
   expect(response.status).toBe(500)
   expect(await response.json()).toMatchObject({
     tokens: { prompt: 12, completion: 3, total: 15 },
-    cost: { status: 'estimated', total: expect.closeTo(0.000048, 10) },
+    cost: { total: expect.closeTo(0.000048, 10) },
   })
   expect(boundary.accept).toHaveBeenCalledOnce()
   expect(boundary.contact).toHaveBeenCalledOnce()

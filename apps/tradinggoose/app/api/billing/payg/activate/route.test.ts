@@ -16,7 +16,6 @@ const {
   mockRandomUUID,
   mockRequireStripeClient,
   mockSql,
-  mockSyncSubscriptionUsageLimits,
   mockStripeSubscriptionsCreate,
   mockStripeSubscriptionsList,
 } = vi.hoisted(() => ({
@@ -39,7 +38,6 @@ const {
   })),
   mockStripeSubscriptionsCreate: vi.fn(),
   mockStripeSubscriptionsList: vi.fn(),
-  mockSyncSubscriptionUsageLimits: vi.fn(),
 }))
 
 const subscriptionTable = {
@@ -61,14 +59,7 @@ const mockTx = {
 }
 
 const mockDb = {
-  update: vi.fn((table) => ({
-    set: vi.fn((values) => ({
-      where: vi.fn(async () => {
-        subscriptionUpdates.push({ table, values })
-        return []
-      }),
-    })),
-  })),
+  update: mockTx.update,
   transaction: vi.fn(async (callback: (tx: typeof mockTx) => Promise<unknown>) => callback(mockTx)),
 }
 
@@ -91,10 +82,6 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/billing/core/subscription', () => ({
   ensureDefaultUserSubscription: mockEnsureDefaultUserSubscription,
-}))
-
-vi.mock('@/lib/billing/organization', () => ({
-  syncSubscriptionUsageLimits: mockSyncSubscriptionUsageLimits,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -207,79 +194,43 @@ function buildStripeSubscription(overrides: Record<string, unknown> = {}) {
 }
 
 function expectActivationAttemptMetadataPersisted() {
-  expect(subscriptionUpdates).toEqual(
-    expect.arrayContaining([
-      {
-        table: subscriptionTable,
-        values: {
-          metadata: {
-            source: 'default-tier',
-            paygActivationAttemptId: 'attempt-1',
-          },
-        },
-      },
-    ])
-  )
+  expect(subscriptionUpdates).toContainEqual({
+    table: subscriptionTable,
+    values: { metadata: { source: 'default-tier', paygActivationAttemptId: 'attempt-1' } },
+  })
 }
 
 function expectActivationAttemptMetadataCleared() {
-  expect(subscriptionUpdates).toEqual(
-    expect.arrayContaining([
-      {
-        table: subscriptionTable,
-        values: {
-          metadata: {
-            source: 'default-tier',
-          },
-        },
-      },
-    ])
-  )
+  expect(subscriptionUpdates).toContainEqual({
+    table: subscriptionTable,
+    values: { metadata: { source: 'default-tier' } },
+  })
 }
 
 function expectPersistedStripeSubscriptionUpdate(stripeSubscriptionId: string) {
-  expect(subscriptionUpdates).toEqual(
-    expect.arrayContaining([
-      {
-        table: subscriptionTable,
-        values: expect.objectContaining({
-          stripeSubscriptionId,
-          status: 'active',
-          metadata: {
-            source: 'default-tier',
-          },
-        }),
-      },
-    ])
-  )
+  expect(subscriptionUpdates).toContainEqual({
+    table: subscriptionTable,
+    values: expect.objectContaining({
+      stripeSubscriptionId,
+      status: 'active',
+      metadata: { source: 'default-tier' },
+    }),
+  })
 }
 
 describe('/api/billing/payg/activate route', () => {
-  let stripeClient: {
-    subscriptions: {
-      list: typeof mockStripeSubscriptionsList
-      create: typeof mockStripeSubscriptionsCreate
-    }
+  const stripeClient = {
+    subscriptions: { list: mockStripeSubscriptionsList, create: mockStripeSubscriptionsCreate },
   }
+  let POST: typeof import('./route').POST
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
     vi.resetModules()
 
     subscriptionUpdates = []
-    mockRandomUUID.mockReset()
-    mockRandomUUID.mockReturnValue('attempt-1')
+    mockRandomUUID.mockReset().mockReturnValue('attempt-1')
     mockExecute.mockReset()
-    mockTx.execute.mockClear()
-    mockTx.update.mockClear()
-
-    stripeClient = {
-      subscriptions: {
-        list: mockStripeSubscriptionsList,
-        create: mockStripeSubscriptionsCreate,
-      },
-    }
-
     mockGetSession.mockResolvedValue({
       user: { id: 'user-1' },
     })
@@ -294,12 +245,12 @@ describe('/api/billing/payg/activate route', () => {
       data: [],
     })
     mockStripeSubscriptionsCreate.mockResolvedValue(buildStripeSubscription())
+    POST = (await import('./route')).POST
   })
 
   it('returns 401 when unauthenticated', async () => {
     mockGetSession.mockResolvedValue(null)
 
-    const { POST } = await import('./route')
     const response = await POST()
     const payload = await response.json()
 
@@ -313,7 +264,6 @@ describe('/api/billing/payg/activate route', () => {
       stripeConfigured: true,
     })
 
-    const { POST } = await import('./route')
     const response = await POST()
     const payload = await response.json()
 
@@ -331,7 +281,6 @@ describe('/api/billing/payg/activate route', () => {
       })
     )
 
-    const { POST } = await import('./route')
     const response = await POST()
     const payload = await response.json()
 
@@ -350,7 +299,6 @@ describe('/api/billing/payg/activate route', () => {
       })
     )
 
-    const { POST } = await import('./route')
     const response = await POST()
     const payload = await response.json()
 
@@ -364,7 +312,6 @@ describe('/api/billing/payg/activate route', () => {
   it('uses the shared personal Stripe customer contract before requiring a default payment method', async () => {
     mockEnsureStripeUserCustomer.mockResolvedValueOnce(null)
 
-    const { POST } = await import('./route')
     const missingUserResponse = await POST()
     const missingUserPayload = await missingUserResponse.json()
 
@@ -387,7 +334,6 @@ describe('/api/billing/payg/activate route', () => {
   })
 
   it('creates the Stripe subscription with deterministic idempotency and updates the existing local row', async () => {
-    const { POST } = await import('./route')
     const response = await POST()
     const payload = await response.json()
 
@@ -454,15 +400,6 @@ describe('/api/billing/payg/activate route', () => {
       }),
       mockTx
     )
-    expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'sub_default_user-1',
-        referenceType: 'user',
-        referenceId: 'user-1',
-        tier: expect.objectContaining({ id: 'tier_payg' }),
-        status: 'active',
-      })
-    )
   })
 
   it('skips creation-side effects when another request already persisted the activation locally', async () => {
@@ -475,7 +412,6 @@ describe('/api/billing/payg/activate route', () => {
         })
       )
 
-    const { POST } = await import('./route')
     const response = await POST()
     const payload = await response.json()
 
@@ -487,62 +423,37 @@ describe('/api/billing/payg/activate route', () => {
     })
     expectActivationAttemptMetadataPersisted()
     expect(mockHandleSubscriptionCreated).not.toHaveBeenCalled()
-    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
-  it('reconciles an already-created active Stripe subscription before creating another one', async () => {
-    mockStripeSubscriptionsList.mockResolvedValueOnce({
-      data: [buildStripeSubscription({ id: 'sub_stripe_existing' })],
-    })
-
-    const { POST } = await import('./route')
-    const response = await POST()
-    const payload = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(payload).toMatchObject({
-      success: true,
-      status: 'activated',
-      stripeSubscriptionId: 'sub_stripe_existing',
-    })
-    expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
-    expect(mockHandleSubscriptionCreated).toHaveBeenCalledOnce()
-    expectActivationAttemptMetadataPersisted()
-    expectPersistedStripeSubscriptionUpdate('sub_stripe_existing')
-  })
-
-  it('recovers an already-created active Stripe subscription even if no default payment method is on file anymore', async () => {
-    mockEnsureStripeUserCustomer.mockResolvedValueOnce(
-      buildStripeCustomer({
-        invoice_settings: {
-          default_payment_method: null,
-        },
+  it.each(['pm_123', null])(
+    'reconciles an existing active Stripe subscription with default payment method %s',
+    async (defaultPaymentMethod) => {
+      mockEnsureStripeUserCustomer.mockResolvedValueOnce(
+        buildStripeCustomer({ invoice_settings: { default_payment_method: defaultPaymentMethod } })
+      )
+      mockStripeSubscriptionsList.mockResolvedValueOnce({
+        data: [buildStripeSubscription({ id: 'sub_stripe_existing' })],
       })
-    )
-    mockStripeSubscriptionsList.mockResolvedValueOnce({
-      data: [buildStripeSubscription({ id: 'sub_stripe_existing' })],
-    })
 
-    const { POST } = await import('./route')
-    const response = await POST()
-    const payload = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(payload).toMatchObject({
-      success: true,
-      status: 'activated',
-      stripeSubscriptionId: 'sub_stripe_existing',
-    })
-    expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
-    expect(mockHandleSubscriptionCreated).toHaveBeenCalledOnce()
-  })
+      const response = await POST()
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({
+        success: true,
+        status: 'activated',
+        stripeSubscriptionId: 'sub_stripe_existing',
+      })
+      expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
+      expect(mockHandleSubscriptionCreated).toHaveBeenCalledOnce()
+      expectActivationAttemptMetadataPersisted()
+      expectPersistedStripeSubscriptionUpdate('sub_stripe_existing')
+    }
+  )
 
   it('ignores canceled historical Stripe subscriptions when reactivating PAYG', async () => {
     mockStripeSubscriptionsList.mockResolvedValueOnce({
       data: [buildStripeSubscription({ id: 'sub_stripe_old', status: 'canceled' })],
     })
 
-    const { POST } = await import('./route')
     const response = await POST()
 
     expect(response.status).toBe(200)
@@ -563,7 +474,6 @@ describe('/api/billing/payg/activate route', () => {
     )
     mockStripeSubscriptionsCreate.mockRejectedValueOnce(stripeError)
 
-    const { POST } = await import('./route')
     const response = await POST()
     const payload = await response.json()
 
@@ -575,7 +485,6 @@ describe('/api/billing/payg/activate route', () => {
     expectActivationAttemptMetadataPersisted()
     expectActivationAttemptMetadataCleared()
     expect(mockHandleSubscriptionCreated).not.toHaveBeenCalled()
-    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
   it('uses a fresh idempotency key on each retry after a failed activation attempt', async () => {
@@ -587,8 +496,6 @@ describe('/api/billing/payg/activate route', () => {
     mockRandomUUID.mockReset()
     mockRandomUUID.mockReturnValueOnce('attempt-1').mockReturnValueOnce('attempt-2')
     mockStripeSubscriptionsCreate.mockRejectedValue(stripeError)
-
-    const { POST } = await import('./route')
 
     const firstResponse = await POST()
     const secondResponse = await POST()
@@ -608,7 +515,6 @@ describe('/api/billing/payg/activate route', () => {
       buildStripeSubscription({ id: 'sub_stripe_pending', status: 'incomplete' })
     )
 
-    const { POST } = await import('./route')
     const response = await POST()
     const payload = await response.json()
 
@@ -619,49 +525,28 @@ describe('/api/billing/payg/activate route', () => {
     expectActivationAttemptMetadataPersisted()
     expectActivationAttemptMetadataCleared()
     expect(mockHandleSubscriptionCreated).not.toHaveBeenCalled()
-    expect(mockSyncSubscriptionUsageLimits).not.toHaveBeenCalled()
   })
 
-  it('retries activation reconciliation after a post-subscription sync failure without creating a second Stripe subscription', async () => {
+  it('returns already_active on repeat activation and creates the Stripe subscription once', async () => {
     mockEnsureDefaultUserSubscription
       .mockResolvedValueOnce(buildCurrentSubscription())
       .mockResolvedValueOnce(
         buildCurrentSubscription({
-          metadata: {
-            source: 'default-tier',
-            paygActivationAttemptId: 'attempt-1',
-          },
+          metadata: { source: 'default-tier', paygActivationAttemptId: 'attempt-1' },
         })
       )
-      .mockResolvedValueOnce(
-        buildCurrentSubscription({
-          stripeCustomerId: 'cus_123',
-          stripeSubscriptionId: 'sub_stripe_123',
-          metadata: {
-            source: 'default-tier',
-          },
-        })
-      )
-      .mockResolvedValueOnce(
-        buildCurrentSubscription({
-          metadata: {
-            source: 'default-tier',
-            paygActivationAttemptId: 'attempt-1',
-          },
-        })
-      )
-    mockStripeSubscriptionsList
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [buildStripeSubscription()] })
-    mockSyncSubscriptionUsageLimits.mockRejectedValueOnce(new Error('sync failed'))
-
-    const { POST } = await import('./route')
+      .mockResolvedValueOnce(buildCurrentSubscription({ stripeSubscriptionId: 'sub_stripe_123' }))
 
     const firstResponse = await POST()
     const secondResponse = await POST()
     const secondPayload = await secondResponse.json()
 
-    expect(firstResponse.status).toBe(500)
+    expect(firstResponse.status).toBe(200)
+    expect(await firstResponse.json()).toMatchObject({
+      success: true,
+      status: 'activated',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
     expect(secondResponse.status).toBe(200)
     expect(secondPayload).toMatchObject({
       success: true,

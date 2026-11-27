@@ -20,7 +20,6 @@ type QueuedWorkflowExecutionRequest = {
   workflowVariables?: Record<string, unknown>
   triggerBlockId?: string
   selectedOutputs?: string[]
-  signal?: AbortSignal
 }
 
 export type QueuedWorkflowExecutionHandle = {
@@ -28,7 +27,7 @@ export type QueuedWorkflowExecutionHandle = {
   executionId: string
 }
 
-export type QueuedWorkflowExecutionCallbacks = {
+type QueuedWorkflowExecutionCallbacks = {
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
 
@@ -154,25 +153,5 @@ export async function observeQueuedWorkflowExecution(
       await events.return()
     }
     await waitToReconnect(signal)
-  }
-}
-
-export async function runQueuedWorkflowExecution(
-  request: QueuedWorkflowExecutionRequest,
-  callbacks?: QueuedWorkflowExecutionCallbacks
-): Promise<ExecutionResult> {
-  const queued = await queueWorkflowExecution(request)
-  const cancelQueuedExecution = () => {
-    void cancelQueuedWorkflowExecution(queued.taskId).catch(() => {})
-  }
-  if (request.signal?.aborted) cancelQueuedExecution()
-  else request.signal?.addEventListener('abort', cancelQueuedExecution, { once: true })
-  try {
-    return await observeQueuedWorkflowExecution(queued, {
-      signal: request.signal,
-      callbacks,
-    })
-  } finally {
-    request.signal?.removeEventListener('abort', cancelQueuedExecution)
   }
 }

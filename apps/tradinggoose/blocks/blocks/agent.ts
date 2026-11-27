@@ -1,7 +1,12 @@
 import { AgentIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getModelOptions, modelApiKeyField, modelField } from '@/stores/model-registry'
+import {
+  getModelOptions,
+  getRegistryModel,
+  modelApiKeyField,
+  modelField,
+} from '@/stores/model-registry'
 import type { ToolResponse } from '@/tools/types'
 
 interface AgentResponse extends ToolResponse {
@@ -17,13 +22,17 @@ interface AgentResponse extends ToolResponse {
   }
 }
 
+function modelEffort(params?: Record<string, any>) {
+  return getRegistryModel(params?.model?.id ?? params?.model)?.reasoningOptions?.[0]
+}
+
 export const AgentBlock: BlockConfig<AgentResponse> = {
   type: 'agent',
   name: 'Agent',
   description: 'Build an agent',
   authMode: AuthMode.ApiKey,
   longDescription:
-    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, and model-supported temperature without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
+    'Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Reasoning Effort appears below Model when Mastra Code offers levels. Studio starts with the level saved on the block or, in Copilot, your saved level for this workspace. If that choice is missing or the model does not support it, Studio uses the active level Mastra Code resolves from its preference. If that preference yields no active level, Studio selects the first active level in Mastra’s list. Open Additional Fields for memory and response format. Mastra manages the agent loop. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.',
   bestPractices: `
   - Cannot use core blocks like API, Webhook, Function, Workflow, Memory as tools. Only integrations or custom tools. 
   - Check custom tools examples for YAML syntax. Only construct these if there isn't an existing integration for that purpose.
@@ -114,40 +123,15 @@ Create a system prompt appropriately detailed for the request, using clear langu
       placeholder: 'Connect memory block output...',
       additional: true,
     },
-    { ...modelField, options: () => getModelOptions(true) },
+    { ...modelField, layout: 'full', options: () => getModelOptions(true) },
     {
-      id: 'temperature',
-      title: 'Temperature',
-      type: 'short-input',
-      inputType: 'number',
-      layout: 'half',
-      placeholder: 'Use the provider default',
-      additional: true,
-      condition: { field: 'model', operator: 'modelCapability', value: 'temperature' },
-    },
-    {
-      id: 'maxTokens',
-      title: 'Max Output Tokens',
-      type: 'short-input',
-      inputType: 'number',
-      layout: 'half',
-      placeholder: 'Use the provider default',
-      min: 1,
-      integer: true,
-      additional: true,
-    },
-    {
-      id: 'maxSteps',
-      title: 'Max Steps',
-      type: 'short-input',
-      inputType: 'number',
-      layout: 'half',
-      placeholder: 'Use the default step budget',
-      description:
-        'Maximum model-generation steps, including tool-call rounds and the final answer. The last step disables tools and answers from available results. Unset uses the shared default step budget. An unfinished response still fails.',
-      min: 1,
-      integer: true,
-      additional: true,
+      id: 'reasoningEffort',
+      title: 'Reasoning Effort',
+      type: 'combobox',
+      layout: 'full',
+      condition: { field: 'model', operator: 'modelCapability', value: 'effort' },
+      value: (params) => modelEffort(params)?.defaultValue,
+      options: (params) => (modelEffort(params)?.values ?? []).map((id) => ({ id, label: id })),
     },
     modelApiKeyField,
     {
@@ -268,6 +252,7 @@ Example 3 (Array Input):
     memories: { type: 'json', description: 'Agent memory data' },
     model: { type: 'string', description: 'AI model to use' },
     apiKey: { type: 'string', description: 'Provider API key' },
+    reasoningEffort: { type: 'string', description: 'Selected model reasoning effort' },
     responseFormat: {
       type: 'json',
       description: 'JSON object containing a JSON Schema in its schema field',
@@ -307,12 +292,6 @@ Example 3 (Array Input):
         required: ['schema'],
       },
     },
-    temperature: { type: 'number', description: 'Response randomness level' },
-    maxTokens: { type: 'number', description: 'Maximum output tokens' },
-    maxSteps: {
-      type: 'number',
-      description: 'Maximum model-generation steps, including the final answer',
-    },
     tools: { type: 'json', description: 'Available tools configuration' },
     skills: { type: 'json', description: 'Selected skills configuration' },
   },
@@ -322,7 +301,7 @@ Example 3 (Array Input):
     tokens: { type: 'any', description: 'Token usage statistics' },
     cost: {
       type: 'object',
-      description: 'Reported or estimated model cost in USD, with availability status',
+      description: 'Studio model cost in USD',
     },
   },
 }

@@ -162,7 +162,8 @@ export async function resolveWorkflowMutationResultForExecution(
     result.entityId,
     userId,
     createWorkflowSnapshot(result.workflowState as Partial<WorkflowSnapshot>),
-    result.variables
+    result.variables,
+    context?.acceptedReviewBaseStateHash
   )
 
   const {

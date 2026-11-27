@@ -2,8 +2,6 @@ import type { LucideIcon } from 'lucide-react'
 import type { BrowserAssertion } from '@/lib/copilot/native/contract'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
-export const WORKFLOW_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
-
 // Client tool call states used by the new runtime
 export enum ClientToolCallState {
   generating = 'generating',

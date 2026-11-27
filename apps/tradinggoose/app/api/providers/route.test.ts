@@ -221,7 +221,7 @@ describe('native AI generation boundary', () => {
     vi.mocked(handleAIProviderRequest).mockRejectedValue(
       Object.assign(new Error('Connection rejected caller-key; Authorization: Bearer secret'), {
         tokens: { total: 30 },
-        cost: { status: 'partial', availableTotal: 0.004, estimated: true },
+        cost: { status: 'partial', availableTotal: 0.004 },
         request: { apiKey: 'caller-key' },
       })
     )
@@ -230,7 +230,7 @@ describe('native AI generation boundary', () => {
     const data = await response.json()
     expect(data).toMatchObject({
       tokens: { total: 30 },
-      cost: { status: 'partial', availableTotal: 0.004, estimated: true },
+      cost: { status: 'partial', availableTotal: 0.004 },
     })
     expect(JSON.stringify(data)).not.toContain('caller-key')
     expect(JSON.stringify(data)).not.toContain('Bearer secret')

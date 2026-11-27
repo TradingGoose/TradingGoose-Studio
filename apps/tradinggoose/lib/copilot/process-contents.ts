@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflowExecutionLogs, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
-import * as Y from 'yjs'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { buildCopilotContextIdentityKey, isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
   COPILOT_CONTEXT_PROJECTION_LIMITS,
@@ -10,16 +10,13 @@ import {
 } from '@/lib/copilot/context-limits'
 import { projectExecutionLogContext } from '@/lib/copilot/execution-log-context'
 import { readNativeThreadHistory } from '@/lib/copilot/native/history'
-import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { stringifyBoundedRedactedJson } from '@/lib/security/redaction'
 import { escapeRegExp } from '@/lib/utils'
-import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
-import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import type { ChatContext } from '@/stores/copilot/types'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 type AgentContextType = ChatContext['kind']
 
@@ -208,24 +205,6 @@ export async function processContextsServer(
   return bounded
 }
 
-async function readBootstrappedCopilotYjsDoc<T>(
-  descriptor: Parameters<typeof readBootstrappedReviewTargetSnapshot>[0],
-  read: (doc: Y.Doc) => T
-): Promise<T | null> {
-  const snapshot = await readBootstrappedReviewTargetSnapshot(descriptor)
-  if (!snapshot.snapshotBase64) {
-    return null
-  }
-
-  const doc = new Y.Doc()
-  try {
-    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
-    return read(doc)
-  } finally {
-    doc.destroy()
-  }
-}
-
 function sanitizeMessageForDocs(rawMessage: string, contexts: ChatContext[] | undefined): string {
   if (!rawMessage) return ''
   if (!Array.isArray(contexts) || contexts.length === 0) {
@@ -361,6 +340,7 @@ async function readCopilotWorkflowStateFromYjs(
   workflowId: string,
   userId: string
 ): Promise<WorkflowSnapshot | null> {
+  const { verifyWorkflowAccess } = await import('@/lib/copilot/review-sessions/permissions')
   const access = await verifyWorkflowAccess(userId, workflowId, 'read')
   if (!access.hasAccess) {
     logger.warn('Skipping unauthorized copilot workflow context', {
@@ -370,22 +350,29 @@ async function readCopilotWorkflowStateFromYjs(
     return null
   }
 
-  const workflowState = await readBootstrappedCopilotYjsDoc(
-    {
-      workspaceId: access.workspaceId ?? null,
-      ownerUserId: null,
-      entityKind: 'workflow',
-      entityId: workflowId,
-      yjsSessionId: workflowId,
-    },
-    readWorkflowSnapshot
+  const { readBootstrappedReviewTargetSnapshot } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
   )
-  if (!workflowState) {
+  const snapshot = await readBootstrappedReviewTargetSnapshot({
+    workspaceId: access.workspaceId ?? null,
+    ownerUserId: null,
+    entityKind: 'workflow',
+    entityId: workflowId,
+    yjsSessionId: workflowId,
+  })
+  if (!snapshot.snapshotBase64) {
     logger.warn('No workflow Yjs snapshot found for copilot context', { workflowId })
     return null
   }
-
-  return workflowState
+  const Y = await import('yjs')
+  const { readWorkflowSnapshot } = await import('@/lib/yjs/workflow-session')
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return readWorkflowSnapshot(doc)
+  } finally {
+    doc.destroy()
+  }
 }
 
 async function processLogContext(

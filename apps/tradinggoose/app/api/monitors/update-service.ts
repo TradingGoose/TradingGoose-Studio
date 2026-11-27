@@ -1,6 +1,11 @@
 import { isDeepStrictEqual } from 'node:util'
 import { db, webhook } from '@tradinggoose/db'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
+import {
+  assertAcceptedServerToolReviewBase,
+  hashServerToolReviewBase,
+  throwStaleServerToolReview,
+} from '@/lib/copilot/tools/server/base-tool'
 import {
   type IndicatorMonitorProviderConfig,
   IndicatorMonitorUpdateSchema,
@@ -34,6 +39,7 @@ import {
 type IndicatorUpdatePayload = ReturnType<typeof IndicatorMonitorUpdateSchema.parse>
 type PortfolioUpdatePayload = ReturnType<typeof PortfolioMonitorUpdateSchema.parse>
 type MonitorUpdatePayload = IndicatorUpdatePayload | PortfolioUpdatePayload
+type MonitorProviderConfig = IndicatorMonitorProviderConfig | PortfolioMonitorProviderConfig
 type MonitorUpdateLogger = {
   warn: (message: string, ...args: unknown[]) => void
 }
@@ -54,21 +60,36 @@ const parseUpdatePayload = (
   return parsed.data
 }
 
+export function getMonitorReviewBaseHash(row: typeof webhook.$inferSelect) {
+  const config = row.providerConfig as MonitorProviderConfig
+  // The public document redacts credentials. Runtime progress is independent of editor changes.
+  return hashServerToolReviewBase({
+    provider: row.provider,
+    workflowId: row.workflowId,
+    blockId: row.blockId,
+    isActive: row.isActive,
+    monitor: config.monitor,
+  })
+}
+
 export async function updateMonitorForUser({
   monitorId,
   userId,
   body,
   requestId,
   logger,
+  acceptedReviewBaseStateHash,
 }: {
   monitorId: string
   userId: string
   body: unknown
   requestId: string
   logger: MonitorUpdateLogger
+  acceptedReviewBaseStateHash?: string
 }) {
   const row = await getMonitorRowById(monitorId)
   if (!row) {
+    if (acceptedReviewBaseStateHash) throwStaleServerToolReview()
     throw new MonitorRequestError('Monitor not found', 404)
   }
 
@@ -90,9 +111,13 @@ export async function updateMonitorForUser({
     throw new MonitorRequestError('Write permission required', 403)
   }
 
-  const existingConfig = row.webhook.providerConfig as
-    | IndicatorMonitorProviderConfig
-    | PortfolioMonitorProviderConfig
+  if (acceptedReviewBaseStateHash) {
+    assertAcceptedServerToolReviewBase(
+      { userId, acceptedReviewBaseStateHash },
+      getMonitorReviewBaseHash(row.webhook)
+    )
+  }
+  const existingConfig = row.webhook.providerConfig as MonitorProviderConfig
   const existingMonitor = existingConfig.monitor
   if (!existingMonitor) {
     throw new Error('Invalid existing monitor config')
@@ -145,17 +170,24 @@ export async function updateMonitorForUser({
       and(
         eq(webhook.id, monitorId),
         eq(webhook.provider, source),
-        eq(webhook.workflowId, row.workflow.id)
+        eq(webhook.workflowId, row.workflow.id),
+        acceptedReviewBaseStateHash
+          ? and(
+              eq(webhook.isActive, row.webhook.isActive),
+              sql`${webhook.blockId} IS NOT DISTINCT FROM ${row.webhook.blockId}`,
+              sql`(${webhook.providerConfig}->'monitor')::jsonb = ${JSON.stringify(existingMonitor)}::jsonb`
+            )
+          : undefined
       )
     )
     .returning()
 
-  void notifyMonitorsReconcile({ requestId, logger })
-
   if (!updatedMonitor) {
+    if (acceptedReviewBaseStateHash) throwStaleServerToolReview()
     throw new MonitorRequestError('Monitor not found', 404)
   }
 
+  void notifyMonitorsReconcile({ requestId, logger })
   return toMonitorRecord(updatedMonitor)
 }
 
@@ -171,7 +203,7 @@ async function buildProviderConfigForUpdate({
 }: {
   source: MonitorWebhookProvider
   payload: MonitorUpdatePayload
-  existingConfig: IndicatorMonitorProviderConfig | PortfolioMonitorProviderConfig
+  existingConfig: MonitorProviderConfig
   nextTriggerBlockId: string
   workspaceId: string
   userId: string
@@ -180,16 +212,15 @@ async function buildProviderConfigForUpdate({
 }) {
   if (source === PORTFOLIO_MONITOR_PROVIDER) {
     const portfolioPayload = payload as PortfolioUpdatePayload
-    const portfolioConfig = existingConfig as PortfolioMonitorProviderConfig
     if (
       portfolioPayload.isActive === false &&
       Object.keys(portfolioPayload).every((key) =>
         ['workspaceId', 'source', 'isActive'].includes(key)
       )
     ) {
-      return portfolioConfig
+      return
     }
-    const existingMonitor = portfolioConfig.monitor
+    const existingMonitor = (existingConfig as PortfolioMonitorProviderConfig).monitor
     const nextProviderId = portfolioPayload.providerId ?? existingMonitor.providerId
     const nextCredentialId = portfolioPayload.credentialId ?? existingMonitor.credentialId
     const nextAccountId = portfolioPayload.accountId ?? existingMonitor.accountId
@@ -234,14 +265,8 @@ async function buildProviderConfigForUpdate({
       pollIntervalSeconds:
         portfolioPayload.pollIntervalSeconds ?? existingMonitor.pollIntervalSeconds,
     })
-    const shouldPreserveRuntimeState = isDeepStrictEqual(
-      providerConfig.monitor,
-      portfolioConfig.monitor
-    )
-    if (shouldPreserveRuntimeState && portfolioConfig.runtimeState !== undefined) {
-      providerConfig.runtimeState = portfolioConfig.runtimeState
-    }
-    return providerConfig
+    // Omitting an unchanged definition preserves polling progress written during validation.
+    return isDeepStrictEqual(providerConfig.monitor, existingMonitor) ? undefined : providerConfig
   }
 
   const indicatorPayload = payload as IndicatorUpdatePayload

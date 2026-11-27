@@ -14,6 +14,10 @@ import {
 
 mockKnowledgeSchemas()
 
+vi.mock('@/lib/knowledge/documents/claim', () => ({
+  recoverInterruptedLocalDocuments: vi.fn(async () => 0),
+}))
+
 vi.mock('@/app/api/knowledge/utils', () => ({
   checkKnowledgeBaseAccess: vi.fn(),
   checkKnowledgeBaseWriteAccess: vi.fn(),
@@ -27,7 +31,7 @@ vi.mock('@/app/api/knowledge/utils', () => ({
 vi.mock('@/lib/knowledge/documents/service', () => ({
   updateDocument: vi.fn(),
   deleteDocument: vi.fn(),
-  failStaleDocumentProcessing: vi.fn(),
+  DocumentRetryConflictError: class extends Error {},
   retryDocumentProcessing: vi.fn(),
   processDocumentAsync: vi.fn(),
 }))
@@ -133,6 +137,35 @@ describe('Document By ID API Route', () => {
       expect(vi.mocked(checkDocumentAccess)).toHaveBeenCalledWith('kb-123', 'doc-123', 'user-123')
     })
 
+    it('reloads the document after authorized recovery', async () => {
+      const { recoverInterruptedLocalDocuments } = await import('@/lib/knowledge/documents/claim')
+      const { checkDocumentAccess } = await import('@/app/api/knowledge/utils')
+      mockAuth$.mockAuthenticatedUser()
+      const allowed = {
+        hasAccess: true as const,
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'test',
+        },
+        document: mockDocument,
+      }
+      vi.mocked(checkDocumentAccess)
+        .mockResolvedValueOnce({
+          ...allowed,
+          document: { ...mockDocument, processingStatus: 'processing' },
+        })
+        .mockResolvedValueOnce({
+          ...allowed,
+          document: { ...mockDocument, processingStatus: 'failed' },
+        })
+      vi.mocked(recoverInterruptedLocalDocuments).mockResolvedValueOnce(1)
+      const { GET } = await import('./route')
+      const response = await GET(createMockRequest('GET'), { params: mockParams })
+      expect((await response.json()).data.processingStatus).toBe('failed')
+      expect(recoverInterruptedLocalDocuments).toHaveBeenCalledExactlyOnceWith('kb-123', 'doc-123')
+    })
     it('should return unauthorized for unauthenticated user', async () => {
       mockAuth$.mockUnauthenticated()
 
@@ -280,72 +313,6 @@ describe('Document By ID API Route', () => {
 
   describe('PUT /api/knowledge/[id]/documents/[documentId] - Retry Processing', () => {
     const mockParams = Promise.resolve({ id: 'kb-123', documentId: 'doc-123' })
-
-    it('should fail stale processing successfully', async () => {
-      const { checkDocumentWriteAccess } = await import('@/app/api/knowledge/utils')
-      const { failStaleDocumentProcessing } = await import('@/lib/knowledge/documents/service')
-
-      const processingDocument = {
-        ...mockDocument,
-        processingStatus: 'processing',
-        processingStartedAt: new Date('2023-01-01T10:00:00Z'),
-      }
-
-      mockAuth$.mockAuthenticatedUser()
-      vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
-        hasAccess: true,
-        document: processingDocument,
-        knowledgeBase: {
-          id: 'kb-123',
-          userId: 'user-123',
-          workspaceId: 'workspace-123',
-          embeddingModel: 'text-embedding-3-small',
-        },
-      })
-
-      vi.mocked(failStaleDocumentProcessing).mockResolvedValue({
-        success: true,
-        status: 'failed',
-        message: 'Document processing marked as failed',
-      })
-
-      const req = createMockRequest('PUT', { failStaleProcessing: true })
-      const { PUT } = await import('@/app/api/knowledge/[id]/documents/[documentId]/route')
-      const response = await PUT(req, { params: mockParams })
-      const data = await response.json()
-
-      expect(response.status).toBe(200)
-      expect(data.success).toBe(true)
-      expect(data.data.status).toBe('failed')
-      expect(vi.mocked(failStaleDocumentProcessing)).toHaveBeenCalledWith(
-        'doc-123',
-        expect.any(String)
-      )
-    })
-
-    it('should reject stale failure for non-processing document', async () => {
-      const { checkDocumentWriteAccess } = await import('@/app/api/knowledge/utils')
-
-      mockAuth$.mockAuthenticatedUser()
-      vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
-        hasAccess: true,
-        document: { ...mockDocument, processingStatus: 'completed' },
-        knowledgeBase: {
-          id: 'kb-123',
-          userId: 'user-123',
-          workspaceId: 'workspace-123',
-          embeddingModel: 'text-embedding-3-small',
-        },
-      })
-
-      const req = createMockRequest('PUT', { failStaleProcessing: true })
-      const { PUT } = await import('@/app/api/knowledge/[id]/documents/[documentId]/route')
-      const response = await PUT(req, { params: mockParams })
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data.error).toBe('Document is not processing')
-    })
 
     it('should retry processing successfully', async () => {
       const { checkDocumentWriteAccess } = await import('@/app/api/knowledge/utils')

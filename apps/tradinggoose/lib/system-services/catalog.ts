@@ -1,5 +1,4 @@
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
-import { getModelProviders } from '@/lib/mastra/providers'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
 
@@ -298,40 +297,36 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
 
 const SYSTEM_SERVICE_IDS = new Set(SYSTEM_SERVICE_DEFINITIONS.map(({ id }) => id))
 
-export function getSystemServiceDefinitions(): SystemServiceDefinition[] {
+function modelServiceDefinition(id: string, name: string): SystemServiceDefinition {
+  return {
+    id,
+    displayName: name,
+    description: `API key for system-owned ${name} Copilot access.`,
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: `Used for system-owned ${name} Copilot requests.`,
+      },
+    ],
+    settingFields: [],
+  }
+}
+
+export async function getSystemServiceDefinitions(): Promise<SystemServiceDefinition[]> {
+  const { getModelProviders } = await import('@/lib/mastra/providers')
   return [
     ...SYSTEM_SERVICE_DEFINITIONS,
     ...Object.entries(getModelProviders())
       .filter(([id]) => !SYSTEM_SERVICE_IDS.has(id))
-      .map(([id, { name }]) => ({
-        id,
-        displayName: name,
-        description: `API key for system-owned ${name} Copilot access.`,
-        credentialFields: [
-          {
-            key: 'apiKey',
-            label: 'API Key',
-            description: `Used for system-owned ${name} Copilot requests.`,
-          },
-        ],
-        settingFields: [],
-      })),
+      .map(([id, { name }]) => modelServiceDefinition(id, name)),
   ]
 }
 
-export function getSystemServiceDefinition(serviceId: string) {
-  return getSystemServiceDefinitions().find(({ id }) => id === serviceId) ?? null
-}
-
-export function isSystemServiceCredentialKey(serviceId: string, key: string) {
-  return (
-    getSystemServiceDefinition(serviceId)?.credentialFields.some((field) => field.key === key) ??
-    false
-  )
-}
-
-export function isSystemServiceSettingKey(serviceId: string, key: string) {
-  return (
-    getSystemServiceDefinition(serviceId)?.settingFields.some((field) => field.key === key) ?? false
-  )
+export async function getSystemServiceDefinition(serviceId: string) {
+  const builtIn = SYSTEM_SERVICE_DEFINITIONS.find(({ id }) => id === serviceId)
+  if (builtIn) return builtIn
+  const { getModelProviders } = await import('@/lib/mastra/providers')
+  const provider = getModelProviders()[serviceId]
+  return provider ? modelServiceDefinition(serviceId, provider.name) : null
 }

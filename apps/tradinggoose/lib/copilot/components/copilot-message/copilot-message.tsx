@@ -1,8 +1,11 @@
 'use client'
 
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { ArrowDown, ArrowUp, X } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { CardDescription, CardFooter } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { extractExplicitCopilotContexts } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
@@ -12,11 +15,9 @@ import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import type { ImagePart } from '@/lib/copilot/native/contract'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { formatCost } from '@/lib/logs/cost'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { isCopilotBusy } from '@/stores/copilot/store-state'
 import type {
-  ChatContext,
   CopilotDraft,
   CopilotMessage as CopilotMessageType,
   CopilotSendRuntimeContext,
@@ -104,15 +105,29 @@ const renderUserMessageTextWithMentions = (text: string, contexts: ChatContext[]
 interface CopilotMessageProps {
   message: CopilotMessageType
   runtimeContext: CopilotSendRuntimeContext
-  isStreaming: boolean
+  isLastMessage: boolean
+  isLastUserMessage: boolean
+  isTurnInProgress: boolean
   panelWidth: number
   isDimmed: boolean
-  onEditModeChange: (isEditing: boolean) => void
+  submitDisabled?: boolean
+  onEditModeChange: (messageId: string, isEditing: boolean) => void
 }
 
 const CopilotMessage: FC<CopilotMessageProps> = memo(
-  ({ message, runtimeContext, isStreaming, panelWidth, isDimmed, onEditModeChange }) => {
-    const copilotCopy = useCopilotMessages()
+  ({
+    message,
+    runtimeContext,
+    isLastMessage,
+    isLastUserMessage,
+    isTurnInProgress,
+    panelWidth,
+    isDimmed,
+    submitDisabled,
+    onEditModeChange,
+  }) => {
+    const t = useTranslations('workspace.widgets.copilot.message')
+    const locale = useLocale()
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
     const [isEditMode, setIsEditMode] = useState(false)
@@ -126,31 +141,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const [needsExpansion, setNeedsExpansion] = useState(false)
     const [typingSegmentKeys, setTypingSegmentKeys] = useState<string[]>([])
 
-    const state = useCopilotStore()
-    const {
-      currentChat,
-      currentRunId,
-      messages,
-      sendMessage,
-      isSendingMessage,
-      isAborting,
-      abortMessage,
-    } = state
     const copilotStoreApi = useCopilotStoreApi()
-
-    // Check if this is the last user message (for showing abort button)
-    const isLastUserMessage = useMemo(() => {
-      if (!isUser) return false
-      const userMessages = messages.filter((m) => m.role === 'user')
-      return userMessages.length > 0 && userMessages[userMessages.length - 1]?.id === message.id
-    }, [isUser, messages, message.id])
-
-    const isLastMessage = useMemo(() => {
-      if (messages.length === 0) return false
-      return messages[messages.length - 1]?.id === message.id
-    }, [messages, message.id])
-
-    const isTurnInProgress = isStreaming || isCopilotBusy(state)
+    const isSendingMessage = useCopilotStore((state) => isLastUserMessage && state.isSendingMessage)
+    const isAborting = useCopilotStore(
+      (state) => (isLastUserMessage || isEditMode) && state.isAborting
+    )
+    const isStreaming = isLastMessage && isTurnInProgress
     const isMessageTyping = typingSegmentKeys.length > 0
     const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
     const shouldShowActivityIndicator =
@@ -159,20 +155,16 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const hasNativeFiles = message.contentBlocks?.some((block) => block.type === 'file') ?? false
     const userMessageContexts = extractExplicitCopilotContexts(message.contexts)
 
-    const isReplayBlockedForEdit = useMemo(
-      () => hasToolActivityAfterMessage(messages, message.id),
-      [message.id, messages]
-    )
-
     const handleEditMessage = () => {
+      const { isSendingMessage, currentRunId, messages } = copilotStoreApi.getState()
       if (isSendingMessage && !currentRunId) {
         setEditBlockedReason('Wait for the response to start before editing this message.')
         return
       }
-      if (isReplayBlockedForEdit) {
+      if (hasToolActivityAfterMessage(messages, message.id)) {
         setIsEditMode(false)
         setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
-        onEditModeChange(false)
+        onEditModeChange(message.id, false)
         return
       }
 
@@ -180,7 +172,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       setIsExpanded(false)
       setEditDraft(buildMessageEditDraft(message))
       setEditBlockedReason(null)
-      onEditModeChange(true)
+      onEditModeChange(message.id, true)
       // Focus the input and position cursor at the end after render
       setTimeout(() => {
         userInputRef.current?.focus()
@@ -190,7 +182,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const handleCancelEdit = () => {
       setIsEditMode(false)
       setEditDraft(buildMessageEditDraft(message))
-      onEditModeChange(false)
+      onEditModeChange(message.id, false)
     }
 
     const handleMessageClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -212,19 +204,21 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       contexts?: ChatContext[]
     ) => {
       if (!editedMessage.trim()) return false
+      const state = copilotStoreApi.getState()
+      const { isSendingMessage, currentRunId, messages, abortMessage } = state
       if (isSendingMessage && !currentRunId) {
         setEditBlockedReason('Wait for the response to start before editing this message.')
         return false
       }
 
-      if (isReplayBlockedForEdit) {
+      if (hasToolActivityAfterMessage(messages, message.id)) {
         handleCancelEdit()
         setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
         return false
       }
 
       // If a stream is in progress, abort it first
-      if (isTurnInProgress) {
+      if (isCopilotBusy(state)) {
         if (!(await abortMessage())) {
           setEditBlockedReason(
             copilotStoreApi.getState().error || 'The current response could not be stopped.'
@@ -254,7 +248,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         return false
       }
       try {
-        const completed = await sendMessage(editedMessage, {
+        const completed = await copilotStoreApi.getState().sendMessage(editedMessage, {
           messageId: message.id,
           contexts,
           runtimeContext,
@@ -265,7 +259,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           )
         setIsEditMode(false)
         setEditBlockedReason(null)
-        onEditModeChange(false)
+        onEditModeChange(message.id, false)
         return true
       } catch (error) {
         setEditBlockedReason(error instanceof Error ? error.message : 'Native history edit failed')
@@ -376,9 +370,9 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleOptionSelect = useCallback(
       (_optionKey: string, optionText: string) => {
-        sendMessage(optionText, { runtimeContext })
+        copilotStoreApi.getState().sendMessage(optionText, { runtimeContext })
       },
-      [runtimeContext, sendMessage]
+      [copilotStoreApi, runtimeContext]
     )
 
     const assistantSegments = useMemo(() => {
@@ -505,13 +499,14 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             <div ref={editContainerRef} className='relative w-full'>
               <UserInput
                 ref={userInputRef}
-                workspaceId={currentChat?.workspaceId ?? ''}
+                workspaceId={runtimeContext.workspaceId ?? ''}
                 onSubmit={handleSubmitEdit}
                 draft={editDraft}
                 onDraftChange={setEditDraft}
-                placeholder={copilotCopy.message.editPlaceholder}
+                placeholder={t('editPlaceholder')}
                 panelWidth={panelWidth}
                 clearOnSubmit={false}
+                submitDisabled={submitDisabled}
                 isLoading={isAborting}
               />
             </div>
@@ -562,19 +557,17 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                             type='button'
                             onClick={(e) => {
                               e.stopPropagation()
-                              abortMessage()
+                              void copilotStoreApi.getState().abortMessage()
                             }}
                             disabled={isAborting}
                             className='flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60'
-                            aria-label={copilotCopy.message.stopGeneration}
+                            aria-label={t('stopGeneration')}
                           >
                             <X className='h-4 w-4' />
                           </button>
                         }
                       />
-                      <TooltipContent side='top'>
-                        {copilotCopy.message.stopGeneration}
-                      </TooltipContent>
+                      <TooltipContent side='top'>{t('stopGeneration')}</TooltipContent>
                     </Tooltip>
                   </div>
                 )}
@@ -586,6 +579,26 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     }
 
     if (isAssistant) {
+      const { cacheStatus, inputTokens, outputTokens } = message.usage ?? {}
+      const usageFields = [
+        { label: t('cache'), value: cacheStatus && t(cacheStatus) },
+        { label: t('inputTokens'), value: inputTokens?.toLocaleString(locale), Icon: ArrowUp },
+        { label: t('outputTokens'), value: outputTokens?.toLocaleString(locale), Icon: ArrowDown },
+      ].filter(({ value }) => value !== undefined)
+      const cost = message.cost?.total
+      const hasUsage = usageFields.length > 0 || cost !== undefined
+      const options =
+        isLastMessage && !shouldHidePostTurnControls && parsedTags?.optionsComplete
+          ? parsedTags.options
+          : undefined
+      if (
+        !shouldShowActivityIndicator &&
+        !hasUsage &&
+        !memoizedContentBlocks?.some(Boolean) &&
+        !Object.keys(options ?? {}).length
+      )
+        return null
+
       return (
         <div
           className={`w-full max-w-full overflow-hidden pb-2 pl-[2px] transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
@@ -598,43 +611,39 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
             {shouldShowActivityIndicator && <StreamingIndicator />}
 
-            {(message.usage || message.cost) && (
-              <div
-                className='flex flex-wrap gap-x-2 pt-1 text-muted-foreground text-xs'
+            {hasUsage && (
+              <CardFooter
+                className='flex-wrap gap-x-2 p-0 pt-1 text-muted-foreground text-xs tabular-nums'
                 data-testid='message-usage'
               >
-                {message.usage && (
-                  <span
-                    title={`Input: ${message.usage.inputTokens ?? 'Unavailable'}; output: ${message.usage.outputTokens ?? 'Unavailable'}`}
-                  >
-                    {message.usage.totalTokens?.toLocaleString() ?? 'Unavailable'} tokens
-                  </span>
+                {usageFields.map(({ label, value, Icon }) => (
+                  <Tooltip key={label}>
+                    <TooltipTrigger
+                      aria-label={`${label} ${value}`}
+                      className='inline-flex items-center gap-0.5 rounded-sm'
+                    >
+                      {Icon && <Icon aria-hidden='true' className='size-3' />}
+                      {value}
+                    </TooltipTrigger>
+                    <TooltipContent side='top'>{label}</TooltipContent>
+                  </Tooltip>
+                ))}
+                {cost !== undefined && (
+                  <CardDescription className='whitespace-nowrap text-xs'>
+                    {formatCost(cost, 'code')}
+                  </CardDescription>
                 )}
-                {message.cost && (
-                  <span>
-                    {message.cost.total !== undefined &&
-                    (message.cost.estimated || message.cost.status === 'estimated')
-                      ? 'Estimated '
-                      : ''}
-                    {formatCost(message.cost.total)} USD
-                    {message.cost.status === 'partial' &&
-                      message.cost.availableTotal !== undefined &&
-                      ` (${message.cost.estimated ? 'estimated ' : ''}${formatCost(message.cost.availableTotal)} available)`}
-                  </span>
-                )}
-              </div>
+              </CardFooter>
             )}
 
             {/* Options selector after the full assistant message has finished rendering */}
-            {(() => {
-              const options = parsedTags?.options
-              const isOptionsReady =
-                !shouldHidePostTurnControls && parsedTags?.optionsComplete === true
-
-              if (!isLastMessage || !options || !isOptionsReady) return null
-
-              return <OptionsSelector options={options} onSelect={handleOptionSelect} />
-            })()}
+            {options && (
+              <OptionsSelector
+                options={options}
+                onSelect={handleOptionSelect}
+                disabled={submitDisabled}
+              />
+            )}
           </div>
         </div>
       )

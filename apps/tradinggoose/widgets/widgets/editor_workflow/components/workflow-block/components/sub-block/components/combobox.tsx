@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent } from '@/components/ui/popover'
 import {
   type SidebarDropdownGroup,
   type SidebarDropdownItem,
@@ -30,6 +31,7 @@ interface ComboBoxProps {
   defaultValue?: string
   blockId: string
   subBlockId: string
+  inputId?: string
   value?: string
   disabled?: boolean
   placeholder?: string
@@ -57,28 +59,28 @@ const getOptionIcon = (option: string | SubBlockOption) =>
 /** Edits persisted selections and references, distinguishing fresh openings from typed searches. */
 export function ComboBox({
   options,
+  config,
   defaultValue,
   blockId,
   subBlockId,
+  inputId,
   value: propValue,
   disabled,
   placeholder,
   isConnecting,
-  config,
 }: ComboBoxProps) {
   const locale = useLocale() as LocaleCode
   const registryLoading = useModelRegistry((state) => state.isLoading)
   const registryError = useModelRegistry((state) => state.error)
   const loadRegistry = useModelRegistry((state) => state.load)
-  const isModelPicker = subBlockId === 'model' && config.dropdownMode === 'sidebar'
+  const usesSidebarMode = config.dropdownMode === 'sidebar'
+  const isModelPicker = subBlockId === 'model' && usesSidebarMode
   const placeholderText = placeholder ?? translateWorkflowLabel(locale, 'typeOrSelectAnOption')
   const workspaceId = useWorkspaceId()
-  const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
+  const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId, disabled)
   const [storeInitialized, setStoreInitialized] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [focused, setFocused] = useState(false)
-  const [showEnvVars, setShowEnvVars] = useState(false)
-  const [showTags, setShowTags] = useState(false)
+  const [menu, setMenu] = useState<'options' | 'environment' | 'tags' | null>(null)
+  const open = menu === 'options'
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const [activeSourceBlockId, setActiveSourceBlockId] = useState<string | null>(null)
@@ -89,80 +91,60 @@ export function ComboBox({
   const emitTagSelection = useTagSelection(blockId, subBlockId)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
+  const anchorRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const reactFlowInstance = useReactFlow()
 
   const value = propValue !== undefined ? propValue : storeValue
+  const defaultOnEmpty = config.autoSelectFirstOption === false ? undefined : defaultValue
+  const displayValue = value?.toString() || defaultOnEmpty || ''
+  const showingDefault = !!defaultOnEmpty && displayValue === defaultOnEmpty
 
   // Evaluate options if it's a function
   const evaluatedOptions = useMemo(() => {
     return typeof options === 'function' ? options() : options
   }, [options])
 
-  const selectedOption = useMemo(() => {
-    if (value === null || value === undefined) return undefined
+  const selectedOption = useMemo(
+    () => evaluatedOptions.find((opt) => getOptionValue(opt) === displayValue),
+    [evaluatedOptions, displayValue]
+  )
 
-    return evaluatedOptions.find((opt) => getOptionValue(opt) === value)
-  }, [evaluatedOptions, value])
-
-  const displayValue =
-    selectedOption && !focused ? getOptionLabel(selectedOption) : (value?.toString() ?? '')
-
-  // Get the explicit default or first option when automatic selection is enabled.
-  const defaultOptionValue = useMemo(() => {
-    if (defaultValue !== undefined) {
-      return defaultValue
-    }
-
-    if (config.autoSelectFirstOption === false) return undefined
-
-    if (evaluatedOptions.length > 0) {
-      return getOptionValue(evaluatedOptions[0])
-    }
-
-    return undefined
-  }, [defaultValue, evaluatedOptions, config.autoSelectFirstOption])
+  const defaultOptionValue =
+    defaultValue ??
+    (config.autoSelectFirstOption !== false && evaluatedOptions.length
+      ? getOptionValue(evaluatedOptions[0])
+      : undefined)
 
   // Mark store as initialized on first render
   useEffect(() => {
     setStoreInitialized(true)
   }, [])
 
-  // Only set default value once the store is confirmed to be initialized
-  // and we know the actual value is null/undefined (not just loading)
   useEffect(() => {
     if (
+      !disabled &&
       storeInitialized &&
-      (value === null || value === undefined) &&
+      (value == null || (value === '' && defaultOnEmpty)) &&
       defaultOptionValue !== undefined
     ) {
       setStoreValue(defaultOptionValue)
     }
-  }, [storeInitialized, value, defaultOptionValue, setStoreValue])
+  }, [disabled, storeInitialized, value, defaultOnEmpty, defaultOptionValue, setStoreValue])
 
   // Filter options based on current value for display
   const filteredOptions = useMemo(() => {
-    // Always show all options when dropdown is not open
-    if (!open) return evaluatedOptions
-
-    // If no value, show all options
-    const currentValue = displayValue
-    if (!currentValue) return evaluatedOptions
-
-    // If current value exactly matches an option and user hasn't typed, show all (fresh open)
-    if (!hasTyped && selectedOption) return evaluatedOptions
-
-    // Otherwise filter based on current input
+    if (!open || !hasTyped || !displayValue) return evaluatedOptions
+    const search = displayValue.toLowerCase()
     return evaluatedOptions.filter((option) => {
       const label = getOptionLabel(option).toLowerCase()
       const optionValue = getOptionValue(option).toLowerCase()
       const searchLabel = getOptionSearchText(option).toLowerCase()
-      const search = currentValue.toLowerCase()
       return label.includes(search) || optionValue.includes(search) || searchLabel.includes(search)
     })
-  }, [displayValue, evaluatedOptions, open, hasTyped, selectedOption])
+  }, [displayValue, evaluatedOptions, open, hasTyped])
 
   const sidebarItems = useMemo<SidebarDropdownItem[]>(
     () =>
@@ -199,7 +181,6 @@ export function ComboBox({
     ]
   }, [config.optionGroups, sidebarItems])
 
-  const usesSidebarMode = config.dropdownMode === 'sidebar'
   const selectedSidebarGroupId = selectedOption ? getOptionGroup(selectedOption) : null
   const currentSidebarGroupId =
     activeSidebarGroupId && sidebarGroups.some((group) => group.id === activeSidebarGroupId)
@@ -225,21 +206,18 @@ export function ComboBox({
 
     const newValue = e.target.value
     const newCursorPosition = e.target.selectionStart ?? 0
-    setHasTyped(true)
+    setHasTyped(!!newValue)
 
     // Update store value immediately (allow free text)
-    setStoreValue(newValue)
+    setStoreValue(newValue || defaultOnEmpty || '')
 
     setCursorPosition(newCursorPosition)
 
-    // Check for environment variables trigger
     const envVarTrigger = checkEnvVarTrigger(newValue, newCursorPosition)
-    setShowEnvVars(envVarTrigger.show)
-    setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
-
-    // Check for tag trigger
-    const tagTrigger = checkTagTrigger(newValue, newCursorPosition)
-    setShowTags(tagTrigger.show)
+    setSearchTerm(envVarTrigger.searchTerm)
+    if (envVarTrigger.show) setMenu('environment')
+    else if (checkTagTrigger(newValue, newCursorPosition).show) setMenu('tags')
+    else setMenu('options')
   }
 
   const handleSelect = (selectedValue: string) => {
@@ -247,16 +225,22 @@ export function ComboBox({
       setStoreValue(selectedValue)
     }
     setHasTyped(false)
-    setOpen(false)
+    setMenu(null)
     setHighlightedIndex(-1)
     inputRef.current?.blur()
+  }
+
+  const handleReferenceSelect = (newValue: string) => {
+    emitTagSelection(newValue)
+    setHasTyped(false)
   }
 
   const handleDropdownClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (!disabled) {
-      setOpen((prev) => !prev)
+      setHasTyped(false)
+      setMenu(open ? null : 'options')
       if (!open) {
         inputRef.current?.focus()
       }
@@ -264,41 +248,34 @@ export function ComboBox({
   }
 
   const handleFocus = () => {
-    setFocused(true)
-    setOpen(true)
+    selectDefaultText()
+    setMenu('options')
     setHighlightedIndex(-1)
   }
 
-  const handleBlur = () => {
-    setFocused(false)
-    setShowEnvVars(false)
-    setShowTags(false)
-    setHasTyped(false)
+  const selectDefaultText = () => {
+    if (showingDefault) inputRef.current?.select()
+  }
 
-    // Delay closing to allow dropdown selection
-    setTimeout(() => {
-      const activeElement = document.activeElement
-      if (!activeElement || !activeElement.closest('.absolute.top-full')) {
-        setOpen(false)
-        setHighlightedIndex(-1)
-      }
-    }, 150)
+  const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    setHasTyped(false)
+    if (!dropdownRef.current?.contains(event.relatedTarget)) setMenu(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
-      setShowEnvVars(false)
-      setShowTags(false)
-      setOpen(false)
+      setHasTyped(false)
+      setMenu(null)
       setHighlightedIndex(-1)
       return
     }
+    if (menu === 'environment' || menu === 'tags') return
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       const optionCount = usesSidebarMode ? activeSidebarItems.length : filteredOptions.length
       if (!open) {
-        setOpen(true)
+        setMenu('options')
         setHighlightedIndex(0)
       } else {
         setHighlightedIndex((prev) => (prev < optionCount - 1 ? prev + 1 : 0))
@@ -344,19 +321,16 @@ export function ComboBox({
       const data = JSON.parse(e.dataTransfer.getData('application/json'))
       if (data.type !== 'connectionBlock') return
 
-      const currentValue = value?.toString() ?? ''
-      const dropPosition =
-        selectedOption && !focused
-          ? currentValue.length
-          : (inputRef.current?.selectionStart ?? currentValue.length)
-      const newValue = `${currentValue.slice(0, dropPosition)}<${currentValue.slice(dropPosition)}`
+      const text = showingDefault ? '' : displayValue
+      const dropPosition = showingDefault ? 0 : (inputRef.current?.selectionStart ?? text.length)
+      const newValue = `${text.slice(0, dropPosition)}<${text.slice(dropPosition)}`
 
       inputRef.current?.focus()
 
       Promise.resolve().then(() => {
         setStoreValue(newValue)
         setCursorPosition(dropPosition + 1)
-        setShowTags(true)
+        setMenu('tags')
 
         if (data.connectionData?.sourceBlockId) {
           setActiveSourceBlockId(data.connectionData.sourceBlockId)
@@ -382,6 +356,7 @@ export function ComboBox({
   }
 
   const handlePaste = () => {
+    selectDefaultText()
     setTimeout(() => {
       if (inputRef.current && overlayRef.current) {
         overlayRef.current.scrollLeft = inputRef.current.scrollLeft
@@ -420,11 +395,6 @@ export function ComboBox({
     return true
   }
 
-  // Environment variable and tag selection handler
-  const handleEnvVarSelect = (newValue: string) => {
-    emitTagSelection(newValue)
-  }
-
   // Effects
   useEffect(() => {
     if (inputRef.current && overlayRef.current) {
@@ -457,34 +427,14 @@ export function ComboBox({
     }
   }, [highlightedIndex])
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (
-        inputRef.current &&
-        !inputRef.current.contains(target) &&
-        !target.closest('.absolute.top-full')
-      ) {
-        setOpen(false)
-        setHighlightedIndex(-1)
-      }
-    }
-
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [open])
-
   const SelectedIcon = selectedOption ? getOptionIcon(selectedOption) : null
 
   // Render component
   return (
     <div className='relative w-full'>
-      <div className='relative'>
+      <div ref={anchorRef} className='relative'>
         <Input
+          id={inputId}
           ref={inputRef}
           className={cn(
             'allow-scroll w-full overflow-auto pr-10 text-transparent caret-foreground placeholder:text-muted-foreground/50',
@@ -494,8 +444,11 @@ export function ComboBox({
             SelectedIcon ? 'pl-8' : ''
           )}
           placeholder={placeholderText}
+          aria-label={config.title || placeholderText}
           value={displayValue}
+          onBeforeInput={selectDefaultText}
           onChange={handleChange}
+          onClick={() => setMenu((current) => current ?? 'options')}
           onFocus={handleFocus}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
@@ -549,7 +502,9 @@ export function ComboBox({
       )}
       {isModelPicker && registryError && (
         <div role='alert' className='mt-1 text-destructive text-xs'>
-          <p>{translateWorkflowLabel(locale, 'modelRegistryUnavailable')}</p>
+          <p>
+            {translateWorkflowLabel(locale, 'modelRegistryUnavailable')} {registryError}
+          </p>
           <Button
             variant='ghost'
             size='sm'
@@ -562,98 +517,99 @@ export function ComboBox({
       )}
 
       {/* Dropdown */}
-      {open && (
-        <div
+      <Popover
+        open={open}
+        onOpenChange={(next, details) => {
+          if (
+            details.reason === 'outside-press' &&
+            anchorRef.current &&
+            details.event.composedPath().includes(anchorRef.current)
+          )
+            return details.cancel()
+          setMenu(next ? 'options' : null)
+        }}
+      >
+        <PopoverContent
+          ref={dropdownRef}
+          anchor={anchorRef}
+          align='start'
+          initialFocus={false}
+          finalFocus={false}
+          onMouseLeave={() => setHighlightedIndex(-1)}
           className={cn(
-            'absolute top-full left-0 z-[100] mt-1 w-full overflow-visible',
-            usesSidebarMode ? 'min-w-80' : 'min-w-60'
+            'allow-scroll max-w-[var(--available-width)] overflow-y-auto [scrollbar-width:thin]',
+            usesSidebarMode
+              ? 'max-h-[var(--available-height)] w-[max(20rem,var(--anchor-width))] p-0'
+              : 'max-h-[min(12rem,var(--available-height))] w-[max(15rem,var(--anchor-width))] p-1'
           )}
         >
-          <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
-            <div
-              ref={dropdownRef}
-              className={cn(
-                'allow-scroll',
-                usesSidebarMode ? 'overflow-hidden p-0' : 'max-h-48 overflow-y-auto p-1'
-              )}
-              style={{ scrollbarWidth: 'thin' }}
-              onMouseLeave={() => setHighlightedIndex(-1)}
-            >
-              {usesSidebarMode ? (
-                <SidebarDropdownMenuContent
-                  groups={sidebarGroups}
-                  items={sidebarItems}
-                  activeGroupId={resolvedActiveSidebarGroupId}
-                  highlightedItemId={activeSidebarItems[highlightedIndex]?.id ?? null}
-                  onActiveGroupChange={(groupId) => {
-                    setActiveSidebarGroupId(groupId)
-                    setHighlightedIndex(-1)
-                  }}
-                  onHighlightItem={(_item, index) => setHighlightedIndex(index)}
-                  onSelectItem={(item) => handleSelect(item.id)}
-                  loadingContent={null}
-                  emptyContent={translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
-                />
-              ) : filteredOptions.length === 0 ? (
-                <div className='py-6 text-center text-muted-foreground text-sm'>
-                  {translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
-                </div>
-              ) : (
-                filteredOptions.map((option, index) => {
-                  const optionValue = getOptionValue(option)
-                  const optionLabel = getOptionLabel(option)
-                  const OptionIcon = getOptionIcon(option)
-                  const isSelected = value === optionValue
-                  const isHighlighted = index === highlightedIndex
-
-                  return (
-                    <div
-                      key={optionValue}
-                      data-option-index={index}
-                      onClick={() => handleSelect(optionValue)}
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        handleSelect(optionValue)
-                      }}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      className={cn(
-                        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
-                        isHighlighted && 'bg-accent text-accent-foreground'
-                      )}
-                    >
-                      {OptionIcon && <OptionIcon className='mr-2 h-3 w-3' />}
-                      <span className='flex-1 truncate'>{optionLabel}</span>
-                      {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
-                    </div>
-                  )
-                })
-              )}
+          {usesSidebarMode ? (
+            <SidebarDropdownMenuContent
+              groups={sidebarGroups}
+              items={sidebarItems}
+              activeGroupId={resolvedActiveSidebarGroupId}
+              highlightedItemId={activeSidebarItems[highlightedIndex]?.id ?? null}
+              onActiveGroupChange={(groupId) => {
+                setActiveSidebarGroupId(groupId)
+                setHighlightedIndex(-1)
+              }}
+              onHighlightItem={(_item, index) => setHighlightedIndex(index)}
+              onSelectItem={(item) => handleSelect(item.id)}
+              loadingContent={null}
+              emptyContent={translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
+            />
+          ) : filteredOptions.length === 0 ? (
+            <div className='py-6 text-center text-muted-foreground text-sm'>
+              {translateWorkflowLabel(locale, 'noMatchingOptionsFound')}
             </div>
-          </div>
-        </div>
-      )}
+          ) : (
+            filteredOptions.map((option, index) => {
+              const optionValue = getOptionValue(option)
+              const optionLabel = getOptionLabel(option)
+              const OptionIcon = getOptionIcon(option)
+              const isSelected = displayValue === optionValue
+              const isHighlighted = index === highlightedIndex
+
+              return (
+                <div
+                  key={optionValue}
+                  data-option-index={index}
+                  onClick={() => handleSelect(optionValue)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  className={cn(
+                    'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
+                    isHighlighted && 'bg-accent text-accent-foreground'
+                  )}
+                >
+                  {OptionIcon && <OptionIcon className='mr-2 h-3 w-3' />}
+                  <span className='flex-1 truncate'>{optionLabel}</span>
+                  {isSelected && <Check className='ml-2 h-4 w-4 flex-shrink-0' />}
+                </div>
+              )
+            })
+          )}
+        </PopoverContent>
+      </Popover>
 
       <EnvVarDropdown
-        visible={showEnvVars}
-        onSelect={handleEnvVarSelect}
+        visible={menu === 'environment'}
+        onSelect={handleReferenceSelect}
         searchTerm={searchTerm}
         inputValue={displayValue}
         cursorPosition={cursorPosition}
         workspaceId={workspaceId}
-        onClose={() => {
-          setShowEnvVars(false)
-          setSearchTerm('')
-        }}
+        onClose={() => setMenu(null)}
       />
       <TagDropdown
-        visible={showTags}
-        onSelect={handleEnvVarSelect}
+        visible={menu === 'tags'}
+        onSelect={handleReferenceSelect}
         blockId={blockId}
         activeSourceBlockId={activeSourceBlockId}
         inputValue={displayValue}
         cursorPosition={cursorPosition}
         onClose={() => {
-          setShowTags(false)
+          setMenu(null)
           setActiveSourceBlockId(null)
         }}
       />

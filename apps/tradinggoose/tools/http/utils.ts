@@ -1,9 +1,5 @@
-import { isTest } from '@/lib/environment'
-import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import type { TableRow } from '@/tools/types'
-
-const logger = createLogger('HTTPRequestUtils')
 
 /**
  * Creates a set of default headers used in HTTP requests
@@ -92,37 +88,8 @@ export const processUrl = (
   return url
 }
 
-// Check if a URL needs proxy to avoid CORS/method restrictions
-export const shouldUseProxy = (url: string): boolean => {
-  // Skip proxying in test environment
-  if (isTest) {
-    return false
-  }
-
-  // Only consider proxying in browser environment
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  try {
-    const _urlObj = new URL(url)
-    const currentOrigin = window.location.origin
-
-    // Don't proxy same-origin or localhost requests
-    if (url.startsWith(currentOrigin) || url.includes('localhost')) {
-      return false
-    }
-
-    return true // Proxy all cross-origin requests for consistency
-  } catch (e) {
-    logger.warn('URL parsing failed:', e)
-    return false
-  }
-}
-
 /**
  * Transforms a table from the store format to a key-value object
- * Local copy of the function to break circular dependencies
  * @param table Array of table rows from the store
  * @returns Record of key-value pairs
  */

@@ -373,14 +373,10 @@ export function LogDetails({
                       <div className='flex items-center justify-between'>
                         <span className='text-muted-foreground text-xs'>{t('total')}</span>
                         <span className='text-foreground text-xs'>
-                          {log.cost?.estimated || log.cost?.status === 'estimated'
-                            ? 'Estimated '
-                            : ''}
                           {formatCost(log.cost?.total)}
                           {log.cost?.status === 'partial' || log.cost?.status === 'unavailable' ? (
                             <span className='ml-1 text-muted-foreground'>
-                              ({log.cost?.estimated ? 'estimated available' : 'available'}:{' '}
-                              {formatCost(log.cost?.availableTotal)})
+                              (available: {formatCost(log.cost?.availableTotal)})
                             </span>
                           ) : null}
                         </span>
@@ -431,10 +427,9 @@ export function LogDetails({
                                     <div className='flex justify-between border-t pt-1'>
                                       <span className='text-muted-foreground'>{t('total')}</span>
                                       <span className='font-medium'>
-                                        {cost.status === 'estimated' ? 'Estimated ' : ''}
                                         {formatCost(cost.total)}
                                         {cost.status === 'partial'
-                                          ? ` (${cost.estimated ? 'estimated available' : 'available'}: ${formatCost(cost.availableTotal)})`
+                                          ? ` (available: ${formatCost(cost.availableTotal)})`
                                           : ''}
                                       </span>
                                     </div>

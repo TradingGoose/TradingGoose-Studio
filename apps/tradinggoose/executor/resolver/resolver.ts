@@ -1,5 +1,6 @@
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { reasoningSelectionError } from '@/lib/mastra/reasoning'
 import { VariableManager } from '@/lib/variables/variable-manager'
 import {
   extractEnvironmentReferences,
@@ -12,6 +13,7 @@ import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
 import { getBlock } from '@/blocks/index'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import { getRegistryModel } from '@/stores/model-registry'
 import type { VariableType } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 
@@ -78,8 +80,9 @@ export class InputResolver {
     context: ExecutionContext,
     getModel?: Parameters<typeof evaluateSubBlockCondition>[2]
   ): Record<string, any> {
-    const inputs = { ...block.config.params }
-    const subBlocks = block.metadata?.id ? (getBlock(block.metadata.id)?.subBlocks ?? []) : []
+    const config = block.metadata?.id ? getBlock(block.metadata.id) : undefined
+    const inputs = block.config.params
+    const subBlocks = config?.subBlocks ?? []
     const result: Record<string, any> = {}
     const resolved = new Map<string, unknown>()
     const resolving = new Set<string>()
@@ -110,7 +113,20 @@ export class InputResolver {
       }
     }
 
-    Object.keys(inputs).forEach(resolveField)
+    Object.keys(config?.inputs ?? block.inputs).forEach(resolveField)
+    for (const field of subBlocks) resolveField(field.canonicalParamId ?? field.id)
+    if (block.metadata?.id === 'agent') {
+      const { model } = result
+      const options =
+        typeof model === 'string'
+          ? (getModel ?? getRegistryModel)(model)?.reasoningOptions
+          : undefined
+      const effort =
+        result.reasoningEffort ??
+        this.resolveInputValue('reasoningEffort', inputs.reasoningEffort, block, context)
+      const error = reasoningSelectionError(model, options, effort)
+      if (error) throw new Error(error)
+    }
     return result
   }
 

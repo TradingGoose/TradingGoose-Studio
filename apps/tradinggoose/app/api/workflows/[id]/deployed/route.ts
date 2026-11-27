@@ -1,7 +1,7 @@
 import { db, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, desc, eq } from 'drizzle-orm'
 import type { NextRequest, NextResponse } from 'next/server'
-import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
+import { verifyInternalTokenDetailed } from '@/lib/auth/internal-token'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'

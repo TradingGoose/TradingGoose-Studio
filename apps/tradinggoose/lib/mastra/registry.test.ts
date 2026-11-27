@@ -10,7 +10,8 @@ const provider = vi.hoisted(() => ({
   url: 'https://private.invalid',
   headers: { Authorization: 'secret' },
 }))
-vi.mock('@mastra/core/llm', () => ({
+vi.mock('@mastra/core/llm', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@mastra/core/llm')>()),
   GatewayRegistry: { getInstance: () => ({ getProviders: () => ({ configured: provider }) }) },
   EMBEDDING_MODELS: [
     {
@@ -35,6 +36,7 @@ import {
   assertListedModel,
   getEmbeddingModelRegistry,
   getModelRegistry,
+  getNativeModel,
 } from './registry'
 
 beforeEach(() => {
@@ -76,7 +78,11 @@ describe('public Mastra registry transport', () => {
           id: 'configured',
           name: 'Native Provider',
           models: [
-            { id: 'configured/listed', temperature: false, structuredOutput: true },
+            {
+              id: 'configured/listed',
+              temperature: false,
+              structuredOutput: true,
+            },
             { id: 'configured/other', structuredOutput: true },
           ],
         },
@@ -112,6 +118,17 @@ describe('public Mastra registry transport', () => {
       })
     )
   })
+})
+
+it('distinguishes native reasoning controls, known absence, and missing metadata', () => {
+  expect(
+    getNativeModel('openai/gpt-5').reasoningOptions?.find((option) => option.type === 'effort')
+      ?.values
+  ).toEqual(expect.arrayContaining(['low', 'high']))
+  expect(getNativeModel('openai/gpt-4o')).toMatchObject({
+    reasoningOptions: [],
+  })
+  expect(getNativeModel('configured/unknown').reasoningOptions).toBeUndefined()
 })
 
 it('projects only native embedding metadata and exact current provider membership', async () => {

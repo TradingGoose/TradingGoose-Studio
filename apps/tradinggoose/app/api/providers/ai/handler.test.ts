@@ -1,8 +1,9 @@
-import '@/lib/mastra/__test-utils__/managed-services'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
+import type { NativeModelConnection } from '@/lib/mastra/connections'
 
-vi.mock('@/lib/mastra/connections', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/connections')>()),
-  createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/native-reasoning')>()),
+  createNativeModel: (connection: NativeModelConnection) => connection,
 }))
 vi.mock('@/lib/mastra/usage-processors', () => ({
   usageProcessors: async (scope: unknown) => {
@@ -46,6 +47,7 @@ const result = {
   steps: [],
 }
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-key' }
   vi.clearAllMocks()
   native.cost.mockReset().mockReturnValue({ status: 'unavailable' })
   native.usage.mockReset().mockReturnValue(result.totalUsage)
@@ -86,7 +88,7 @@ describe('native AI HTTP handler', () => {
     expect(native.generate).not.toHaveBeenCalled()
   })
   it('passes canonical Anthropic routing and request-local keys directly to Mastra', async () => {
-    const cost = { total: 0.005, currency: 'USD', status: 'estimated' }
+    const cost = { total: 0.005, currency: 'USD' }
     native.cost.mockReturnValue(cost)
     const response = await handleAIProviderRequest({
       body: {
@@ -96,9 +98,11 @@ describe('native AI HTTP handler', () => {
         modelSettings: { maxOutputTokens: 51 },
       },
       requestId: 'anthropic',
+      authUserId: 'actor',
     })
     expect(native.configurations[0].model).toEqual({
-      id: 'anthropic/claude-sonnet-4-5',
+      providerId: 'anthropic',
+      modelId: 'claude-sonnet-4-5',
       apiKey: 'tenant-key',
     })
     expect(native.generate.mock.calls[0][1].modelSettings.maxOutputTokens).toBe(51)
@@ -121,6 +125,7 @@ describe('native AI HTTP handler', () => {
         model: 'openai/gpt-4.1',
       },
       requestId: 'public-result',
+      authUserId: 'actor',
     })
     expect(await response.json()).toEqual({
       content: result.text,
@@ -157,6 +162,7 @@ describe('native AI HTTP handler', () => {
       handleAIProviderRequest({
         body: { model: 'openai/gpt-4.1' },
         requestId: 'failed-generation',
+        authUserId: 'actor',
       })
     ).rejects.toMatchObject({
       message: 'Native failure',

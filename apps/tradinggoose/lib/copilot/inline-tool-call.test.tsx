@@ -130,6 +130,57 @@ describe('InlineToolCall', () => {
     }
   )
 
+  it.each([false, true])(
+    'shows authoritative workflow output and pause review on live and saved cards (%s)',
+    async (historical) => {
+      const card = {
+        id: 'execution',
+        name: 'run_workflow',
+        params: { entityId: 'original' },
+        state: ClientToolCallState.success,
+        historical,
+      }
+      for (const result of [
+        {
+          message: 'Workflow execution completed',
+          data: { success: true, output: { answer: 42 } },
+        },
+        {
+          message: 'Timed out on block A',
+          data: { success: false, output: {}, error: 'Timed out on block A' },
+        },
+        {
+          message: 'Workflow execution was cancelled',
+          data: { success: false, output: {}, error: 'Workflow execution was cancelled' },
+        },
+        {
+          message: 'Workflow paused for review',
+          data: { success: true, status: 'paused', output: { revision: 2 } },
+        },
+      ]) {
+        await act(async () =>
+          renderLocalized({ ...card, result: { executionId: 'execution', ...result } }, 'en')
+        )
+        expect(container.textContent).toContain(result.message)
+        if (result.data.status === 'paused') {
+          expect(container.querySelector('a')?.getAttribute('href')).toBe(
+            '/resume/original/execution'
+          )
+          expect(container.textContent).toContain('revision 2')
+        }
+        if (result.data.output.answer) {
+          const details = container.querySelector('details')!
+          expect(details.querySelector('pre')).toBeNull()
+          await act(async () => {
+            details.open = true
+            details.dispatchEvent(new Event('toggle'))
+          })
+          expect(details.querySelector('pre')?.textContent).toContain('42')
+        }
+      }
+    }
+  )
+
   it.each([ClientToolCallState.executing, ClientToolCallState.error])(
     'offers result recovery only after workflow execution is interrupted (%s)',
     async (state) => {

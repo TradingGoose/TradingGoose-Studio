@@ -5,10 +5,6 @@ import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { createScheduleCron } from '@/lib/schedules/utils'
-import {
-  loadWorkflowExecutionBlueprint,
-  runPreparedWorkflowExecution,
-} from '@/lib/workflows/execution-runner'
 
 const logger = createLogger('TriggerScheduleExecution')
 
@@ -78,7 +74,7 @@ export async function settleScheduleOccurrence(
     )
 }
 
-export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
+export async function executeScheduleJob(payload: ScheduleExecutionPayload, signal?: AbortSignal) {
   const executionId = payload.executionId
   const requestId = executionId.slice(0, 8)
 
@@ -93,6 +89,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   let failure: { error: unknown } | undefined
 
   try {
+    signal?.throwIfAborted()
     cron = createScheduleCron(payload.cronExpression, payload.utcOffset)
     const [workflowRecord] = await db
       .select()
@@ -119,6 +116,10 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
+    signal?.throwIfAborted()
+    const { loadWorkflowExecutionBlueprint, runPreparedWorkflowExecution } = await import(
+      '@/lib/workflows/execution-runner'
+    )
     const blueprint = await loadWorkflowExecutionBlueprint({
       workflowId: payload.workflowId,
       workflowContext: workflowRecord,
@@ -133,6 +134,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     }
 
     const { result, dispatchFailureReason } = await runPreparedWorkflowExecution({
+      signal,
       blueprint,
       actorUserId,
       requestId,

@@ -43,26 +43,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "model",
             "type": "combobox",
             "title": "Model",
-            "layout": "half",
+            "layout": "full",
             "placeholder": "Type or select a model...",
             "required": true
         },
         {
-            "id": "temperature",
-            "type": "short-input",
-            "title": "Temperature",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "description": "Available in Additional Fields. Shown when model supports temperature."
-        },
-        {
-            "id": "maxTokens",
-            "type": "short-input",
-            "title": "Max Output Tokens",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "min": 1,
-            "description": "Available in Additional Fields."
+            "id": "reasoningEffort",
+            "type": "combobox",
+            "title": "推理强度",
+            "layout": "full",
+            "description": "模型支持推理强度时显示。"
         },
         {
             "id": "apiKey",
@@ -100,7 +90,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ## 使用和输出
 
-配置系统提示词、用户提示词、工具、技能和历史消息。附加字段提供响应格式、最大输出 token 数以及可用的原生设置。留空时使用提供方默认值。模型已发布的元数据仅供参考。
+配置系统提示词、用户提示词、工具和技能。在附加字段中可以连接历史消息并设置响应格式。
+
+如果 Mastra 为所选模型提供推理级别，**推理强度**会显示在**模型**下方。在工作流中，Studio 优先使用保存在该区块上的级别。在 Copilot 中，Studio 优先使用你为当前工作区保存的级别。如果没有保存的级别，或所选模型不支持该级别，Studio 会使用 Mastra Code 根据其推理偏好确定的有效级别。如果该偏好无法确定有效级别，Studio 会选择 Mastra 列表中的第一个有效级别。
 
 Auto 允许模型自行选择工具；Force 按配置顺序要求执行所有标记的工具，然后恢复 Auto；None 会排除工具。不支持的组合或未完成的强制序列会产生明确错误。固定参数和已授权的工作流上下文保持有效。
 
@@ -108,4 +100,4 @@ Auto 允许模型自行选择工具；Force 按配置顺序要求执行所有标
 
 ## 用量和费用
 
-记录会区分提供方报告的费用、原生估算费用和不可用费用。缺失费用不等于零；即使美元金额缺失，已知 token 用量仍会保留。产品自身的费用单独计算。独立嵌入保留向量及可用的原生用量，其美元费用显示为不可用。
+Studio 按 OpenCode models.dev 目录价格计算费用。缺失费用不等于零；即使美元金额缺失，已知 token 用量仍会保留。产品自身的费用单独计算。独立嵌入会保留向量和用量，并在价格和用量均已知时记录美元费用。

@@ -30,7 +30,7 @@ beforeEach(() => {
 describe('local native pending authorization', () => {
   it('discovers the original pending tool from local snapshots', async () => {
     const result = await resolveNativePendingTarget(scope, target, 'result')
-    expect(state.list).toHaveBeenCalledWith(scope, 'thread', undefined)
+    expect(state.list).toHaveBeenCalledWith(scope, 'thread', undefined, false)
     expect(result).toEqual(pending())
   })
   it('rejects foreign resources before discovery', async () => {

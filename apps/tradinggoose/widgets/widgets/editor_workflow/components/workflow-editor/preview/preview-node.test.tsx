@@ -80,11 +80,11 @@ describe('PreviewNode', () => {
               icon: (props: any) => createElement('svg', props),
               subBlocks: [
                 { id: 'model', title: 'Model', type: 'combobox' },
-                { id: 'maxTokens', title: 'Token limit', type: 'short-input', additional: true },
+                { id: 'memories', title: 'Memories', type: 'short-input', additional: true },
                 { id: 'skills', title: 'Unused skills', type: 'skill-input', additional: true },
                 {
-                  id: 'maxSteps',
-                  title: 'Hidden step limit',
+                  id: 'responseFormat',
+                  title: 'Hidden response format',
                   type: 'short-input',
                   additional: true,
                   condition: { field: 'model', value: 'thinking-model' },
@@ -94,19 +94,19 @@ describe('PreviewNode', () => {
             blockState: { advancedMode },
             subBlockValues: {
               model: { value: 'reasoning-model' },
-              maxTokens: { value: 512 },
+              memories: { value: 'Conversation history' },
               skills: { value: [] },
-              maxSteps: { value: 5 },
+              responseFormat: { value: '{}' },
             },
           },
         })
       )
 
       expect(markup).toContain('reasoning-model')
-      expect(markup).toContain('Token limit')
-      expect(markup).toContain('512')
+      expect(markup).toContain('Memories')
+      expect(markup).toContain('Conversation history')
       expect(markup).not.toContain('Unused skills')
-      expect(markup).not.toContain('Hidden step limit')
+      expect(markup).not.toContain('Hidden response format')
     }
   )
 

@@ -1,6 +1,8 @@
 import { z } from 'zod'
+import type { ReasoningOption } from '@/lib/mastra/reasoning'
 
 export interface CopilotModelOption {
+  reasoningOptions?: ReasoningOption[]
   id: string
   label: string
 }

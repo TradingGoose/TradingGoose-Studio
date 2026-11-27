@@ -1,8 +1,9 @@
 /** @vitest-environment node */
-import '@/lib/mastra/__test-utils__/managed-services'
+
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import { createAgentToolSet } from '@/executor/handlers/agent/agent-handler'
 import { GenericBlockHandler } from '@/executor/handlers/generic/generic-handler'
@@ -20,7 +21,7 @@ const boundary = vi.hoisted(() => ({
 vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: async () => ({ success: true, userId: 'authenticated-actor' }),
 }))
-vi.mock('@/lib/auth/internal', () => ({
+vi.mock('@/lib/auth/internal-token', () => ({
   generateInternalToken: async () => 'synthetic-internal-auth',
 }))
 vi.mock('@/lib/auth/workflow-scope', () => ({ authorizeWorkflowScope: boundary.owner }))
@@ -30,9 +31,9 @@ vi.mock('@/lib/billing/model-usage', () => ({
   recordModelUsage: boundary.accept,
 }))
 vi.mock('@/lib/mastra/runtime', () => ({ getMastra: async () => undefined }))
-vi.mock('@/lib/mastra/connections', async (original) => ({
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
   ...(await original<object>()),
-  createConfiguredLanguageModel: () =>
+  createNativeModel: () =>
     new MastraLanguageModelV2Mock({
       doGenerate: async () => {
         boundary.contact()
@@ -62,6 +63,7 @@ const context: ExecutionContext = {
   activeExecutionPath: new Set(),
 }
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-key' }
   vi.clearAllMocks()
   boundary.requests.length = 0
   boundary.admit.mockResolvedValue(undefined)
@@ -106,7 +108,6 @@ function assertScope() {
   expect(boundary.accept.mock.calls[0][2]).toMatchObject({
     total: expect.closeTo(0.000012, 10),
     currency: 'USD',
-    status: 'estimated',
   })
   expect(boundary.contact).toHaveBeenCalledOnce()
 }

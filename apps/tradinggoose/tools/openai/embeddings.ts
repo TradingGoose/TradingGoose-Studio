@@ -74,7 +74,7 @@ export const embeddingsTool: ToolConfig<OpenAIEmbeddingsParams> = {
         tokens: { type: 'object', description: 'Available native token counts' },
         cost: {
           type: 'object',
-          description: 'Reported or estimated model cost in USD, with availability status',
+          description: 'Studio model cost in USD',
         },
         embeddingUsage: {
           type: 'object',

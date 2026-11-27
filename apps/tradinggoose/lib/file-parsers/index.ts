@@ -1,58 +1,16 @@
 import { existsSync } from 'fs'
 import path from 'path'
-import { CsvParser } from '@/lib/file-parsers/csv-parser'
-import { DocParser } from '@/lib/file-parsers/doc-parser'
-import { DocxParser } from '@/lib/file-parsers/docx-parser'
-import { HtmlParser } from '@/lib/file-parsers/html-parser'
-import { parseJSON, parseJSONBuffer } from '@/lib/file-parsers/json-parser'
-import { MdParser } from '@/lib/file-parsers/md-parser'
-import { PdfParser } from '@/lib/file-parsers/pdf-parser'
-import { PptxParser } from '@/lib/file-parsers/pptx-parser'
-import { TxtParser } from '@/lib/file-parsers/txt-parser'
 import type { FileParseResult, FileParser, SupportedFileType } from '@/lib/file-parsers/types'
 import { SUPPORTED_FILE_TYPES } from '@/lib/file-parsers/types'
-import { XlsxParser } from '@/lib/file-parsers/xlsx-parser'
-import { parseYAML, parseYAMLBuffer } from '@/lib/file-parsers/yaml-parser'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('FileParser')
-
-const xlsxParser = new XlsxParser()
-const pptxParser = new PptxParser()
-const htmlParser = new HtmlParser()
-
-const parserInstances = {
-  pdf: new PdfParser(),
-  csv: new CsvParser(),
-  docx: new DocxParser(),
-  doc: new DocParser(),
-  txt: new TxtParser(),
-  md: new MdParser(),
-  xlsx: xlsxParser,
-  xls: xlsxParser,
-  pptx: pptxParser,
-  ppt: pptxParser,
-  html: htmlParser,
-  htm: htmlParser,
-  json: {
-    parseFile: parseJSON,
-    parseBuffer: parseJSONBuffer,
-  },
-  yaml: {
-    parseFile: parseYAML,
-    parseBuffer: parseYAMLBuffer,
-  },
-  yml: {
-    parseFile: parseYAML,
-    parseBuffer: parseYAMLBuffer,
-  },
-} satisfies Record<SupportedFileType, FileParser>
 
 const normalizeExtension = (extension: string) => extension.toLowerCase().replace(/^\./, '')
 
 const supportedTypesMessage = () => SUPPORTED_FILE_TYPES.join(', ')
 
-function getParser(extension: string): FileParser {
+async function getParser(extension: string): Promise<FileParser> {
   const normalizedExtension = normalizeExtension(extension)
 
   if (!isSupportedFileType(normalizedExtension)) {
@@ -61,7 +19,38 @@ function getParser(extension: string): FileParser {
     )
   }
 
-  return parserInstances[normalizedExtension]
+  switch (normalizedExtension) {
+    case 'pdf':
+      return new (await import('./pdf-parser')).PdfParser()
+    case 'csv':
+      return new (await import('./csv-parser')).CsvParser()
+    case 'docx':
+      return new (await import('./docx-parser')).DocxParser()
+    case 'doc':
+      return new (await import('./doc-parser')).DocParser()
+    case 'txt':
+      return new (await import('./txt-parser')).TxtParser()
+    case 'md':
+      return new (await import('./md-parser')).MdParser()
+    case 'xlsx':
+    case 'xls':
+      return new (await import('./xlsx-parser')).XlsxParser()
+    case 'pptx':
+    case 'ppt':
+      return new (await import('./pptx-parser')).PptxParser()
+    case 'html':
+    case 'htm':
+      return new (await import('./html-parser')).HtmlParser()
+    case 'json': {
+      const { parseJSON, parseJSONBuffer } = await import('./json-parser')
+      return { parseFile: parseJSON, parseBuffer: parseJSONBuffer }
+    }
+    case 'yaml':
+    case 'yml': {
+      const { parseYAML, parseYAMLBuffer } = await import('./yaml-parser')
+      return { parseFile: parseYAML, parseBuffer: parseYAMLBuffer }
+    }
+  }
 }
 
 /**
@@ -82,7 +71,7 @@ export async function parseFile(filePath: string): Promise<FileParseResult> {
     const extension = path.extname(filePath).substring(1)
     logger.info('Attempting to parse file with extension:', extension)
 
-    const parser = getParser(extension)
+    const parser = await getParser(extension)
     logger.info('Using parser for extension:', normalizeExtension(extension))
 
     return await parser.parseFile(filePath)
@@ -110,7 +99,7 @@ export async function parseBuffer(buffer: Buffer, extension: string): Promise<Fi
 
     logger.info('Attempting to parse buffer with extension:', extension)
 
-    const parser = getParser(extension)
+    const parser = await getParser(extension)
     const normalizedExtension = normalizeExtension(extension)
     logger.info('Using parser for extension:', normalizedExtension)
 

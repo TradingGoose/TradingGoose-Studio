@@ -85,8 +85,8 @@ externalDatabase:
   password: ""                # Database password - set via --set flag or external secret
   database: ""                # Database name (e.g., "tradinggoose_production")
   
-  # SSL mode for database connections (recommended: 'require' for production)
-  sslMode: "require"          # Options: disable, allow, prefer, require, verify-ca, verify-full
+  # SSL mode for database connections (recommended: 'verify-full' for production)
+  sslMode: "verify-full"          # Options: disable, allow, prefer, require, verify-ca, verify-full
 
 # Ollama (optional for AI models)
 ollama:

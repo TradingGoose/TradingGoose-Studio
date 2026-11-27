@@ -9,8 +9,7 @@ export type { WorkflowState, Loop, Parallel, DeploymentStatus }
 export type WorkflowEdge = Edge
 export type { NormalizedBlockOutput, BlockLog }
 
-export interface CostMetadata extends Omit<NativeCost, 'status'> {
-  status?: NativeCost['status']
+export interface CostMetadata extends NativeCost {
   unavailableComponents?: number
   modelCost?: number
   models?: Record<
@@ -20,7 +19,6 @@ export interface CostMetadata extends Omit<NativeCost, 'status'> {
       output?: number
       total?: number
       availableTotal?: number
-      estimated?: boolean
       status?: NativeCost['status']
       tokens?: {
         prompt?: number
@@ -119,7 +117,7 @@ export interface TraceSpan {
   input?: Record<string, unknown>
   output?: Record<string, unknown>
   model?: string
-  cost?: Omit<NativeCost, 'status'> & { status?: NativeCost['status'] }
+  cost?: NativeCost
 }
 
 export type WorkflowLogOutcome = 'running' | 'success' | 'error'
@@ -169,46 +167,6 @@ export interface LogsResponse {
   page: number
   pageSize: number
   totalPages: number
-}
-
-export interface LogsError {
-  code: 'EXECUTION_NOT_FOUND' | 'SNAPSHOT_NOT_FOUND' | 'INVALID_WORKFLOW_STATE' | 'STORAGE_ERROR'
-  message: string
-  details?: Record<string, unknown>
-}
-
-export interface ValidationError {
-  field: string
-  message: string
-  value: unknown
-}
-
-export class LogsServiceError extends Error {
-  public code: LogsError['code']
-  public details?: Record<string, unknown>
-
-  constructor(message: string, code: LogsError['code'], details?: Record<string, unknown>) {
-    super(message)
-    this.name = 'LogsServiceError'
-    this.code = code
-    this.details = details
-  }
-}
-
-export interface SnapshotService {
-  createSnapshot(params: {
-    workflowId: string
-    workspaceId: string
-    state: WorkflowState
-  }): Promise<WorkflowExecutionSnapshot>
-  getSnapshot(id: string): Promise<WorkflowExecutionSnapshot | null>
-  getSnapshotByHash(params: {
-    workflowId: string
-    workspaceId: string
-    hash: string
-  }): Promise<WorkflowExecutionSnapshot | null>
-  computeStateHash(state: WorkflowState): string
-  cleanupOrphanedSnapshots(olderThanDays: number): Promise<number>
 }
 
 export interface SnapshotCreationResult {

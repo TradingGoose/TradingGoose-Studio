@@ -9,12 +9,12 @@ const {
   mockAuthenticateIndicatorRequest,
   mockCheckWorkspacePermission,
   mockListIndicators,
-  mockIsIndicatorTriggerCapable,
+  mockDetectTriggerUsage,
 } = vi.hoisted(() => ({
   mockAuthenticateIndicatorRequest: vi.fn(),
   mockCheckWorkspacePermission: vi.fn(),
   mockListIndicators: vi.fn(),
-  mockIsIndicatorTriggerCapable: vi.fn(),
+  mockDetectTriggerUsage: vi.fn(),
 }))
 
 vi.mock('@/lib/indicators/custom/operations', () => ({
@@ -43,7 +43,7 @@ vi.mock('@/lib/indicators/default/runtime', () => ({
 }))
 
 vi.mock('@/lib/indicators/trigger-detection', () => ({
-  isIndicatorTriggerCapable: (...args: unknown[]) => mockIsIndicatorTriggerCapable(...args),
+  detectTriggerUsage: (...args: unknown[]) => mockDetectTriggerUsage(...args),
 }))
 
 vi.mock('../utils', () => ({
@@ -59,7 +59,7 @@ describe('indicator options route', () => {
       authType: 'session',
     })
     mockCheckWorkspacePermission.mockResolvedValue({ ok: true, permission: 'admin' })
-    mockIsIndicatorTriggerCapable.mockImplementation((code: string) => code === 'trigger-capable')
+    mockDetectTriggerUsage.mockImplementation((code: string) => code === 'trigger-capable')
     mockListIndicators.mockResolvedValue([
       {
         id: 'custom-trigger',

@@ -1,27 +1,37 @@
 import { randomUUID } from 'node:crypto'
 import type { MessageList } from '@mastra/core/agent/message-list'
 import type { InputProcessor, OutputProcessor } from '@mastra/core/processors'
-import {
-  assertModelUsageAllowed,
-  beginWorkflowModelUsage,
-  type ModelUsageScope,
-  recordModelUsage,
-} from '@/lib/billing/model-usage'
+import type { LanguageModelUsage } from '@mastra/core/stream'
 import { parseNativeToolArguments } from './options'
 import {
-  calculateNativeCost,
+  getCacheTokenUsage,
   type NativeCost,
   type NativeUsage,
+  sumCostAmounts,
   sumNativeCosts,
   sumNativeUsage,
 } from './usage'
 
+export interface NativeUsageScope {
+  actorUserId?: string
+  runId: string
+  funding: 'byok' | 'account'
+  signal?: AbortSignal
+}
+
+export interface NativeUsageAccounting {
+  assertAllowed(): Promise<void>
+  begin(attemptId: string): Promise<unknown>
+  record(
+    usage: Partial<LanguageModelUsage>,
+    providerMetadata: Record<string, unknown> | undefined,
+    attemptId: string
+  ): Promise<NativeCost>
+}
+
 /** Native model steps use Studio's existing admission and usage ledger. */
-export async function usageProcessors(
-  scope: Omit<ModelUsageScope, 'actorUserId'> & { actorUserId?: string }
-) {
+export async function usageProcessors(scope: NativeUsageScope, accounting: NativeUsageAccounting) {
   if (!scope.actorUserId) throw new Error('An authenticated model actor is required')
-  const actorScope: ModelUsageScope = { ...scope, actorUserId: scope.actorUserId }
   const invocationId = randomUUID()
   const steps = new Map<string, { stepNumber: number; usage?: NativeUsage; cost: NativeCost }>()
   const aggregateCost = (costs: NativeCost[]) => {
@@ -50,7 +60,7 @@ export async function usageProcessors(
     async processInputStep() {
       if (failure) throw failure
       try {
-        await assertModelUsageAllowed(actorScope)
+        await accounting.assertAllowed()
       } catch (error) {
         failure = error
         throw error
@@ -61,7 +71,7 @@ export async function usageProcessors(
         scope.signal?.throwIfAborted()
         abortSignal?.throwIfAborted()
         const key = `${scope.runId}:${invocationId}:${stepNumber}:${retryCount}`
-        await beginWorkflowModelUsage(actorScope, key)
+        await accounting.begin(key)
         if (!steps.has(key)) steps.set(key, { stepNumber, cost: { status: 'unavailable' } })
       } catch (error) {
         failure = error
@@ -79,18 +89,35 @@ export async function usageProcessors(
         if (!steps.get(key)?.usage) {
           const step = {
             stepNumber: args.stepNumber,
-            usage: sumNativeUsage([{ usage: args.usage }]),
+            usage: sumNativeUsage([
+              {
+                usage: { ...args.usage, ...getCacheTokenUsage(args.usage, args.providerMetadata) },
+              },
+            ]),
             cost: { status: 'unavailable' } as NativeCost,
           }
           steps.set(key, step)
-          step.cost = await calculateNativeCost(scope.model, args.usage, args.providerMetadata)
-          step.cost = await recordModelUsage(actorScope, step.usage, step.cost, key)
+          step.cost = await accounting.record(args.usage, args.providerMetadata, key)
           const response = args.messageList.get.response
             .db()
             .filter((message) => message.role === 'assistant')
             .at(-1)
           if (response) {
             const metadata = response.content.metadata ?? {}
+            const previousUsage = metadata.usage as NativeUsage | undefined
+            const usage = sumNativeUsage([{ usage: previousUsage }, step])
+            const unfinishedAttempts = [...steps.values()].filter(
+              (attempt) => attempt.stepNumber === args.stepNumber && !attempt.usage
+            )
+            if ((usage.cachedInputTokens ?? 0) > 0) {
+              usage.cacheStatus = 'hit'
+            } else if (
+              step.usage.cachedInputTokens === 0 &&
+              (!previousUsage || previousUsage.cacheStatus === 'miss') &&
+              unfinishedAttempts.length === 0
+            ) {
+              usage.cacheStatus = 'miss'
+            }
             args.messageList.add(
               {
                 ...response,
@@ -98,17 +125,10 @@ export async function usageProcessors(
                   ...response.content,
                   metadata: {
                     ...metadata,
-                    usage: sumNativeUsage([
-                      { usage: metadata.usage as NativeUsage | undefined },
-                      step,
-                    ]),
-                    cost: aggregateCost([
+                    usage,
+                    cost: sumCostAmounts([
                       ...(metadata.cost ? [metadata.cost as NativeCost] : []),
-                      ...[...steps.values()]
-                        .filter(
-                          (attempt) => attempt.stepNumber === args.stepNumber && !attempt.usage
-                        )
-                        .map((attempt) => attempt.cost),
+                      ...unfinishedAttempts.map((attempt) => attempt.cost),
                       step.cost,
                     ]),
                   },

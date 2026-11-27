@@ -16,7 +16,7 @@ describe('internal auth tokens', () => {
     process.env.INTERNAL_API_SECRET = '12345678901234567890123456789012'
     vi.resetModules()
 
-    const { generateInternalToken, verifyInternalTokenDetailed } = await import('./internal')
+    const { generateInternalToken, verifyInternalTokenDetailed } = await import('./internal-token')
     const token = await generateInternalToken('user-1', {
       workflowExecution: {
         source: 'workflow_block',
@@ -43,7 +43,7 @@ describe('internal auth tokens', () => {
   it('verifies the settlement capability only as a signed true claim', async () => {
     process.env.INTERNAL_API_SECRET = '12345678901234567890123456789012'
     vi.resetModules()
-    const { generateInternalToken, verifyInternalTokenDetailed } = await import('./internal')
+    const { generateInternalToken, verifyInternalTokenDetailed } = await import('./internal-token')
     const context = {
       source: 'workflow_block' as const,
       parentWorkflowId: 'workflow-1',

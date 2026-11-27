@@ -148,9 +148,9 @@ describe('WorkflowBlock localization', () => {
         advancedMode,
         subBlocks: {
           model: { value: 'reasoning-model' },
-          maxTokens: { value: 512 },
-          maxSteps: { value: 5 },
-          temperature: { value: '' },
+          memories: { value: 'Conversation history' },
+          responseFormat: { value: '{}' },
+          reasoningEffort: { value: '' },
         },
       }
       const markup = renderWithLocale(
@@ -166,22 +166,22 @@ describe('WorkflowBlock localization', () => {
               subBlocks: [
                 { id: 'model', title: 'Model', type: 'combobox' },
                 {
-                  id: 'maxTokens',
-                  title: 'Output token limit',
+                  id: 'memories',
+                  title: 'Memories',
                   type: 'short-input',
                   additional: true,
                 },
                 {
-                  id: 'maxSteps',
-                  title: 'Hidden step limit',
+                  id: 'responseFormat',
+                  title: 'Hidden response format',
                   type: 'short-input',
                   additional: true,
                   condition: { field: 'model', value: 'thinking-model' },
                 },
                 {
-                  id: 'temperature',
-                  title: 'Temperature control',
-                  type: 'short-input',
+                  id: 'reasoningEffort',
+                  title: 'Reasoning Effort',
+                  type: 'combobox',
                   additional: true,
                 },
               ],
@@ -192,9 +192,9 @@ describe('WorkflowBlock localization', () => {
       )
 
       expect(markup).toContain('reasoning-model')
-      expect(markup).toContain('512')
-      expect(markup).not.toContain('Hidden step limit')
-      expect(markup).not.toContain('Temperature control')
+      expect(markup).toContain('Conversation history')
+      expect(markup).not.toContain('Hidden response format')
+      expect(markup).not.toContain('Reasoning Effort')
     }
   )
 

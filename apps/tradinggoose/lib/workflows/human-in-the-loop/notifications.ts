@@ -33,15 +33,11 @@ export async function dispatchWorkflowPauseNotifications(
     })
     for (const notification of point.notification ?? []) {
       try {
-        const params = resolver.resolveInputs(
-          {
-            ...block,
-            config: {
-              ...block.config,
-              params: notification.params ?? {},
-            },
-          },
-          context
+        const params = Object.fromEntries(
+          Object.entries(notification.params ?? {}).map(([key, value]) => [
+            key,
+            resolver.resolveInputValue(key, value, block, context),
+          ])
         )
         const result = await executeTool(notification.toolId, params, false, context)
         if (!result.success) throw new Error(result.error ?? 'Notification failed')

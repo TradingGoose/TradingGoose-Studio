@@ -4,6 +4,7 @@ import { act, cloneElement } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 
 let state: any
 let catalog: any
@@ -22,6 +23,9 @@ vi.mock('@/i18n/workspace-widget-hooks', () => ({
       loading: 'Loading models',
       unconfigured: 'No models configured',
       loadError: 'Unavailable',
+    },
+    reasoning: {
+      label: 'Thinking / Reasoning',
     },
   }),
 }))
@@ -48,7 +52,7 @@ const render = () =>
   act(() =>
     root.render(
       <QueryClientProvider client={queryClient}>
-        <ModelSelector isNearTop={false} panelWidth={400} />
+        <ModelSelector isNearTop={false} />
         <AccessLevelSelector isNearTop={false} />
       </QueryClientProvider>
     )
@@ -68,6 +72,8 @@ beforeEach(() => {
     setAccessLevel: vi.fn(),
     selectedModel: null,
     setSelectedModel: vi.fn(),
+    reasoning: undefined,
+    setReasoning: vi.fn(),
     isSendingMessage: false,
     isAwaitingContinuation: false,
     isAborting: false,
@@ -90,13 +96,60 @@ it('shows loading, unavailable, and unconfigured states without choosing a fixed
   render()
   expect(container.textContent).toContain('Loading models')
   expect(container.querySelector('button')?.disabled).toBe(true)
-  catalog = { ...catalog, isPending: false, isError: true }
+  catalog = { ...catalog, isPending: false, isError: true, error: new Error('HTTP 500') }
   render()
   expect(container.textContent).toContain('Unavailable')
+  expect(container.querySelector('button')).toBeEnabled()
+  expect(container.querySelector('[role="alert"]')).toHaveTextContent('HTTP 500')
+  const retry = [...container.querySelectorAll('button')].find(
+    (item) => item.textContent === 'Retry'
+  )!
+  act(() => retry.click())
+  expect(catalog.refetch).toHaveBeenCalledOnce()
   catalog = { ...catalog, data: { models: [] }, isError: false }
   render()
   expect(container.textContent).toContain('No models configured')
   expect(state.setSelectedModel).not.toHaveBeenCalled()
+})
+
+it('retains the last model query result on invalid responses and accepts a recovered empty catalog', async () => {
+  const { useCopilotModels, copilotModelsKeys } = await vi.importActual<
+    typeof import('@/hooks/queries/copilot-models')
+  >('@/hooks/queries/copilot-models')
+  const cached = { models: [{ id: 'openai/gpt-5', label: 'openai/gpt-5' }] }
+  queryClient.setQueryDefaults(copilotModelsKeys.all, { retry: false })
+  queryClient.setQueryData(copilotModelsKeys.all, cached)
+  const fetch = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(new Response('<html>failure</html>', { status: 500 }))
+    .mockResolvedValueOnce(new Response(''))
+    .mockResolvedValueOnce(Response.json({ models: [] }))
+  function Catalog() {
+    useCopilotModels()
+    return null
+  }
+  try {
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Catalog />
+        </QueryClientProvider>
+      )
+    )
+    for (const status of [500, 200]) {
+      await act(async () => queryClient.refetchQueries({ queryKey: copilotModelsKeys.all }))
+      expect(queryClient.getQueryData(copilotModelsKeys.all)).toEqual(cached)
+      expect(queryClient.getQueryState(copilotModelsKeys.all)?.error?.message).toContain(
+        `HTTP ${status}`
+      )
+    }
+    await act(async () => queryClient.refetchQueries({ queryKey: copilotModelsKeys.all }))
+    expect(queryClient.getQueryData(copilotModelsKeys.all)).toEqual({ models: [] })
+    expect(queryClient.getQueryState(copilotModelsKeys.all)?.error).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(3)
+  } finally {
+    fetch.mockRestore()
+  }
 })
 
 it('initially selects the first configured model and submits exact IDs while displaying only labels', () => {
@@ -139,7 +192,9 @@ it('keeps distinct gateway routes selectable when they share a display label', (
   }
   state.selectedModel = catalog.data.models[0].id
   render()
-  const choices = [...container.querySelectorAll<HTMLButtonElement>('button[title]')].slice(1)
+  const choices = [
+    ...container.querySelectorAll<HTMLButtonElement>('button[title="anthropic/model"]'),
+  ].slice(1)
   expect(choices).toHaveLength(2)
   for (const [index, choice] of choices.entries()) {
     expect(choice).toHaveTextContent('anthropic/model')
@@ -167,8 +222,91 @@ it('preserves a valid selection and replaces a removed selection on catalog refr
   render()
   expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('deepseek/new-model')
   catalog.data = { models: [] }
+  catalog.isError = true
+  state.setSelectedModel.mockClear()
   render()
-  expect(state.setSelectedModel).toHaveBeenLastCalledWith(null)
+  expect(state.setSelectedModel).not.toHaveBeenCalled()
+  catalog.isError = false
+  render()
+  expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith(null)
+})
+
+it.each(['google/gemini-2.5-flash', 'openai/gpt-5'])(
+  'shows %s levels and the applied choice',
+  (id) => {
+    const reasoningOptions = getReasoningOptions(id)
+    state.selectedModel = id
+    catalog.data = { models: [{ id, label: id, reasoningOptions }] }
+    render()
+    const trigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Thinking / Reasoning"]'
+    )!
+    const { defaultValue, values } = reasoningOptions![0]
+    expect(trigger.textContent).toBe(defaultValue)
+    expect(values).toContain(defaultValue)
+    expect(state.setReasoning).toHaveBeenCalledExactlyOnceWith({
+      type: 'effort',
+      value: defaultValue,
+    })
+    expect(trigger.querySelector('svg.lucide-brain')).toHaveAttribute('aria-hidden', 'true')
+    expect(trigger).toHaveAccessibleName(`Thinking / Reasoning · ${defaultValue}`)
+    const levels = [...trigger.parentElement!.querySelectorAll('button')].slice(1)
+    expect(levels.map((button) => button.textContent)).toEqual(values)
+    expect(levels.every((button) => !button.querySelector('svg'))).toBe(true)
+    const high = levels.find((button) => button.textContent === 'high')!
+    act(() => high.click())
+    const selection = { type: 'effort', value: 'high' }
+    expect(state.setReasoning).toHaveBeenLastCalledWith(selection)
+    state.setReasoning.mockClear()
+    state.reasoning = selection
+    render()
+    expect(state.setReasoning).not.toHaveBeenCalled()
+    expect(trigger.textContent).toBe('high')
+    expect(trigger).toHaveAccessibleName('Thinking / Reasoning · high')
+    state.isSendingMessage = true
+    render()
+    expect(trigger).toBeDisabled()
+    expect(high).toBeDisabled()
+  }
+)
+
+it.each(['deepseek/deepseek-v4-pro', 'openai/gpt-4o'])(
+  'repairs a stale idle preference on %s and leaves a pending turn alone',
+  (id) => {
+    state.selectedModel = id
+    state.reasoning = { type: 'effort', value: 'medium' }
+    catalog.data = { models: [{ id, label: id, reasoningOptions: getReasoningOptions(id) }] }
+    state.isAwaitingContinuation = true
+    render()
+    expect(state.setReasoning).not.toHaveBeenCalled()
+    if (catalog.data.models[0].reasoningOptions[0])
+      expect(
+        container.querySelector('button[aria-label^="Thinking / Reasoning"]')
+      ).toHaveTextContent('medium')
+    state.isAwaitingContinuation = false
+    render()
+    const option = catalog.data.models[0].reasoningOptions[0]
+    expect(state.setReasoning).toHaveBeenCalledExactlyOnceWith(
+      option && { type: 'effort', value: option.defaultValue }
+    )
+    for (const value of option?.values ?? []) {
+      const option = [...container.querySelectorAll('button')].find(
+        (item) => item.textContent === value
+      )!
+      expect(option).toBeEnabled()
+      act(() => option.click())
+      expect(state.setReasoning).toHaveBeenLastCalledWith({ type: 'effort', value })
+    }
+  }
+)
+
+it('hides the level selector when the model has no effort levels', () => {
+  state.selectedModel = 'openai/gpt-4o'
+  catalog.data = {
+    models: [{ id: state.selectedModel, label: state.selectedModel, reasoningOptions: [] }],
+  }
+  render()
+  expect(container.querySelector('button[aria-label^="Thinking / Reasoning"]')).toBeNull()
 })
 
 it.each(['isSendingMessage', 'isAwaitingContinuation', 'isAborting', 'pending-tool'])(

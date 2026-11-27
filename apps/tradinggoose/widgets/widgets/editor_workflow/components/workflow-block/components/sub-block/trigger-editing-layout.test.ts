@@ -30,11 +30,6 @@ describe('trigger-editing-layout', () => {
         placeholder: 'Type or select a model...',
       },
       {
-        id: 'temperature',
-        title: 'Temperature',
-        type: 'slider',
-      },
-      {
         id: 'tools',
         title: 'Tools',
         type: 'tool-input',
@@ -158,13 +153,13 @@ describe('trigger-editing-layout', () => {
           subBlocks: [
             { id: 'model', type: 'combobox' },
             {
-              id: 'temperature',
-              type: 'short-input',
+              id: 'reasoningEffort',
+              type: 'combobox',
               additional: true,
               condition: { field: 'model', value: 'reasoning-model' },
             },
             {
-              id: 'maxSteps',
+              id: 'responseFormat',
               type: 'short-input',
               additional: true,
               condition: { field: 'model', value: 'other-model' },
@@ -175,7 +170,7 @@ describe('trigger-editing-layout', () => {
           advancedMode,
           subBlocks: {
             model: { value: 'reasoning-model' },
-            temperature: { value: 0 },
+            reasoningEffort: { value: 'low' },
           },
         },
         shouldDisableWrite: false,
@@ -183,7 +178,9 @@ describe('trigger-editing-layout', () => {
 
       expect(layout.regularRows.flat().map((subBlock) => subBlock.id)).toEqual(['model'])
       expect(layout.hasAdvancedFields).toBe(false)
-      expect(layout.additionalRows.flat().map((subBlock) => subBlock.id)).toEqual(['temperature'])
+      expect(layout.additionalRows.flat().map((subBlock) => subBlock.id)).toEqual([
+        'reasoningEffort',
+      ])
       expect(layout.displayAdditionalFields).toBe(true)
     }
   )

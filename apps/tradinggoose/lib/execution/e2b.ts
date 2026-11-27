@@ -1,11 +1,9 @@
-import { Sandbox } from '@e2b/code-interpreter'
+import type { Sandbox } from '@e2b/code-interpreter'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveE2BServiceConfig } from '@/lib/system-services/runtime'
-import { CodeLanguage } from './languages'
 
 export interface E2BExecutionRequest {
   code: string
-  language: CodeLanguage
   timeoutMs: number
   template?: string
   keepWarmMs?: number
@@ -132,8 +130,7 @@ const resolveWarmSandboxTimeoutMs = (
     keepWarmMs + Math.max(0, executionTimeoutMs) + WARM_SANDBOX_TIMEOUT_BUFFER_MS
   )
 
-const buildWarmCacheKey = ({ template, language }: { template?: string; language: CodeLanguage }) =>
-  `${template ?? '__default_template__'}::${language}::pool`
+const buildWarmCacheKey = (template?: string) => `${template ?? '__default_template__'}::pool`
 
 const clearWarmKillTimer = (entry: WarmSandboxEntry) => {
   if (!entry.killTimer) return
@@ -142,6 +139,7 @@ const clearWarmKillTimer = (entry: WarmSandboxEntry) => {
 }
 
 const createSandbox = async (template: string | undefined, apiKey: string) => {
+  const { Sandbox } = await import('@e2b/code-interpreter')
   return template ? Sandbox.create(template, { apiKey }) : Sandbox.create({ apiKey })
 }
 
@@ -378,18 +376,16 @@ const runCodeInSandbox = async ({
   sandbox,
   sandboxId,
   code,
-  language,
   timeoutMs,
 }: {
   sandbox: Sandbox
   sandboxId: string
   code: string
-  language: CodeLanguage
   timeoutMs: number
 }): Promise<E2BExecutionResult> => {
   const stdoutChunks: string[] = []
   const execution = await sandbox.runCode(code, {
-    language: language === CodeLanguage.Python ? 'python' : 'javascript',
+    language: 'javascript',
     timeoutMs,
   })
 
@@ -440,7 +436,7 @@ const runCodeInSandbox = async ({
 }
 
 export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecutionResult> {
-  const { code, language, timeoutMs } = req
+  const { code, timeoutMs } = req
   const template = sanitizeTemplate(req.template)
   const e2bConfig = await resolveE2BServiceConfig()
   const keepWarmCapMs = e2bConfig.keepWarmCapMs ?? DEFAULT_E2B_KEEP_WARM_CAP_MS
@@ -450,7 +446,6 @@ export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecuti
   const warmReuseEnabled = keepWarmMs > 0
 
   logger.info(`Executing code in E2B`, {
-    language,
     timeoutMs,
     template,
     userScope,
@@ -465,7 +460,7 @@ export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecuti
   }
 
   if (warmReuseEnabled) {
-    const cacheKey = buildWarmCacheKey({ template, language })
+    const cacheKey = buildWarmCacheKey(template)
     const warmSandboxTimeoutMs = resolveWarmSandboxTimeoutMs(keepWarmMs, timeoutMs, keepWarmCapMs)
     let retryOnNotFound = true
 
@@ -487,7 +482,6 @@ export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecuti
             sandbox: entry.sandbox,
             sandboxId: entry.sandboxId,
             code,
-            language,
             timeoutMs,
           })
           await entry.sandbox.setTimeout(warmSandboxTimeoutMs)
@@ -517,7 +511,6 @@ export async function executeInE2B(req: E2BExecutionRequest): Promise<E2BExecuti
       sandbox,
       sandboxId: sandbox.sandboxId,
       code,
-      language,
       timeoutMs,
     })
   } finally {

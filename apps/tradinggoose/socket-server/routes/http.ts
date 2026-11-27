@@ -67,8 +67,14 @@ import {
   runYjsRevocationTransaction,
   type YjsRevocationTransaction,
 } from '@/lib/yjs/server/revocation-fence'
+import type { WorkflowPatch } from '@/lib/yjs/server/snapshot-bridge'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { replaceWorkflowDocumentState, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import {
+  getVariablesSnapshot,
+  readWorkflowSnapshot,
+  replaceWorkflowDocumentState,
+  type WorkflowSnapshot,
+} from '@/lib/yjs/workflow-session'
 import { replaceWorkflowVariables } from '@/lib/yjs/workflow-variables'
 import { getMonitorRuntimeLockHealth } from '@/socket-server/monitor-runtime-lock'
 import { refreshActiveEntityListSession } from '@/socket-server/yjs/entity-list-session'
@@ -116,11 +122,6 @@ const INTERNAL_YJS_DASHBOARD_EDIT_PATH = /^\/internal\/yjs\/dashboard-layouts\/(
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
 const INTERNAL_YJS_DRAIN_PATH = '/internal/yjs/session-drains'
 const INTERNAL_YJS_ENTITY_LIST_MEMBERS_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/members$/
-
-type ApplyWorkflowStateRequest = {
-  workflowState?: WorkflowSnapshot
-  variables?: Record<string, any>
-}
 
 type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow' | 'dashboard_layout'>
 
@@ -288,7 +289,15 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   }
 }
 
-function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateRequest {
+function parseExpectedReviewBaseStateHash(value: unknown): string | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new InvalidInternalYjsRequestError('expectedReviewBaseStateHash must be a string')
+  }
+  return value.trim()
+}
+
+function parseApplyWorkflowStateRequest(body: unknown): WorkflowPatch {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new InvalidInternalYjsRequestError('Invalid apply workflow state body')
   }
@@ -317,6 +326,9 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   }
 
   return {
+    expectedReviewBaseStateHash: parseExpectedReviewBaseStateHash(
+      candidate.expectedReviewBaseStateHash
+    ),
     workflowState: workflowState as WorkflowSnapshot | undefined,
     variables: candidate.variables as Record<string, any> | undefined,
   }
@@ -381,23 +393,15 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
     throw new InvalidInternalYjsRequestError('workspaceId is required')
   }
 
-  const expectedReviewBaseStateHash =
-    candidate.expectedReviewBaseStateHash === undefined
-      ? undefined
-      : typeof candidate.expectedReviewBaseStateHash === 'string'
-        ? candidate.expectedReviewBaseStateHash.trim()
-        : ''
-  if (candidate.expectedReviewBaseStateHash !== undefined && !expectedReviewBaseStateHash) {
-    throw new InvalidInternalYjsRequestError('expectedReviewBaseStateHash must be a string')
-  }
-
   const identity = parseSavedEntityIdentityMutation(candidate.identity)
 
   return {
     entityKind: candidate.entityKind,
     workspaceId: candidate.workspaceId.trim(),
     fields: candidate.fields as Record<string, any>,
-    ...(expectedReviewBaseStateHash ? { expectedReviewBaseStateHash } : {}),
+    expectedReviewBaseStateHash: parseExpectedReviewBaseStateHash(
+      candidate.expectedReviewBaseStateHash
+    ),
     ...(identity ? { identity } : {}),
   }
 }
@@ -424,7 +428,16 @@ function withBootstrappedDocument<T>(
   )
 }
 
-function applyWorkflowApplyRequest(doc: Y.Doc, body: ApplyWorkflowStateRequest): void {
+function applyWorkflowApplyRequest(doc: Y.Doc, body: WorkflowPatch, actorUserId: string): void {
+  if (body.expectedReviewBaseStateHash) {
+    const variables = getVariablesSnapshot(doc)
+    assertAcceptedServerToolReviewBase(
+      { userId: actorUserId, acceptedReviewBaseStateHash: body.expectedReviewBaseStateHash },
+      hashServerToolReviewBase(
+        body.workflowState ? { ...readWorkflowSnapshot(doc), variables } : variables
+      )
+    )
+  }
   if (body.workflowState) {
     replaceWorkflowDocumentState(doc, body.workflowState, body.variables)
     return
@@ -500,7 +513,7 @@ async function handleInternalYjsWorkflowApplyRequest(
     const descriptor = buildSavedEntityDescriptor('workflow', workflowId, null)
     await withBootstrappedDocument(descriptor, actorUserId, (doc) =>
       persistStagedDocuments(
-        [{ doc, mutate: (target) => applyWorkflowApplyRequest(target, body) }],
+        [{ doc, mutate: (target) => applyWorkflowApplyRequest(target, body, actorUserId) }],
         ([staged]) => saveWorkflowYjsDocToDb(workflowId, staged!)
       )
     )

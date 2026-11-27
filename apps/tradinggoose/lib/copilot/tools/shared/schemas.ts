@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { reasoningOptionSchema } from '@/lib/mastra/reasoning'
 
 // dashboard widget catalog / metadata
 export const WidgetCatalogItemSchema = z.object({
@@ -185,6 +186,7 @@ export const GetBlocksMetadataResult = z.object({
             temperature: z.boolean().optional(),
             structuredOutput: z.boolean().optional(),
             toolCall: z.boolean().optional(),
+            reasoningOptions: z.array(reasoningOptionSchema).optional(),
           })
         )
         .max(MAX_MODEL_SEARCH_RESULTS),

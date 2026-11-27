@@ -2,7 +2,10 @@
  * @vitest-environment node
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
+import { getUserLimits } from '@/app/api/v1/logs/meta'
+import { executeLogsWebhookDelivery } from './logs-webhook-delivery'
 
 const {
   mockFetch,
@@ -11,7 +14,6 @@ const {
   mockSelectQueue,
   mockUpdate,
   mockUpdateReturning,
-  mockWaitFor,
   mockTaskTrigger,
 } = vi.hoisted(() => {
   const mockFetch = vi.fn()
@@ -32,7 +34,6 @@ const {
       })),
     })),
   }))
-  const mockWaitFor = vi.fn()
   const mockTaskTrigger = vi.fn()
 
   return {
@@ -42,7 +43,6 @@ const {
     mockSelectQueue,
     mockUpdate,
     mockUpdateReturning,
-    mockWaitFor,
     mockTaskTrigger,
   }
 })
@@ -83,13 +83,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
-  task: vi.fn((config) => ({
-    ...config,
-    trigger: mockTaskTrigger,
-  })),
-  wait: {
-    for: mockWaitFor,
-  },
+  tasks: { trigger: mockTaskTrigger },
 }))
 
 vi.mock('uuid', () => ({
@@ -107,6 +101,8 @@ vi.mock('@/lib/logs/console/logger', () => ({
 vi.mock('@/lib/utils-server', () => ({
   decryptSecret: vi.fn(),
 }))
+
+vi.mock('@/app/api/v1/logs/meta', () => ({ getUserLimits: vi.fn() }))
 
 const workflowSummary = {
   id: 'deleted-workflow-1',
@@ -135,11 +131,7 @@ const buildLogRow = (executionData: Record<string, unknown>) => ({
 describe('logsWebhookDelivery task', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () => 'ok',
-    })
+    mockFetch.mockImplementation(async () => new Response('ok'))
     global.fetch = mockFetch as typeof fetch
 
     mockUpdateReturning.mockResolvedValue([
@@ -172,10 +164,125 @@ describe('logsWebhookDelivery task', () => {
     mockSelectQueue.push([{ status: 'in_progress' }])
   })
 
-  it('uses the stored subscription snapshot and log row before sending the webhook', async () => {
-    const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
+  afterEach(() => vi.useRealTimers())
 
-    await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
+  it('bounds response capture and cancels the unread stream', async () => {
+    const cancel = vi.fn()
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('😀'.repeat(2000)))
+          },
+          cancel,
+        })
+      )
+    )
+    await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
+    expect(cancel).toHaveBeenCalledOnce()
+    const saved = mockUpdate.mock.results.at(-1)!.value.set.mock.calls[0][0]
+    expect(saved.responseBody).toBe('😀'.repeat(500))
+  })
+
+  it.each([
+    [200, 'read'],
+    [400, 'read'],
+    [503, 'read'],
+    [200, 'cancel'],
+    [400, 'cancel'],
+    [503, 'cancel'],
+  ] as const)('preserves HTTP %s policy when diagnostic body %s fails', async (status, failure) => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            if (failure === 'read') controller.error(new Error('Diagnostic body read failed'))
+            else controller.enqueue(new TextEncoder().encode('x'.repeat(1000)))
+          },
+          cancel() {
+            throw new Error('Diagnostic body cancellation failed')
+          },
+        }),
+        { status }
+      )
+    )
+    const result = await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
+    expect(result).toEqual(
+      status === 200
+        ? { success: true }
+        : { success: false, ...(status === 503 && { retrying: true }) }
+    )
+    const saved = mockUpdate.mock.results.at(-1)!.value.set.mock.calls[0][0]
+    expect(saved).toMatchObject({
+      status: status === 200 ? 'success' : status === 503 ? 'pending' : 'failed',
+      responseStatus: status,
+      responseBody: failure === 'cancel' ? 'x'.repeat(1000) : '',
+      failureReason:
+        status === 200 ? null : `HTTP ${status}${status === 503 ? ' - will retry' : ''}`,
+    })
+    expect(mockFetch).toHaveBeenCalledOnce()
+    expect(mockTaskTrigger).toHaveBeenCalledTimes(status === 503 ? 1 : 0)
+  })
+
+  it.each([503, 'network'] as const)(
+    'schedules %s retry without waiting in the current worker',
+    async (failure) => {
+      if (failure === 'network') mockFetch.mockRejectedValueOnce(new Error('Network failure'))
+      else mockFetch.mockResolvedValueOnce(new Response('Try later', { status: failure }))
+      await expect(executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })).resolves.toMatchObject(
+        { retrying: true }
+      )
+      expect(mockTaskTrigger).toHaveBeenCalledExactlyOnceWith(
+        'logs-webhook-delivery',
+        { deliveryId: 'delivery-1' },
+        { delay: expect.any(Date) }
+      )
+    }
+  )
+
+  it('does not schedule another delivery after native cancellation', async () => {
+    const controller = new AbortController()
+    mockFetch.mockImplementationOnce(async (_url, init: RequestInit) => {
+      controller.abort(new Error('Native task cancelled'))
+      init.signal!.throwIfAborted()
+    })
+    await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' }, controller.signal)
+    expect(mockTaskTrigger).not.toHaveBeenCalled()
+    const saved = mockUpdate.mock.results.at(-1)!.value.set.mock.calls[0][0]
+    expect(saved.status).toBe('failed')
+  })
+
+  it.each(['deadline', 'cancellation'] as const)(
+    'cleans up a stalled diagnostic body after %s without retrying delivery',
+    async (interruption) => {
+      vi.useFakeTimers()
+      const controller = new AbortController()
+      mockFetch.mockImplementationOnce(
+        async (_url, init: RequestInit) =>
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                init.signal!.addEventListener('abort', () =>
+                  controller.error(new DOMException('Timed out', 'AbortError'))
+                )
+              },
+            })
+          )
+      )
+      const delivery = executeLogsWebhookDelivery({ deliveryId: 'delivery-1' }, controller.signal)
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledOnce())
+      if (interruption === 'cancellation') controller.abort(new Error('Native task cancelled'))
+      else await vi.advanceTimersByTimeAsync(30_000)
+      await expect(delivery).resolves.toMatchObject({ success: interruption === 'deadline' })
+      const saved = mockUpdate.mock.results.at(-1)!.value.set.mock.calls[0][0]
+      expect(saved.status).toBe(interruption === 'deadline' ? 'success' : 'failed')
+      expect(mockTaskTrigger).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    }
+  )
+
+  it('uses the stored subscription snapshot and log row before sending the webhook', async () => {
+    await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
 
     expect(mockUpdateReturning).toHaveBeenCalledTimes(1)
     expect(mockSelect).toHaveBeenCalledTimes(2)
@@ -192,6 +299,7 @@ describe('logsWebhookDelivery task', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           executionId: 'execution-1',
+          endedAt: '2026-04-23T00:01:00.000Z',
           finalOutput: { orderId: 'order-1' },
           workflowId: 'deleted-workflow-1',
         }),
@@ -205,8 +313,41 @@ describe('logsWebhookDelivery task', () => {
     expect(body.data).not.toHaveProperty('checkpoint')
     expect(body.data).not.toHaveProperty('pause')
     expect(String(request.body)).not.toContain('private-checkpoint-ciphertext')
+    expect(request.headers).toMatchObject({ 'Idempotency-Key': 'delivery-1' })
     expect(mockTaskTrigger).not.toHaveBeenCalled()
   })
+
+  it.each([
+    [true, false],
+    [false, true],
+    [true, true],
+    [false, false],
+  ])(
+    'honors the rate limits=%s and usage=%s snapshot flags',
+    async (includeRateLimits, includeUsageData) => {
+      const [delivery] = await mockUpdateReturning()
+      Object.assign(delivery.subscriptionSnapshot, { includeRateLimits, includeUsageData })
+      const resetAt = '2026-04-23T00:02:00.000Z'
+      const executionRateLimit = {
+        sync: { limit: 10, remaining: 9, resetAt },
+        async: { limit: 20, remaining: 18, resetAt },
+      }
+      const usage = {
+        currentPeriodCost: 5,
+        limit: 25,
+        tier: EMPTY_BILLING_TIER_SUMMARY,
+        isExceeded: false,
+      }
+      vi.mocked(getUserLimits).mockResolvedValue({ executionRateLimit, usage })
+      await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
+      const { data } = JSON.parse(String(mockFetch.mock.calls[0][1].body))
+      expect(data.rateLimits).toEqual(includeRateLimits ? executionRateLimit : undefined)
+      expect(data.usage).toEqual(includeUsageData ? usage : undefined)
+      if (includeRateLimits || includeUsageData)
+        expect(getUserLimits).toHaveBeenCalledExactlyOnceWith(workflowSummary.userId)
+      else expect(getUserLimits).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     ['false', false],
@@ -214,12 +355,8 @@ describe('logsWebhookDelivery task', () => {
     ['empty string', ''],
     ['null', null],
   ])('includes %s finalOutput values when opted in', async (_label, finalOutput) => {
-    mockSelectQueue.length = 0
-    mockSelectQueue.push([buildLogRow({ finalOutput })])
-    mockSelectQueue.push([{ status: 'in_progress' }])
-    const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
-
-    await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
+    mockSelectQueue[0] = [buildLogRow({ finalOutput })]
+    await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
 
     const request = mockFetch.mock.calls[0][1] as RequestInit
     const body = JSON.parse(String(request.body))
@@ -245,8 +382,7 @@ describe('logsWebhookDelivery task', () => {
           level: 'error',
         },
       ]
-      const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
-      await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
+      await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
       const body = JSON.parse(String(mockFetch.mock.calls[0][1].body))
       expect(body.data.status).toBe('error')
       expect(body.data.errorMessage).toBe(
@@ -270,9 +406,7 @@ describe('logsWebhookDelivery task', () => {
       },
     ])
     mockSelectQueue.length = 0
-    const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
-
-    const result = await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
+    const result = await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
 
     expect(result).toEqual({ success: false })
     expect(mockFetch).not.toHaveBeenCalled()
@@ -283,9 +417,7 @@ describe('logsWebhookDelivery task', () => {
     mockSelectQueue.length = 0
     mockSelectQueue.push([buildLogRow({ finalOutput: { orderId: 'order-1' } })])
     mockSelectQueue.push([{ status: 'cancelled' }])
-    const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
-
-    const result = await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
+    const result = await executeLogsWebhookDelivery({ deliveryId: 'delivery-1' })
 
     expect(result).toEqual({ success: false })
     expect(mockFetch).not.toHaveBeenCalled()

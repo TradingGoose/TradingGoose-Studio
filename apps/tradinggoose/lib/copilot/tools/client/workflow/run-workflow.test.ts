@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { RunWorkflowClientTool } from './run-workflow'
 
@@ -52,7 +52,26 @@ beforeEach(() => {
   m.pending.mockResolvedValue({ stage: 'result', target })
   m.execute.mockResolvedValue({ success: true, output: {}, logs: [], metadata: {} })
 })
+afterEach(() => vi.useRealTimers())
 describe('native workflow client explicit scoping', () => {
+  it('waits for canonical workflow completion beyond the removed browser deadline', async () => {
+    vi.useFakeTimers()
+    let finish!: (value: { success: boolean }) => void
+    m.execute.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
+    const running = tool().execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
+    await vi.waitFor(() => expect(m.execute).toHaveBeenCalledOnce())
+    await vi.advanceTimersByTimeAsync(11 * 60 * 1000)
+    expect(m.failure).not.toHaveBeenCalled()
+    expect(m.readback).not.toHaveBeenCalled()
+    finish({ success: true })
+    await running
+    expect(m.readback).toHaveBeenCalledOnce()
+  })
+
   it('missing entity never falls back to channel workflow or submits a fabricated result', async () => {
     const instance = tool()
     await instance.execute()
@@ -80,7 +99,7 @@ describe('native workflow client explicit scoping', () => {
     expect(m.execute.mock.invocationCallOrder[0]).toBeLessThan(
       m.readback.mock.invocationCallOrder[0]!
     )
-    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.success])
+    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.executing])
   })
   it('requires native approval stage to complete before any queue request', async () => {
     m.pending.mockResolvedValueOnce({ stage: 'approval', target })
@@ -99,7 +118,7 @@ describe('native workflow client explicit scoping', () => {
     const instance = tool()
     await instance.execute({ entityId: 'explicit-target', triggerBlockId: 'trigger' })
     expect(m.readback).toHaveBeenCalledOnce()
-    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.error])
+    expect(m.sync.mock.lastCall?.slice(0, 2)).toEqual(['call', ClientToolCallState.executing])
   })
   it('preserves existing busy-execution guard before native discovery', async () => {
     m.isExecuting = true

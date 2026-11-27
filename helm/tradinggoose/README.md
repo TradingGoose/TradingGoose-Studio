@@ -229,7 +229,9 @@ deployment strategy; autoscaling and pod disruption budget settings apply only t
 | `externalDatabase.username` | External database username | `postgres` |
 | `externalDatabase.password` | External database password | `""` |
 | `externalDatabase.database` | External database name | `tradinggoose` |
-| `externalDatabase.sslMode` | External database SSL mode | `require` |
+| `externalDatabase.sslMode` | External database SSL mode | `verify-full` |
+
+For a separately supplied TLS `DATABASE_URL`, set `sslmode=verify-full` on Studio and on the worker. Use the hostname on the server certificate and trust its issuing CA in both runtimes.
 
 ### Ollama Parameters
 
@@ -711,3 +713,7 @@ kubectl logs job/<release>-migrations
 - Documentation: https://docs.tradinggoose.ai
 - GitHub Issues: https://github.com/TradingGoose/TradingGoose-Studio/issues
 - Discord: https://discord.gg/wavf5JWhuT
+
+### Copilot worker connectivity
+
+Local jobs call the long-running Studio listener on loopback. Trigger workers use the public Studio URL or a reachable `COPILOT_STUDIO_ORIGIN` configured on the worker. Run the same revision with shared Postgres, Redis, signing secrets, and business configuration. The Studio tool response sends a heartbeat every 25 seconds. Preserve streaming through NGINX and ALB. The GCE example attaches a 660-second BackendConfig to the app Service's `http` port to cover the 600-second worker budget and cancellation drainage.

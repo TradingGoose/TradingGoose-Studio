@@ -21,7 +21,8 @@ vi.mock('./business-access', async (original) => ({
   ...(await original<typeof import('./business-access')>()),
   authorizeNativeCredential: m.credential,
 }))
-vi.mock('@/lib/execution/workflow-execution-events', () => ({
+vi.mock('@/lib/execution/workflow-execution-events', async (original) => ({
+  ...(await original<typeof import('@/lib/execution/workflow-execution-events')>()),
   createWorkflowExecutionResultFromLog: m.executionResult,
 }))
 vi.mock('@/lib/copilot/tools/server/workflow/check-deployment-status', () => ({

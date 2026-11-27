@@ -7,9 +7,10 @@ import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 interface CopilotWelcomeProps {
   onQuestionClick: (question: string) => void
   accessLevel: CopilotAccessLevel
+  disabled?: boolean
 }
 
-export function CopilotWelcome({ onQuestionClick, accessLevel }: CopilotWelcomeProps) {
+export function CopilotWelcome({ onQuestionClick, accessLevel, disabled }: CopilotWelcomeProps) {
   const copilotCopy = useCopilotMessages()
 
   const subtitle =
@@ -66,6 +67,7 @@ export function CopilotWelcome({ onQuestionClick, accessLevel }: CopilotWelcomeP
             <button
               key={idx}
               type='button'
+              disabled={disabled}
               onClick={() => onQuestionClick(question)}
               className='w-full rounded-md border bg-background/60 p-3 text-left transition-colors hover:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--primary-hover)]/30'
             >

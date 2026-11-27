@@ -23,9 +23,8 @@ import { extractEnvironmentReferences } from '@/lib/workflows/references'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { Executor } from '@/executor'
 import type { ExecutionContextExtensions, ExecutionResult } from '@/executor/types'
-import { Serializer } from '@/serializer'
+import type { SerializedBlock } from '@/serializer/types'
 import type { TriggerType } from '@/services/queue'
 import { mergeSubblockState } from '@/stores/workflows/server-utils'
 
@@ -152,19 +151,16 @@ async function decryptEnvironmentVariables(
 }
 
 function buildProcessedBlockStates(
-  mergedStates: Record<string, any>,
+  blocks: SerializedBlock[],
   decryptedEnvVars: Record<string, string>
 ): Record<string, Record<string, any>> {
   const processedBlockStates: Record<string, Record<string, any>> = {}
 
-  for (const [blockId, block] of Object.entries(mergedStates)) {
+  for (const block of blocks) {
     const blockState: Record<string, any> = {}
 
-    for (const [key, subBlock] of Object.entries(block.subBlocks)) {
-      let value = (subBlock as { value?: unknown }).value
-
+    for (let [key, value] of Object.entries(block.config.params)) {
       if (typeof value === 'string') {
-        let stringValue = value
         for (const match of extractEnvironmentReferences(value)) {
           const variableName = match.slice(2, -2)
           const decryptedValue = decryptedEnvVars[variableName]
@@ -173,10 +169,8 @@ function buildProcessedBlockStates(
             throw new Error(`Environment variable "${variableName}" was not found`)
           }
 
-          stringValue = stringValue.replace(match, decryptedValue)
+          value = value.replace(match, decryptedValue)
         }
-
-        value = stringValue
       }
 
       blockState[key] = value
@@ -196,7 +190,7 @@ function buildProcessedBlockStates(
       }
     }
 
-    processedBlockStates[blockId] = blockState
+    processedBlockStates[block.id] = blockState
   }
 
   return processedBlockStates
@@ -328,6 +322,7 @@ export async function runPreparedWorkflowExecution(params: {
   executionId?: string
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
+  signal?: AbortSignal
   startupError?: unknown
   resume?: { snapshot: WorkflowCheckpointSnapshot; pausePoints: WorkflowPausePoint[] }
 }): Promise<WorkflowRunnerResult> {
@@ -365,6 +360,7 @@ export async function runPreparedWorkflowExecution(params: {
   }
   let dispatchFailureReason: WorkflowDispatchFailureReason | undefined
   try {
+    params.signal?.throwIfAborted()
     if (params.startupError) {
       throw params.startupError
     }
@@ -395,8 +391,11 @@ export async function runPreparedWorkflowExecution(params: {
       checkpoint?.context.environmentVariables ??
       (await decryptEnvironmentVariables(encryptedEnvVars))
     const mergedStates = mergeSubblockState(params.blueprint.workflowData.blocks, {})
-    const processedBlockStates =
-      checkpoint?.currentBlockStates ?? buildProcessedBlockStates(mergedStates, decryptedEnvVars)
+    params.signal?.throwIfAborted()
+    const [{ Executor }, { Serializer }] = await Promise.all([
+      import('@/executor'),
+      import('@/serializer'),
+    ])
     const serializedWorkflow =
       checkpoint?.workflow ??
       new Serializer().serializeWorkflow(
@@ -421,6 +420,24 @@ export async function runPreparedWorkflowExecution(params: {
         checkpoint?.context.workflowDepth ?? params.contextExtensions?.workflowDepth ?? 0,
       submissionSource: 'workflow',
       workflowLogId,
+      shouldCancelExecution:
+        params.signal ||
+        params.contextExtensions?.pendingExecutionId ||
+        params.contextExtensions?.shouldCancelExecution
+          ? async () => {
+              if (
+                params.signal?.aborted ||
+                (await params.contextExtensions?.shouldCancelExecution?.())
+              )
+                return true
+              const pendingExecutionId = params.contextExtensions?.pendingExecutionId
+              if (!pendingExecutionId) return false
+              const { isPendingWorkflowExecutionCancellationRequested } = await import(
+                '@/lib/execution/pending-execution'
+              )
+              return isPendingWorkflowExecutionCancellationRequested(pendingExecutionId)
+            }
+          : undefined,
     }
 
     if (contextExtensions.stream) {
@@ -432,7 +449,9 @@ export async function runPreparedWorkflowExecution(params: {
 
     const executor = new Executor({
       workflow: serializedWorkflow,
-      currentBlockStates: processedBlockStates,
+      currentBlockStates:
+        checkpoint?.currentBlockStates ??
+        buildProcessedBlockStates(serializedWorkflow.blocks, decryptedEnvVars),
       envVarValues: decryptedEnvVars,
       workflowInput: params.workflowInput,
       workflowVariables,
@@ -572,7 +591,9 @@ export async function runWorkflowExecution(params: {
   executionId?: string
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
+  signal?: AbortSignal
 }): Promise<WorkflowRunnerResult> {
+  params.signal?.throwIfAborted()
   let startupError: unknown
   const blueprint = await loadWorkflowExecutionBlueprint({
     workflowId: params.workflowId,
@@ -602,6 +623,7 @@ export async function runWorkflowExecution(params: {
     executionId: params.executionId,
     triggerData: params.triggerData,
     contextExtensions: params.contextExtensions,
+    signal: params.signal,
     startupError,
   })
 }

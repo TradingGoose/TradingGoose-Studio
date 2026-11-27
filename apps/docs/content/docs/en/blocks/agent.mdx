@@ -49,35 +49,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "model",
             "type": "combobox",
             "title": "Model",
-            "layout": "half",
+            "layout": "full",
             "placeholder": "Type or select a model...",
             "required": true
         },
         {
-            "id": "temperature",
-            "type": "short-input",
-            "title": "Temperature",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "description": "Available in Additional Fields. Shown when model supports temperature."
-        },
-        {
-            "id": "maxTokens",
-            "type": "short-input",
-            "title": "Max Output Tokens",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "min": 1,
-            "description": "Available in Additional Fields."
-        },
-        {
-            "id": "maxSteps",
-            "type": "short-input",
-            "title": "Max Steps",
-            "layout": "half",
-            "placeholder": "Use the default step budget",
-            "description": "Maximum model-generation steps, including tool-call rounds and the final answer. The last step disables tools and answers from available results. Unset uses the shared default step budget. An unfinished response still fails. Available in Additional Fields.",
-            "min": 1
+            "id": "reasoningEffort",
+            "type": "combobox",
+            "title": "Reasoning Effort",
+            "layout": "full",
+            "description": "Shown when model supports effort."
         },
         {
             "id": "apiKey",
@@ -136,7 +117,7 @@ Send a chat completion request to any supported LLM provider
 | `content` | string | The generated response content |
 | `model` | string | The model used for generation |
 | `tokens` | object | Available native token usage |
-| `cost` | object | Reported or estimated model cost in USD, with availability status |
+| `cost` | object | Studio model cost in USD |
 
 ## Input
 
@@ -147,10 +128,8 @@ Send a chat completion request to any supported LLM provider
 | `memories` | json | No | Agent memory data |
 | `model` | string | Yes | AI model to use |
 | `apiKey` | string | No | Provider API key |
+| `reasoningEffort` | string | No | Selected model reasoning effort. Shown when model supports effort. |
 | `responseFormat` | json | No | JSON object containing a JSON Schema in its schema field. Shown when model supports structured output. |
-| `temperature` | number | No | Response randomness level. Shown when model supports temperature. |
-| `maxTokens` | number | No | Maximum output tokens |
-| `maxSteps` | number | No | Maximum model-generation steps, including the final answer |
 | `tools` | json | No | Available tools configuration |
 | `skills` | json | No | Selected skills configuration |
 
@@ -161,12 +140,12 @@ Send a chat completion request to any supported LLM provider
 | `content` | string | Generated response content |
 | `model` | string | Model used for generation |
 | `tokens` | any | Token usage statistics |
-| `cost` | object | Reported or estimated model cost in USD, with availability status |
+| `cost` | object | Studio model cost in USD |
 
 
 ## Usage Instructions
 
-Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Use Additional Fields to configure memory, response format, output token and model step limits, and model-supported temperature without switching block modes. Unset tuning controls use the provider’s defaults; unset Max Steps uses the shared default step budget. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
+Send system and user prompts to the selected model, optionally with integration tools, custom tools, skills, and conversation history. Configure Tools and Skills directly. Reasoning Effort appears below Model when Mastra Code offers levels. Studio starts with the level saved on the block or, in Copilot, your saved level for this workspace. If that choice is missing or the model does not support it, Studio uses the active level Mastra Code resolves from its preference. If that preference yields no active level, Studio selects the first active level in Mastra’s list. Open Additional Fields for memory and response format. Mastra manages the agent loop. The final model step supplies the returned content; intermediate commentary and tool results remain in execution history. To retain conversation history across runs, save user and assistant messages with Memory Add, then pass the message array from Get Memory into this block’s Memories field. Workflow variables alone do not persist conversation history. Response Format must contain a JSON Schema in its schema property. Returned JSON fields become top-level outputs alongside response metadata; invalid configuration or malformed JSON fails the run. Without a Response Format, the block returns the standard outputs listed below.
 
 
 

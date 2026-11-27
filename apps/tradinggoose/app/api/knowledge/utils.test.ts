@@ -46,13 +46,9 @@ vi.mock('@/lib/knowledge/documents/document-processor', () => ({
       },
     ],
     metadata: {
-      filename: 'dummy',
-      fileSize: 10,
-      mimeType: 'text/plain',
       characterCount: 9,
       tokenCount: 3,
       chunkCount: 2,
-      processingMethod: 'file-parser',
     },
   }),
 }))
@@ -181,10 +177,37 @@ vi.mock('@tradinggoose/db', () => {
 })
 
 import { processDocument } from '@/lib/knowledge/documents/document-processor'
-import {
-  markDocumentProcessingFailed,
-  processDocumentAsync,
-} from '@/lib/knowledge/documents/service'
+import { processDocumentAsync } from '@/lib/knowledge/documents/service'
+
+vi.mock('@/lib/knowledge/documents/claim', () => ({
+  checkDocumentAttempt: vi.fn(),
+  writeDocumentAttempt: async (
+    _attempt: unknown,
+    _payload: unknown,
+    _stage: string,
+    write: Parameters<typeof import('@/lib/knowledge/documents/claim').writeDocumentAttempt>[3]
+  ) => {
+    const { db } = await import('@tradinggoose/db')
+    await db.transaction((tx) => write(tx, docRows[0]))
+    return true
+  },
+}))
+const payload = {
+  knowledgeBaseId: 'kb1',
+  documentId: 'doc1',
+  userId: 'actor-1',
+  workspaceId: 'workspace-1',
+  requestId: 'id',
+  docData: {
+    filename: 'file.txt',
+    fileUrl: 'https://example.com/file.txt',
+    fileSize: 10,
+    mimeType: 'text/plain',
+  },
+  processingOptions: { chunkSize: 512, chunkOverlap: 200, minCharactersPerChunk: 1 },
+}
+const attempt = { id: 'document_processing:doc1:id' }
+
 import {
   checkChunkAccess,
   checkDocumentAccess,
@@ -203,26 +226,29 @@ describe('Knowledge Utils', () => {
   describe('processDocumentAsync', () => {
     beforeEach(() => mockGetUserEntityPermissions.mockResolvedValue('write'))
     afterEach(() => mockGetUserEntityPermissions.mockReset())
+    it('does not insert completed embeddings after native cancellation', async () => {
+      kbRows.push({ id: 'kb1', workspaceId: 'workspace-1', embeddingModel: 'kb-embedding-model' })
+      docRows.push({ id: 'doc1', deletedAt: null, processingStatus: 'processing' })
+      const controller = new AbortController()
+      const { generateEmbeddings } = await import('@/lib/embeddings/utils')
+      const generate = vi.mocked(generateEmbeddings).getMockImplementation()!
+      vi.mocked(generateEmbeddings).mockImplementationOnce(async (...args) => {
+        const result = await generate(...args)
+        controller.abort(new Error('Native task cancelled'))
+        return result
+      })
+      await expect(processDocumentAsync(payload, attempt, controller.signal)).rejects.toThrow(
+        'Native task cancelled'
+      )
+      expect(dbOps.insertRecords).toEqual([])
+      expect(dbOps.updatePayloads.map((value) => value.processingStatus)).toEqual(['processing'])
+    })
+
     it('resets persisted embeddings before processing native batches', async () => {
       kbRows.push({ id: 'kb1', workspaceId: 'workspace-1', embeddingModel: 'kb-embedding-model' })
       docRows.push({ id: 'doc1', deletedAt: null })
 
-      await processDocumentAsync(
-        'kb1',
-        'doc1',
-        {
-          filename: 'file.txt',
-          fileUrl: 'https://example.com/file.txt',
-          fileSize: 10,
-          mimeType: 'text/plain',
-        },
-        {
-          chunkSize: 512,
-          minCharactersPerChunk: 1,
-          chunkOverlap: 200,
-        },
-        { actorUserId: 'actor-1', workspaceId: 'workspace-1' }
-      )
+      await processDocumentAsync(payload, attempt)
 
       expect(processDocument).toHaveBeenCalledExactlyOnceWith(
         'https://example.com/file.txt',
@@ -231,7 +257,8 @@ describe('Knowledge Utils', () => {
         'actor-1',
         512,
         200,
-        1
+        1,
+        undefined
       )
       expect(dbOps.order).toEqual(['deleteEmbeddings', 'update', 'insert', 'update'])
 
@@ -256,28 +283,6 @@ describe('Knowledge Utils', () => {
         }),
         'kb-embedding-model'
       )
-    })
-
-    it('should clear persisted embeddings when processing is marked failed', async () => {
-      docRows.push({ id: 'doc1', deletedAt: null, processingStatus: 'processing' })
-
-      await markDocumentProcessingFailed('doc1', 'Embedding timeout')
-
-      expect(dbOps.order).toEqual(['update', 'deleteEmbeddings'])
-      expect(dbOps.updatePayloads[0]).toMatchObject({
-        processingStatus: 'failed',
-        processingError: 'Embedding timeout',
-      })
-    })
-
-    it('should clear persisted embeddings when processing fails after document deletion', async () => {
-      await markDocumentProcessingFailed('doc1', 'Embedding timeout')
-
-      expect(dbOps.order).toEqual(['update', 'deleteEmbeddings'])
-      expect(dbOps.updatePayloads[0]).toMatchObject({
-        processingStatus: 'failed',
-        processingError: 'Embedding timeout',
-      })
     })
   })
 

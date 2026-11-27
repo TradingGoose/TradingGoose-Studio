@@ -2,7 +2,10 @@ import type { CopilotToolTarget } from '@/lib/copilot/native/contract'
 import { nativeToolCallId } from '@/lib/copilot/native/identity'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
+import {
+  observeQueuedWorkflowExecution,
+  queueWorkflowExecution,
+} from '@/lib/workflows/queued-execution-client'
 import { resolveWorkflowRunTrigger } from '@/lib/workflows/triggers'
 import type { ExecutionResult } from '@/executor/types'
 import { buildExecutableWorkflowData } from '@/stores/workflows/workflow/utils'
@@ -46,10 +49,10 @@ export async function executeWorkflowWithFullLogging(
     edgeCount: workflowData.edges.length,
   })
 
-  return runQueuedWorkflowExecution({
+  options.signal?.throwIfAborted()
+  const handle = await queueWorkflowExecution({
     workflowId: options.workflowId,
     native: options.native,
-    signal: options.signal,
     executionId: nativeToolCallId(options.native.target),
     input: start.input,
     triggerType: start.triggerType,
@@ -58,4 +61,5 @@ export async function executeWorkflowWithFullLogging(
     workflowVariables,
     triggerBlockId: start.blockId,
   })
+  return observeQueuedWorkflowExecution(handle, { signal: options.signal })
 }

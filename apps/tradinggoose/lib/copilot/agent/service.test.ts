@@ -1,12 +1,19 @@
 /** @vitest-environment node */
+
+import { AGENT_CONTROL_TOPIC, AgentControlEventTypes } from '@mastra/core/agent/durable'
+import { EventEmitterPubSub } from '@mastra/core/events'
+import { parseModelString } from '@mastra/core/llm'
 import { Mastra } from '@mastra/core/mastra'
 import {
   InMemoryStore,
   type MastraCompositeStore,
   RunFenceConflictError,
 } from '@mastra/core/storage'
+import type { LanguageModelUsage } from '@mastra/core/stream'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
+import { db } from '@tradinggoose/db'
+import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   COPILOT_CONTEXT_PART,
@@ -18,30 +25,36 @@ import {
   type SafeError,
   type Scope,
 } from '@/lib/copilot/native/contract'
-import { NativeTargetError } from '@/lib/copilot/native/errors'
+import { NativeTargetError, ObserveWorkflowExecution } from '@/lib/copilot/native/errors'
+import { readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { nativeConversationIdentity, nativeToolCallId } from '@/lib/copilot/native/identity'
+import { validateCopilotModel } from '@/lib/copilot/settings.server'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
 import { readSseData } from '@/lib/events/stream'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import type { BackgroundExecutionTaskPayload } from '@/lib/execution/background-execution'
+import { createNativeModel } from '@/lib/mastra/native-reasoning'
 import * as runtime from '@/lib/mastra/runtime'
-import type { NativeUsage } from '@/lib/mastra/usage'
-import type { BackgroundExecutionJob } from '@/background/execution-job'
+import { type NativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
+import { POST as handleStudioRequest } from '@/app/api/copilot/native/route'
+import { POST as handleWorkerRequest } from '@/app/api/copilot/native/tool/route'
 import { createCopilotAgent } from './agent'
 import { readCopilotRun } from './context'
-import { executeCopilotCommand, executeCopilotJob, finalizeCopilotJob } from './service'
-import {
-  claimCopilotThread,
-  isCopilotRunCancelled,
-  readCopilotThreadOwnership,
-  readCopilotThreadRun,
-} from './state'
+import { claimCopilotThread, readCopilotThreadOwnership, THREAD_LEASE_MS } from './ownership'
+import { cancelCopilotRun, claimCopilotWorkflowAdmission, isCopilotRunCancelled } from './receipts'
+import { executeCopilotCommand, finalizeCopilotJob } from './service'
+import { readCopilotThreadRun } from './state'
+import { executeCopilotJob } from './worker'
+import { handleCopilotWorkerOperation } from './worker-server'
 
 const m = vi.hoisted(() => ({
+  mastra: undefined as unknown as Mastra,
   storage: undefined as unknown as MastraCompositeStore,
+  pubsub: undefined as unknown as EventEmitterPubSub,
   memory: undefined as unknown as Memory,
   agent: undefined as unknown as ReturnType<typeof createCopilotAgent>,
   model: undefined as unknown as MastraLanguageModelV2Mock,
   contacts: [] as unknown[],
+  session: vi.fn(),
   access: vi.fn(),
   fetch: vi.fn(),
   admit: vi.fn(),
@@ -53,16 +66,18 @@ const m = vi.hoisted(() => ({
   contexts: vi.fn(),
   credential: vi.fn(),
   cancelInsert: vi.fn(),
+  cancelWorkflow: vi.fn(),
+  drainWorkflow: vi.fn(),
   dispatch: vi.fn(),
   triggerState: vi.fn(),
   retrieveRun: vi.fn(),
-  jobs: new Map<string, BackgroundExecutionJob>(),
+  jobs: new Map<string, Extract<BackgroundExecutionTaskPayload, { executionType: 'copilot' }>>(),
   executions: new Map<string, Promise<void>>(),
   startJobs: true,
   receipts: new Map<string, { id: string; identifier: string; value: string }>(),
 }))
 vi.mock('@/lib/mastra/runtime', () => ({
-  getMastra: async () => undefined,
+  getMastra: async () => m.mastra,
   getCopilotAgent: async () => m.agent,
   getAgentMemory: async () => m.memory,
   getNativeMemoryStore: async () => m.storage.getStore('memory'),
@@ -86,13 +101,16 @@ vi.mock('@/lib/mastra/runtime', () => ({
     }
   ),
 }))
-vi.mock('@/lib/mastra/connections', () => ({
-  createConfiguredLanguageModel: vi.fn((_model: string, apiKey?: string) =>
-    Object.assign(m.model, { config: { apiKey } })
-  ),
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
+  ...(await original<object>()),
+  createNativeModel: vi.fn((config) => Object.assign(m.model, { config })),
 }))
 vi.mock('@/lib/execution/background-execution', () => ({
   dispatchBackgroundExecution: (...args: unknown[]) => m.dispatch(...args),
+}))
+vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
+  cancelPendingWorkflowExecution: m.cancelWorkflow,
+  waitForPendingWorkflowExecutionDrain: m.drainWorkflow,
 }))
 vi.mock('@trigger.dev/sdk', async (original) => ({
   ...(await original<object>()),
@@ -101,8 +119,11 @@ vi.mock('@trigger.dev/sdk', async (original) => ({
 vi.mock('@/lib/trigger/settings', () => ({
   getTriggerExecutionState: () => m.triggerState(),
 }))
-vi.mock('@/lib/copilot/settings.server', () => ({ resolveCopilotModel: m.resolve }))
-vi.mock('@/lib/auth', () => ({ auth: { api: { getSession: vi.fn() } } }))
+vi.mock('@/lib/copilot/settings.server', () => ({
+  validateCopilotModel: vi.fn(),
+  resolveCopilotModel: m.resolve,
+}))
+vi.mock('@/lib/auth', () => ({ getSession: m.session, auth: { api: { getSession: vi.fn() } } }))
 vi.mock('@/lib/copilot/process-contents', () => ({ processContextsServer: m.contexts }))
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => m.access(...args),
@@ -122,15 +143,26 @@ vi.mock('@/lib/copilot/tools/server/workflow/check-deployment-status', () => ({
 }))
 vi.mock('@/lib/copilot/tools/server/router', () => ({
   routeExecution: (...args: unknown[]) => m.route(...args),
-  isWorkspaceAgnosticServerTool: () => false,
 }))
-vi.mock('@tradinggoose/db', () => ({
-  db: {
+vi.mock('@tradinggoose/db', () => {
+  const store = {
+    execute: vi.fn(),
     select: () => ({
       from: () => ({
-        where: (matches: (row: unknown) => boolean) => ({
-          limit: async () => [...m.receipts.values()].filter(matches).slice(0, 1),
-        }),
+        where: (matches: (row: unknown) => boolean) => {
+          const rows = [...m.receipts.values()].filter(matches)
+          return Object.assign(Promise.resolve(rows), {
+            limit: async (n: number) => rows.slice(0, n),
+          })
+        },
+      }),
+    }),
+    update: () => ({
+      set: ({ value }: { value: string }) => ({
+        where: async (matches: (row: unknown) => boolean) => {
+          for (const row of m.receipts.values())
+            if (matches(row)) m.receipts.set(row.id, { ...row, value })
+        },
       }),
     }),
     insert: () => ({
@@ -145,15 +177,34 @@ vi.mock('@tradinggoose/db', () => ({
         }),
       }),
     }),
-  },
-}))
+  }
+  let previous: Promise<unknown> = Promise.resolve()
+  return {
+    db: {
+      ...store,
+      transaction: <T>(operation: (tx: typeof store) => Promise<T>) => {
+        const result = previous.then(() => operation(store))
+        previous = result.catch(() => {})
+        return result
+      },
+    },
+  }
+})
 vi.mock('drizzle-orm', async (original) => ({
   ...(await original<object>()),
   eq: (field: { name: string }, value: unknown) => (row: Record<string, unknown>) =>
     row[field.name] === value,
+  and:
+    (...conditions: ((row: unknown) => boolean)[]) =>
+    (row: unknown) =>
+      conditions.every((condition) => condition(row)),
 }))
 
 const scope: Scope = { actorUserId: 'actor', workspaceId: 'workspace' }
+const workflowCall = {
+  tool: 'run_workflow',
+  args: { entityId: 'workflow', triggerBlockId: 'trigger' },
+}
 async function threadClaims() {
   const store = (await m.storage.getStore('workflows'))!
   const keys = new Set(vi.mocked(store.claimRunOwnership).mock.calls.map(([{ runId }]) => runId))
@@ -171,18 +222,21 @@ function deferred() {
 function restart() {
   m.memory = new Memory({ storage: m.storage })
   m.agent = createCopilotAgent(m.memory)
-  new Mastra({
+  m.mastra = new Mastra({
     agents: { copilot: m.agent },
     storage: m.storage,
+    pubsub: m.pubsub,
     recovery: { workflows: 'off' },
   })
 }
 
+type MockToolCall = { tool: string; args: Record<string, unknown>; toolCallId?: string }
 type ResponseStep =
   | { text: string | AsyncIterable<string> }
   | { error: Error }
-  | { tool: string; args: Record<string, unknown>; toolCallId?: string; text?: string }
-function setModel(...steps: ResponseStep[]) {
+  | (MockToolCall & { text?: string | AsyncIterable<string> })
+  | { tools: MockToolCall[] }
+function setModel(...steps: Array<ResponseStep & { usage?: LanguageModelUsage }>) {
   let index = 0
   m.model = new MastraLanguageModelV2Mock({
     doStream: async (request) => {
@@ -197,18 +251,23 @@ function setModel(...steps: ResponseStep[]) {
                 controller.enqueue({ type: 'text-delta', id: 'answer', delta })
               controller.enqueue({ type: 'text-end', id: 'answer' })
             }
-            if ('tool' in step)
+            for (const call of 'tools' in step ? step.tools : 'tool' in step ? [step] : [])
               controller.enqueue({
                 type: 'tool-call',
-                toolCallId: step.toolCallId ?? 'original-tool-call',
-                toolName: step.tool,
-                input: JSON.stringify(step.args),
+                toolCallId: call.toolCallId ?? 'original-tool-call',
+                toolName: call.tool,
+                input: JSON.stringify(call.args),
               })
             if ('error' in step) controller.enqueue({ type: 'error', error: step.error })
             controller.enqueue({
               type: 'finish',
-              finishReason: 'error' in step ? 'error' : 'tool' in step ? 'tool-calls' : 'stop',
-              usage: { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
+              finishReason:
+                'error' in step
+                  ? 'error'
+                  : 'tool' in step || 'tools' in step
+                    ? 'tool-calls'
+                    : 'stop',
+              usage: step.usage ?? { inputTokens: 3, outputTokens: 2, totalTokens: 5 },
             })
             controller.close()
           },
@@ -243,10 +302,10 @@ interface JobOutcome {
 }
 type TestResult = CopilotResponse | HistoryResponse | JobOutcome
 
-async function executeJob(id: string) {
+async function executeJob(id: string, signal?: AbortSignal) {
   const row = m.jobs.get(id)!
   try {
-    await executeCopilotJob(row.payload)
+    await executeCopilotJob(row.payload, signal)
   } catch (error) {
     await finalizeCopilotJob(row.payload, error instanceof Error ? error.message : String(error))
   } finally {
@@ -276,7 +335,7 @@ async function command(
     }
   } else {
     body = (await response.json()) as CopilotResponse
-    if (body.status === 'accepted') {
+    if (body.status === 'accepted' && m.startJobs) {
       const { threadId } = body
       const thread = await m.memory.getThreadById({ threadId })
       const job = thread!.metadata!.copilotJob as { id: string }
@@ -288,7 +347,10 @@ async function command(
       >
       const { result } = await command({ scope: selected, command: 'thread.observe', threadId })
       if (result.status !== 'history') throw new Error('Expected completed native history')
-      const messages = result.items.filter(
+      const items = result.hasMore
+        ? await readNativeThreadHistory(selected, threadId)
+        : result.items
+      const messages = items.filter(
         (item) => item.role === 'assistant' && item.runId === outcome.runId
       )
       body = {
@@ -300,7 +362,7 @@ async function command(
             ?.parts.flatMap((part) => (part.type === 'text' ? [part.text] : []))
             .join('') ?? '',
         pending: result.pending,
-        usage: messages.at(-1)?.usage,
+        usage: sumNativeUsage(messages),
       }
     }
   }
@@ -332,10 +394,10 @@ async function pending(threadId: string) {
 beforeEach(async () => {
   vi.clearAllMocks()
   m.route.mockReset()
-  m.resolve.mockReset().mockImplementation(async (model: string) => ({
-    model,
-    apiKey: 'admin-key',
-  }))
+  m.resolve.mockReset().mockImplementation(async (model: string) => {
+    const { provider, modelId } = parseModelString(model)
+    return { providerId: provider, modelId, apiKey: 'admin-key' }
+  })
   m.contacts.length = 0
   m.receipts.clear()
   m.jobs.clear()
@@ -354,7 +416,14 @@ beforeEach(async () => {
   })
   m.access.mockResolvedValue({ hasAccess: true })
   m.fetch.mockRejectedValue(new Error('Unexpected network request'))
-  vi.stubGlobal('fetch', m.fetch)
+  vi.stubEnv('INTERNAL_API_SECRET', 'copilot-service-test-signing-secret-123456')
+  vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://studio.example.test')
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init)
+    return new URL(request.url).pathname === '/api/copilot/native/tool'
+      ? handleWorkerRequest(request)
+      : m.fetch(input, init)
+  })
   m.admit.mockResolvedValue(undefined)
   m.accept.mockImplementation(async (_scope, _usage, cost) => cost)
   m.business.mockResolvedValue(undefined)
@@ -362,7 +431,10 @@ beforeEach(async () => {
   m.contexts.mockReset().mockResolvedValue([])
   m.credential.mockReset()
   m.cancelInsert.mockReset().mockResolvedValue(undefined)
+  m.cancelWorkflow.mockReset()
+  m.drainWorkflow.mockReset()
   m.storage = new InMemoryStore()
+  m.pubsub = new EventEmitterPubSub()
   vi.spyOn((await m.storage.getStore('workflows'))!, 'claimRunOwnership')
   restart()
 })
@@ -374,17 +446,14 @@ afterEach(() => {
 describe('Copilot background execution and native history', () => {
   it('scopes admission identities to the authenticated actor', async () => {
     m.startJobs = false
-    const request: CopilotRequest = {
-      command: 'message',
-      requestId: crypto.randomUUID(),
-      workspaceId: scope.workspaceId,
-      model: 'configured/model',
-      input: { content: 'Same request ID' },
-    }
-    const first = await (await executeCopilotCommand(request, scope.actorUserId)).json()
-    const second = await (await executeCopilotCommand(request, 'another-actor')).json()
-    expect(first.status).toBe('accepted')
-    expect(second.status).toBe('accepted')
+    const requestId = crypto.randomUUID()
+    const { result: first } = await message({ requestId })
+    const { result: second } = await message({
+      requestId,
+      scope: { ...scope, actorUserId: 'another-actor' },
+    })
+    if (first.status !== 'accepted' || second.status !== 'accepted')
+      throw new Error('Expected both actors to be admitted')
     expect(second.runId).not.toBe(first.runId)
     expect(second.threadId).not.toBe(first.threadId)
     expect(m.dispatch).toHaveBeenCalledTimes(2)
@@ -493,25 +562,73 @@ describe('Copilot background execution and native history', () => {
     expect(await threadClaims()).toHaveLength(0)
   })
 
+  it.each(['early failure', 'late failure', 'early success'] as const)(
+    'honors the admission result after Trigger dispatch (%s)',
+    async (timing) => {
+      m.triggerState.mockResolvedValue({ mode: 'trigger' })
+      vi.stubEnv('REDIS_URL', 'redis://shared-streams.invalid')
+      const success = timing === 'early success'
+      const failure = 'Trigger acknowledgment was lost'
+      m.dispatch.mockImplementationOnce(async (job) => {
+        m.jobs.set(job.id, job)
+        if (timing !== 'late failure') {
+          const waiting = vi.spyOn(await import('./ownership'), 'waitForCopilotRunRelease')
+          try {
+            m.executions.set(job.id, executeJob(job.id))
+            await vi.waitFor(() =>
+              expect(waiting).toHaveBeenCalledWith(
+                scope,
+                job.payload.threadId,
+                job.payload.runId,
+                expect.any(AbortSignal)
+              )
+            )
+          } finally {
+            waiting.mockRestore()
+          }
+        }
+        if (!success) throw new Error(failure)
+        return `trigger-${job.id}`
+      })
+
+      setModel({ text: 'Worker answer' })
+      const { response, result } = await message()
+      expect(response.status).toBe(success ? 202 : 503)
+      expect(m.dispatch).toHaveBeenCalledOnce()
+      const [
+        {
+          id,
+          payload: { threadId, runId },
+        },
+      ] = m.dispatch.mock.calls[0]
+      const outcome = success
+        ? { status: 'success' }
+        : { status: 'failed', error: { code: 'GENERATION_FAILED', message: failure } }
+      expect(result).toMatchObject(outcome)
+      if (timing === 'late failure') await executeJob(id)
+      else await m.executions.get(id)
+
+      const count = success ? 1 : 0
+      expect.soft(m.resolve).toHaveBeenCalledTimes(count)
+      expect.soft(createNativeModel).toHaveBeenCalledTimes(count)
+      expect.soft(m.contacts).toHaveLength(count)
+      expect.soft(m.admit).toHaveBeenCalledTimes(count)
+      expect.soft(m.accept).toHaveBeenCalledTimes(count)
+      expect(m.route).not.toHaveBeenCalled()
+      const thread = await m.memory.getThreadById({ threadId })
+      expect(thread?.metadata?.copilotJob).toMatchObject({ id, runId, ...outcome })
+      expect(await threadClaims()).toHaveLength(0)
+    }
+  )
+
   it.each([false, true])(
     'cancels an admitted turn before its worker starts (other instance: %s)',
     async (otherInstance) => {
       m.startJobs = false
       setModel({ text: 'Next turn' })
-      const response = await executeCopilotCommand(
-        {
-          command: 'message',
-          requestId: crypto.randomUUID(),
-          workspaceId: scope.workspaceId,
-          model: 'configured/model',
-          input: { content: 'Cancel before execution' },
-        },
-        scope.actorUserId
-      )
-      const accepted = await response.json()
-      expect(accepted.status).toBe('accepted')
-      const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
-      const job = thread!.metadata!.copilotJob as { id: string }
+      const { result: accepted } = await message()
+      if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
+      const [job] = m.jobs.values()
       if (otherInstance) restart()
       expect(
         (await command({ command: 'cancel', threadId: accepted.threadId, runId: accepted.runId }))
@@ -532,19 +649,9 @@ describe('Copilot background execution and native history', () => {
   it('does not let a delayed local worker take over a successor generation', async () => {
     m.startJobs = false
     setModel({ text: 'Must not run' })
-    const response = await executeCopilotCommand(
-      {
-        command: 'message',
-        requestId: crypto.randomUUID(),
-        workspaceId: scope.workspaceId,
-        model: 'configured/model',
-        input: { content: 'Delayed local dispatch' },
-      },
-      scope.actorUserId
-    )
-    const accepted = await response.json()
-    const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
-    const job = thread!.metadata!.copilotJob as { id: string }
+    const { result: accepted } = await message()
+    if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
+    const [job] = m.jobs.values()
     const admission = (await readCopilotThreadOwnership(scope, accepted.threadId))!
     expect(admission.live).toBe(true)
     restart()
@@ -554,7 +661,7 @@ describe('Copilot background execution and native history', () => {
       vi.setSystemTime(admission.leaseExpiresAt!.getTime() + 1)
       successor = await claimCopilotThread(scope, accepted.threadId, 'successor-run')
       const before = await readCopilotThreadOwnership(scope, accepted.threadId)
-      await expect(executeCopilotJob(m.jobs.get(job.id)!.payload)).rejects.toMatchObject({
+      await expect(executeCopilotJob(job.payload)).rejects.toMatchObject({
         status: 409,
       })
       expect(await readCopilotThreadOwnership(scope, accepted.threadId)).toEqual(before)
@@ -599,6 +706,49 @@ describe('Copilot background execution and native history', () => {
     }
   )
 
+  it('settles contacted usage after cancellation and a successor without admitting more work', async () => {
+    setModel({ text: 'Completed answer' })
+    const initial = (await message()).result
+    if (initial.status !== 'success') throw new Error(JSON.stringify(initial))
+    const thread = (await m.memory.getThreadById({ threadId: initial.threadId }))!
+    const job = thread.metadata!.copilotJob as { id: string }
+    const identity = {
+      ...scope,
+      threadId: initial.threadId,
+      runId: initial.runId,
+      jobId: job.id,
+      model: 'configured/model',
+    }
+    await cancelCopilotRun({ scope, threadId: initial.threadId, runId: initial.runId })
+    await (await m.storage.getStore('memory'))!.updateThread({
+      id: initial.threadId,
+      metadata: {
+        ...thread.metadata,
+        copilotJob: { id: 'successor', runId: 'successor', status: 'success' },
+      },
+    })
+    const fence = { runId: 'expired-owner', ownerId: initial.runId, generation: 1 }
+    const count = m.accept.mock.calls.length
+    await handleCopilotWorkerOperation(identity, 'usage.record', {
+      attemptId: `${initial.runId}:delayed-attempt:0:0`,
+      usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
+    })
+    expect(m.accept).toHaveBeenCalledTimes(count + 1)
+    expect(m.accept).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        runId: initial.runId,
+        actorUserId: scope.actorUserId,
+        workspaceId: scope.workspaceId,
+      }),
+      { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
+      expect.any(Object),
+      `${initial.runId}:delayed-attempt:0:0`
+    )
+    await expect(
+      handleCopilotWorkerOperation(identity, 'usage.allow', { fence })
+    ).rejects.toMatchObject({ status: 409 })
+  })
+
   it.each(['new', 'edit'])(
     'retains the accepted %s input when worker credentials disappear before native streaming',
     async (kind) => {
@@ -623,21 +773,16 @@ describe('Copilot background execution and native history', () => {
         image: 'data:image/png;base64,aGVsbG8=',
         mediaType: 'image/png',
       }
-      const response = await executeCopilotCommand(
-        {
-          command: 'message',
-          requestId: crypto.randomUUID(),
-          ...editing,
-          workspaceId: scope.workspaceId,
-          model: 'configured/model',
-          input: { content: kind === 'edit' ? text : [{ type: 'text', text }, image], contexts },
-        },
-        scope.actorUserId
-      )
-      const accepted = await response.json()
-      expect(accepted.status).toBe('accepted')
-      const thread = await m.memory.getThreadById({ threadId: accepted.threadId })
-      const job = thread!.metadata!.copilotJob as { id: string }
+      const { result: accepted } = await message({
+        ...editing,
+        input: { content: kind === 'edit' ? text : [{ type: 'text', text }, image], contexts },
+      })
+      if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
+      const [job] = m.jobs.values()
+      const queued = job.payload
+      expect(queued).toMatchObject({ messageId: accepted.messageId })
+      expect(queued.request).not.toHaveProperty('input')
+      expect(JSON.stringify(queued)).not.toContain(image.image)
       const expectedInput = {
         id: accepted.messageId,
         role: 'user',
@@ -705,7 +850,10 @@ describe('Copilot background execution and native history', () => {
           workspaceId: scope.workspaceId,
           threadId,
           model: 'configured/model',
-          input: { content: 'Stop before acceptance' },
+          input: {
+            content: 'Stop before acceptance',
+            contexts: [{ kind: 'docs', label: 'Docs' }],
+          },
         },
         scope.actorUserId,
         request.signal
@@ -725,14 +873,36 @@ describe('Copilot background execution and native history', () => {
       const observer = readEvents<CopilotThreadEvent>(observation.body!)
       let successor: Awaited<ReturnType<typeof workflows.getRunOwnership>> = null
       let stopping: ReturnType<typeof command> | undefined
+      let acknowledged = false
+      const abort = vi.spyOn(m.pubsub, 'publish')
       try {
         const event = (await observer.next()).value
         expect(event).toMatchObject({ type: 'thread.history', activeRunId: owner.ownerId })
         expect(event).not.toHaveProperty('interruptedRunId')
         expect(m.contacts).toHaveLength(0)
         if (interruption === 'Stop') {
-          stopping = command({ command: 'cancel', threadId, runId: accepted.runId })
-          await vi.advanceTimersByTimeAsync(500)
+          stopping = command({ command: 'cancel', threadId, runId: accepted.runId }).then(
+            (result) => {
+              acknowledged = true
+              return result
+            }
+          )
+          await vi.waitFor(async () =>
+            expect(await isCopilotRunCancelled(accepted.runId)).toBe(true)
+          )
+          expect(abort).toHaveBeenCalledWith(AGENT_CONTROL_TOPIC(accepted.runId), {
+            type: AgentControlEventTypes.ABORT_REQUEST,
+            runId: accepted.runId,
+            data: {},
+          })
+          expect(acknowledged).toBe(false)
+          expect(await readCopilotThreadOwnership(scope, threadId)).toMatchObject({
+            ownerId: owner.ownerId,
+            live: true,
+          })
+          await expect(claimCopilotThread(scope, threadId, 'competing-run')).rejects.toMatchObject({
+            status: 409,
+          })
         } else {
           const takeover = await workflows.claimRunOwnership({
             runId: owner.runId,
@@ -743,8 +913,8 @@ describe('Copilot background execution and native history', () => {
           expect(takeover.acquired).toBe(true)
           successor = takeover.record
           await vi.advanceTimersByTimeAsync(5_000)
+          await vi.waitFor(() => expect(generationSignal.aborted).toBe(true))
         }
-        await vi.waitFor(() => expect(generationSignal.aborted).toBe(true))
         release.resolve()
         if (successor) {
           await Promise.all(m.executions.values())
@@ -754,13 +924,22 @@ describe('Copilot background execution and native history', () => {
             expect((await readCopilotThreadOwnership(scope, threadId))?.live).toBe(false)
           )
         }
-        await stopping
+        if (stopping) expect((await stopping).result).toMatchObject({ status: 'cancel_requested' })
         expect(m.contacts).toHaveLength(0)
         expect(m.accept).not.toHaveBeenCalled()
+        if (interruption === 'Stop') {
+          expect(await pending(threadId)).toEqual([])
+          setModel({ text: 'Continued after Stop' })
+          expect((await message({ threadId })).result).toMatchObject({
+            status: 'success',
+            text: 'Continued after Stop',
+          })
+        }
       } finally {
         release.resolve()
         await observer.return(undefined)
         if (successor) await workflows.releaseRunOwnership(successor)
+        abort.mockRestore()
         vi.useRealTimers()
       }
     }
@@ -785,6 +964,119 @@ describe('Copilot background execution and native history', () => {
     }
     expect((await readCopilotThreadOwnership(scope, 'stalled-thread'))?.leaseExpiresAt).toBeNull()
   })
+
+  it.each(['initial', 'periodic'] as const)(
+    'bounds a stalled Studio tool lease renewal during %s',
+    async (phase) => {
+      vi.useFakeTimers()
+      const threadId = crypto.randomUUID()
+      const runId = crypto.randomUUID()
+      await m.memory.createThread({
+        threadId,
+        ...nativeConversationIdentity(scope),
+        metadata: { copilotJob: { id: runId, runId } },
+      })
+      const ownership = await claimCopilotThread(scope, threadId, runId, runId)
+      await ownership.handoff()
+      const target = {
+        threadId,
+        runId,
+        ...nativeConversationIdentity(scope),
+        toolName: 'rename_workflow',
+        toolCallId: 'held-tool',
+      }
+      const args = { entityId: 'workflow', name: 'Changed' }
+      const storedRun = vi.spyOn(await import('./context'), 'readCopilotRun').mockResolvedValue({
+        scope,
+        threadId,
+        runId,
+        model: 'configured/model',
+        accessLevel: 'full',
+      })
+      const savedCall = vi
+        .spyOn(await import('@/lib/copilot/native/target'), 'resolveNativePendingTarget')
+        .mockResolvedValue({ target, originalArgs: args, stage: 'result' })
+      const workflows = (await m.storage.getStore('workflows'))!
+      const renew = workflows.renewRunOwnership.bind(workflows)
+      const renewal = deferred()
+      const receipt = deferred()
+      const entered = deferred()
+      let initialRenewed = false
+      const stalled = vi.spyOn(workflows, 'renewRunOwnership').mockImplementation(async (args) => {
+        if (phase === 'periodic' && !initialRenewed) initialRenewed = true
+        else await renewal.promise
+        return renew(args)
+      })
+      let receiptCheck: { mockRestore(): void } | undefined
+      let toolSignal: AbortSignal | undefined
+      let mutated = false
+      m.route.mockImplementationOnce(async (_name, _args, context) => {
+        toolSignal = context.signal
+        entered.resolve()
+        await new Promise((resolve) => setTimeout(resolve, THREAD_LEASE_MS + 1000))
+        toolSignal!.throwIfAborted()
+        mutated = true
+        return {
+          success: true,
+          entityKind: 'workflow',
+          entityId: 'workflow',
+          entityName: 'Changed',
+          workspaceId: scope.workspaceId,
+        }
+      })
+      let settled = false
+      let failure: unknown
+      const execution = handleCopilotWorkerOperation(
+        { ...scope, threadId, runId, jobId: runId, model: 'configured/model' },
+        'tool',
+        {
+          target,
+          stage: 'studio',
+          fence: ownership.fence,
+        }
+      )
+        .catch((error) => {
+          failure = error
+        })
+        .finally(() => {
+          settled = true
+        })
+      try {
+        if (phase === 'periodic') {
+          await entered.promise
+          receiptCheck = vi
+            .spyOn(await import('./receipts'), 'assertCopilotRunActive')
+            .mockReturnValue(receipt.promise)
+        }
+        await vi.advanceTimersByTimeAsync(THREAD_LEASE_MS - 1)
+        expect(settled).toBe(false)
+        await vi.advanceTimersByTimeAsync(2)
+        if (phase === 'periodic') expect(toolSignal?.aborted).toBe(true)
+        else expect(settled).toBe(true)
+        expect(mutated).toBe(false)
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(mutated).toBe(false)
+        expect(settled).toBe(true)
+        expect(failure).toMatchObject({ status: 409 })
+        renewal.resolve()
+        receipt.resolve()
+        await vi.advanceTimersByTimeAsync(THREAD_LEASE_MS + 1000)
+        expect(m.route).toHaveBeenCalledTimes(phase === 'initial' ? 0 : 1)
+        expect(mutated).toBe(false)
+      } finally {
+        renewal.resolve()
+        receipt.resolve()
+        await vi.advanceTimersByTimeAsync(THREAD_LEASE_MS + 1000)
+        await execution
+        storedRun.mockRestore()
+        savedCall.mockRestore()
+        receiptCheck?.mockRestore()
+        stalled.mockRestore()
+        await ownership.release()
+        vi.useRealTimers()
+      }
+    }
+  )
 
   it.each(['startup', 'provider'])(
     'redacts a native %s failure and releases the conversation for another message',
@@ -1017,7 +1309,7 @@ describe('Copilot background execution and native history', () => {
       expect(m.contacts).toHaveLength(0)
       expect(await threadClaims()).toHaveLength(0)
       expect(m.admit).not.toHaveBeenCalled()
-      expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
+      expect(createNativeModel).not.toHaveBeenCalled()
     }
   )
   it('retains the next prompt but refuses inference after key removal even when the Agent is warm', async () => {
@@ -1030,7 +1322,7 @@ describe('Copilot background execution and native history', () => {
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
     const admissions = m.admit.mock.calls.length
     const charges = m.accept.mock.calls.length
-    const models = vi.mocked(createConfiguredLanguageModel).mock.calls.length
+    const models = vi.mocked(createNativeModel).mock.calls.length
     m.resolve.mockRejectedValue(new NativeTargetError('The Copilot API key is not configured', 409))
 
     expect((await message({ threadId: initial.threadId })).result).toMatchObject({
@@ -1040,7 +1332,7 @@ describe('Copilot background execution and native history', () => {
     expect(m.agent).toBe(agent)
     expect(m.resolve).toHaveBeenCalledTimes(2)
     expect(m.contacts).toHaveLength(1)
-    expect(createConfiguredLanguageModel).toHaveBeenCalledTimes(models)
+    expect(createNativeModel).toHaveBeenCalledTimes(models)
     expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(m.route).not.toHaveBeenCalled()
@@ -1056,7 +1348,16 @@ describe('Copilot background execution and native history', () => {
       ],
     })
   })
-  it('returns complete scoped native lists in their stored order', async () => {
+  it('pages ordered history through the authenticated Studio route without dispatch', async () => {
+    const post = (body: CopilotRequest) =>
+      handleStudioRequest(
+        new NextRequest('https://studio.test/api/copilot/native', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        })
+      )
+    m.session.mockResolvedValue({ user: { id: scope.actorUserId } })
+    const list = { command: 'threads.list', workspaceId: scope.workspaceId } as const
     const store = (await m.storage.getStore('memory'))!
     const resourceId = nativeConversationIdentity(scope).resourceId
     for (let i = 0; i < 125; i++)
@@ -1078,7 +1379,7 @@ describe('Copilot background execution and native history', () => {
         updatedAt: new Date(),
       },
     })
-    const threads = (await command({ command: 'threads.list' })).result
+    const threads: CopilotResponse = await (await post(list)).json()
     if (threads.status !== 'threads') throw new Error(JSON.stringify(threads))
     expect(threads.items.map((thread) => thread.id)).toEqual(
       Array.from({ length: 125 }, (_, i) => `thread-${124 - i}`)
@@ -1088,16 +1389,68 @@ describe('Copilot background execution and native history', () => {
         id: `message-${i}`,
         threadId: 'thread-0',
         resourceId,
-        role: 'user' as const,
-        createdAt: new Date(i * 1000),
+        role: i % 2 ? ('assistant' as const) : ('user' as const),
+        // Equal timestamps straddle the initial 40-message boundary.
+        createdAt: new Date((i === 85 ? 84 : i) * 1000),
         content: { format: 2 as const, parts: [{ type: 'text' as const, text: `Message ${i}` }] },
       })),
     })
-    const history = (await command({ command: 'thread.observe', threadId: 'thread-0' })).result
-    if (history.status !== 'history') throw new Error(JSON.stringify(history))
-    expect(history.items.map((message) => message.id)).toEqual(
-      Array.from({ length: 125 }, (_, i) => `message-${i}`)
+    const observe = {
+      command: 'thread.observe',
+      workspaceId: scope.workspaceId,
+      threadId: 'thread-0',
+    } as const
+    const events = readEvents((await post(observe)).body!)
+    const first = (await events.next()).value
+    await events.return(undefined)
+    if (first?.type !== 'thread.history') throw new Error('Expected native thread history')
+    expect(first.result.items).toHaveLength(40)
+    let items = first.result.items
+    const through = items[0]!.createdAt
+    const pageRequest = { ...observe, command: 'thread.page', through, page: 1 } as const
+    await store.saveMessages({
+      messages: [
+        {
+          id: 'new-arrival',
+          threadId: 'thread-0',
+          resourceId,
+          role: 'user',
+          createdAt: new Date(),
+          content: { format: 2, parts: [{ type: 'text', text: 'New' }] },
+        },
+      ],
+    })
+    let hasMore = first.result.hasMore
+    for (let page = 0; hasMore && page <= 3; page++) {
+      const older = await (await post({ ...pageRequest, page })).json()
+      expect(older.status).toBe('history.page')
+      expect(older.items.length).toBeLessThanOrEqual(40)
+      const known = new Set(items.map((item) => item.id))
+      items = [...older.items.filter((item: { id: string }) => !known.has(item.id)), ...items]
+      hasMore = older.hasMore
+    }
+    expect(hasMore).toBe(false)
+    expect(items.map((message) => message.id).sort()).toEqual(
+      Array.from({ length: 125 }, (_, i) => `message-${i}`).sort()
     )
+    expect(items.map(({ createdAt }) => createdAt)).toEqual(
+      Array.from({ length: 125 }, (_, i) => new Date((i === 85 ? 84 : i) * 1000).toISOString())
+    )
+    expect(items.slice(0, 2)).toMatchObject([
+      { role: 'user', parts: [{ type: 'text', text: 'Message 0' }] },
+      { role: 'assistant', parts: [{ type: 'text', text: 'Message 1' }] },
+    ])
+    expect(await (await post({ ...list, workspaceId: 'another-workspace' })).json()).toEqual({
+      status: 'threads',
+      items: [],
+    })
+    expect((await post({ ...pageRequest, workspaceId: 'another-workspace' })).status).toBe(404)
+    m.session.mockResolvedValue({ user: { id: 'another-actor' } })
+    expect(await (await post(list)).json()).toEqual({ status: 'threads', items: [] })
+    expect((await post(observe)).status).toBe(404)
+    expect((await post(pageRequest)).status).toBe(404)
+    expect(m.dispatch).not.toHaveBeenCalled()
+    expect(m.contacts).toHaveLength(0)
   })
   it('persists chat and image history across worker instances before the next turn', async () => {
     setModel({ text: 'Known answer🔥' }, { text: 'Follow-up answer' })
@@ -1143,54 +1496,152 @@ describe('Copilot background execution and native history', () => {
     expect(m.fetch).not.toHaveBeenCalled()
   })
 
-  it.each([false, true])('continues after a server read (failed=%s)', async (failed) => {
-    const workspaceId = '550e8400-e29b-41d4-a716-446655440000'
-    const text = failed ? 'The lookup failed.' : 'One known workflow'
-    setModel({ tool: 'list_workflows', args: { workspaceId } }, { text })
-    if (failed) m.route.mockRejectedValueOnce(new Error('Workflow service unavailable'))
-    else
-      m.route.mockResolvedValueOnce({
-        entityKind: 'workflow',
-        entities: [{ entityId: 'workflow', entityName: 'Known' }],
-        count: 1,
+  it.each(['success', 'refused', 'error'] as const)(
+    'continues after a server read (%s)',
+    async (outcome) => {
+      const workspaceId = '550e8400-e29b-41d4-a716-446655440000'
+      const failed = outcome !== 'success'
+      const text = failed ? 'The lookup failed.' : 'One known workflow'
+      setModel({ tool: 'list_workflows', args: { workspaceId } }, { text })
+      if (failed)
+        m.route.mockRejectedValueOnce(
+          outcome === 'refused'
+            ? new NativeTargetError('Workflow service unavailable', 404)
+            : new Error('Database failure with admin-key')
+        )
+      else
+        m.route.mockResolvedValueOnce({
+          entityKind: 'workflow',
+          entities: [{ entityId: 'workflow', entityName: 'Known' }],
+          count: 1,
+        })
+      const { result } = await message({ scope: { ...scope, workspaceId }, accessLevel: 'full' })
+      expectWorkspaceScope(m.contacts[0], workspaceId)
+      expect(result).toMatchObject({
+        status: 'success',
+        text,
       })
-    const { result } = await message({ scope: { ...scope, workspaceId }, accessLevel: 'full' })
-    expectWorkspaceScope(m.contacts[0], workspaceId)
-    expect(result).toMatchObject({
-      status: 'success',
-      text,
-    })
-    expect(m.route).toHaveBeenCalledExactlyOnceWith(
-      'list_workflows',
-      { workspaceId },
-      expect.objectContaining({ userId: 'actor', workspaceId })
-    )
-    expect(m.admit).toHaveBeenCalledTimes(2)
-    expect(m.accept).toHaveBeenCalledTimes(2)
-    expect(m.contacts).toHaveLength(2)
-    if (failed) expect(JSON.stringify(m.contacts[1])).toContain('Workflow service unavailable')
-    expect(await threadClaims()).toHaveLength(0)
-    expect(createConfiguredLanguageModel).toHaveBeenCalledExactlyOnceWith(
-      'configured/model',
-      'admin-key'
-    )
-    expect(m.fetch).not.toHaveBeenCalled()
-    if (result.status !== 'success') throw new Error(JSON.stringify(result))
-    const history = (
-      await command({
-        scope: { ...scope, workspaceId },
-        command: 'thread.observe',
-        threadId: result.threadId,
+      expect(m.route).toHaveBeenCalledExactlyOnceWith(
+        'list_workflows',
+        { workspaceId },
+        expect.objectContaining({ userId: 'actor', workspaceId })
+      )
+      expect(m.admit).toHaveBeenCalledTimes(2)
+      expect(m.accept).toHaveBeenCalledTimes(2)
+      expect(m.contacts).toHaveLength(2)
+      if (failed)
+        expect(JSON.stringify(m.contacts[1])).toContain(
+          outcome === 'refused' ? 'Workflow service unavailable' : 'Server tool execution failed'
+        )
+      expect(JSON.stringify(m.contacts)).not.toContain('Database failure with admin-key')
+      expect(await threadClaims()).toHaveLength(0)
+      expect(createNativeModel).toHaveBeenCalledExactlyOnceWith(
+        {
+          providerId: 'configured',
+          modelId: 'model',
+          apiKey: 'admin-key',
+        },
+        undefined
+      )
+      expect(m.fetch).not.toHaveBeenCalled()
+      if (result.status !== 'success') throw new Error(JSON.stringify(result))
+      const history = (
+        await command({
+          scope: { ...scope, workspaceId },
+          command: 'thread.observe',
+          threadId: result.threadId,
+        })
+      ).result
+      if (history.status !== 'history') throw new Error(JSON.stringify(history))
+      const replies = history.items.filter((item) => item.role === 'assistant')
+      expect(sumNativeUsage(replies)).toEqual({ inputTokens: 6, outputTokens: 4, totalTokens: 10 })
+      expect(replies.every((item) => item.cost?.status === 'unavailable')).toBe(true)
+    }
+  )
+
+  it.each([true, false])(
+    'drains automatic siblings around a public approval (both reads first: %s)',
+    async (readsFirst) => {
+      setModel(
+        {
+          tools: [
+            { tool: 'list_workflows', toolCallId: 'read-one', args: { workspaceId: 'workspace' } },
+            ...(readsFirst
+              ? []
+              : [
+                  {
+                    tool: 'rename_workflow',
+                    toolCallId: 'approve',
+                    args: { entityId: 'workflow', name: 'Reviewed' },
+                  },
+                ]),
+            {
+              tool: 'list_workflows',
+              toolCallId: 'read-two',
+              args: { workspaceId: 'second-workspace' },
+            },
+            ...(readsFirst
+              ? [
+                  {
+                    tool: 'rename_workflow',
+                    toolCallId: 'approve',
+                    args: { entityId: 'workflow', name: 'Reviewed' },
+                  },
+                ]
+              : []),
+          ],
+        },
+        { text: 'Completed both reads.' }
+      )
+      m.route.mockResolvedValue({ entityKind: 'workflow', entities: [], count: 0 })
+      const initial = suspended((await message({ accessLevel: 'limited' })).result)
+      expect(initial.pending.map((call) => [call.target.toolCallId, call.stage])).toEqual([
+        ['approve', 'approval'],
+      ])
+      expect(m.route).toHaveBeenCalledTimes(readsFirst ? 2 : 1)
+      expect(m.contacts).toHaveLength(1)
+      restart()
+      const next = await command({ command: 'tool.decline', target: initial.pending[0].target })
+      expect(next.result).toMatchObject({ status: 'success', text: 'Completed both reads.' })
+      expect(m.contacts).toHaveLength(2)
+      expect(m.accept).toHaveBeenCalledTimes(2)
+      expect(m.route).toHaveBeenCalledTimes(2)
+    }
+  )
+
+  it('continues after the search tool finds no configured service credentials', async () => {
+    const services = await import('@/lib/system-services/runtime')
+    const exa = vi
+      .spyOn(services, 'resolveExaServiceConfig')
+      .mockResolvedValueOnce({ apiKey: null })
+    const serper = vi
+      .spyOn(services, 'resolveSerperServiceConfig')
+      .mockResolvedValueOnce({ apiKey: null })
+    try {
+      const { searchOnlineServerTool } = await import(
+        '@/lib/copilot/tools/server/other/search-online'
+      )
+      m.route.mockImplementationOnce((_name, args, context) =>
+        searchOnlineServerTool.execute(args, context)
+      )
+      setModel(
+        { tool: 'search_online', args: { query: 'Studio documentation' } },
+        { text: 'Search is unavailable.' }
+      )
+      expect((await message({ accessLevel: 'full' })).result).toMatchObject({
+        status: 'success',
+        text: 'Search is unavailable.',
       })
-    ).result
-    if (history.status !== 'history') throw new Error(JSON.stringify(history))
-    expect(history.items.filter((item) => item.role === 'assistant')).toMatchObject([
-      {
-        usage: { inputTokens: 6, outputTokens: 4, totalTokens: 10 },
-        cost: { status: 'unavailable' },
-      },
-    ])
-  })
+      expect(JSON.stringify(m.contacts[1])).toContain('Server tool execution failed')
+      expect(m.contacts).toHaveLength(2)
+      expect(m.accept).toHaveBeenCalledTimes(2)
+      expect(m.fetch).not.toHaveBeenCalled()
+      expect(await threadClaims()).toHaveLength(0)
+    } finally {
+      exa.mockRestore()
+      serper.mockRestore()
+    }
+  }, 30_000)
 
   it('identifies a personal conversation without inventing a selected workspace', async () => {
     setModel({ text: 'Select a workspace to list its workflows.' })
@@ -1201,30 +1652,9 @@ describe('Copilot background execution and native history', () => {
     expect(m.route).not.toHaveBeenCalled()
   })
 
-  it('fails an exhausted native tool loop while retaining every step charge and releasing the conversation', async () => {
+  it('can run fifty Studio tools and settle each step through the native final answer', async () => {
     setModel(
       ...Array.from({ length: 50 }, (_, index) => ({
-        tool: 'list_workflows',
-        args: { workspaceId: 'workspace' },
-        toolCallId: `loop-call-${index}`,
-      }))
-    )
-    m.route.mockResolvedValue({ entityKind: 'workflow', entities: [], count: 0 })
-    const { result } = await message({ accessLevel: 'full' })
-    expect(result).toMatchObject({
-      status: 'failed',
-      error: { code: 'GENERATION_FAILED' },
-      usage: { inputTokens: 150, outputTokens: 100, totalTokens: 250 },
-    })
-    expect(m.contacts).toHaveLength(50)
-    expect(m.route).toHaveBeenCalledTimes(49)
-    expect(m.accept).toHaveBeenCalledTimes(50)
-    expect(await threadClaims()).toHaveLength(0)
-  })
-
-  it('reserves the last native step for an answer using existing tool results', async () => {
-    setModel(
-      ...Array.from({ length: 49 }, (_, index) => ({
         tool: 'list_workflows',
         args: { workspaceId: 'workspace' },
         toolCallId: `answer-call-${index}`,
@@ -1236,14 +1666,14 @@ describe('Copilot background execution and native history', () => {
     expect(result).toMatchObject({
       status: 'success',
       text: 'No workflows are available.',
-      usage: { inputTokens: 150, outputTokens: 100, totalTokens: 250 },
+      usage: { inputTokens: 153, outputTokens: 102, totalTokens: 255 },
     })
-    expect(m.contacts).toHaveLength(50)
-    expect(m.contacts.at(-1)).toMatchObject({ toolChoice: { type: 'none' } })
-    expect(m.route).toHaveBeenCalledTimes(49)
-    expect(m.accept).toHaveBeenCalledTimes(50)
+    expect(m.contacts).toHaveLength(51)
+    expect(m.contacts.at(-1)).toMatchObject({ toolChoice: { type: 'auto' } })
+    expect(m.route).toHaveBeenCalledTimes(50)
+    expect(m.accept).toHaveBeenCalledTimes(51)
     expect(await threadClaims()).toHaveLength(0)
-  })
+  }, 30_000)
 
   it('does not accept earlier tool commentary as an answer when the final response is blank', async () => {
     setModel(
@@ -1397,6 +1827,23 @@ describe('Copilot background execution and native history', () => {
     expect(response.status).toBe(202)
     const accepted = await response.json()
     await executing.promise
+    const attempted = await executeCopilotCommand(
+      {
+        command: 'tool.execute',
+        workspaceId: scope.workspaceId,
+        requestId: crypto.randomUUID(),
+        action: 'readback',
+        target: {
+          threadId: accepted.threadId,
+          runId: accepted.runId,
+          ...nativeConversationIdentity(scope),
+          toolCallId: 'original-tool-call',
+          toolName: 'list_workflows',
+        },
+      },
+      scope.actorUserId
+    )
+    expect(attempted.status).toBe(409)
     const observation = await executeCopilotCommand(
       { command: 'thread.observe', workspaceId: scope.workspaceId, threadId: accepted.threadId },
       scope.actorUserId
@@ -1405,7 +1852,11 @@ describe('Copilot background execution and native history', () => {
     try {
       for await (const event of readEvents(observation.body!)) {
         events.push(event)
-        if (event.type === 'thread.output' && event.event.type === 'tool.display') finish.resolve()
+        if (event.type === 'thread.history') {
+          expect(event.result.pending).toEqual([])
+          expect(JSON.stringify(event.result.items)).not.toContain('studioDispatch')
+          finish.resolve()
+        }
         if (event.type === 'thread.status') break
       }
     } finally {
@@ -1413,8 +1864,8 @@ describe('Copilot background execution and native history', () => {
     }
     expect(events[0]).toMatchObject({ type: 'thread.history', activeRunId: accepted.runId })
     const output = events.flatMap((event) => (event.type === 'thread.output' ? [event.event] : []))
-    expect(output.map((event) => event.type)).toEqual(['tool.display', 'tool.result', 'text.delta'])
-    expect(output[1]).toMatchObject({
+    expect(output.map((event) => event.type)).toContain('text.delta')
+    expect(output.find((event) => event.type === 'tool.result')).toMatchObject({
       type: 'tool.result',
       toolName: 'list_workflows',
       result: { entityKind: 'workflow', entities: [], count: 0 },
@@ -1424,6 +1875,342 @@ describe('Copilot background execution and native history', () => {
     expect(m.fetch).not.toHaveBeenCalled()
   })
 
+  it('keeps the native result pending when the accepted readback finds a resumed checkpoint', async () => {
+    const workflowId = workflowCall.args.entityId
+    setModel(workflowCall, { text: 'Received the final cancellation' })
+    const toolContext = {
+      contextEntityKind: 'workflow',
+      contextEntityId: workflowId,
+      workspaceId: 'business',
+    }
+    const initial = suspended((await message({ accessLevel: 'full', toolContext })).result)
+    const target = initial.pending[0].target
+    const executionId = nativeToolCallId(target)
+    const handle = { workflowId, executionId, taskId: executionId }
+    const request = {
+      command: 'tool.execute',
+      action: 'readback',
+      target,
+      requestId: crypto.randomUUID(),
+    }
+    m.startJobs = false
+    expect((await command(request)).response.status).toBe(202)
+    expect(m.executionLog).not.toHaveBeenCalled()
+    m.executionLog.mockRejectedValueOnce(new ObserveWorkflowExecution(handle))
+    await executeJob([...m.jobs.keys()][0])
+    restart()
+    const { result: history } = await command({
+      command: 'thread.observe',
+      threadId: initial.threadId,
+    })
+    if (history.status !== 'history') throw new Error('Missing persisted history')
+    expect(history).toMatchObject({
+      pending: initial.pending,
+      workflowObservation: {
+        requestId: request.requestId,
+        nextRequestId: expect.any(String),
+        target,
+        handle,
+      },
+    })
+    expect(m.contacts).toHaveLength(1)
+    expect(m.accept).toHaveBeenCalledTimes(1)
+    m.executionLog.mockResolvedValue({
+      executionId,
+      level: 'error',
+      startedAt: new Date(),
+      endedAt: new Date(),
+      totalDurationMs: 1,
+      executionData: { errorMessage: 'Workflow execution was cancelled' },
+    })
+    m.startJobs = true
+    const final = { ...request, requestId: history.workflowObservation!.nextRequestId }
+    expect((await command(final)).result.status).toBe('success')
+    expect(JSON.stringify(m.contacts[1])).toContain('Workflow execution was cancelled')
+    expect((await command(final)).result.status).toBe('success')
+    expect(m.contacts).toHaveLength(2)
+    expect(await pending(initial.threadId)).toEqual([])
+  })
+
+  it('cancels the attested queue task while Studio drains a resumed workflow readback', async () => {
+    const workflowId = workflowCall.args.entityId
+    const workspaceId = 'business-workspace'
+    const toolContext = { contextEntityKind: 'workflow', contextEntityId: workflowId, workspaceId }
+    setModel(workflowCall)
+    const { threadId, runId, pending } = suspended(
+      (await message({ accessLevel: 'full', toolContext })).result
+    )
+    const { target } = pending[0]
+    const executionId = nativeToolCallId(target)
+    await db.transaction((tx) =>
+      claimCopilotWorkflowAdmission({ scope, threadId, runId }, target.toolCallId, tx)
+    )
+    const entered = deferred()
+    const finish = deferred()
+    const child = deferred()
+    m.executionLog.mockImplementationOnce(async () => {
+      entered.resolve()
+      await finish.promise
+      return {
+        executionId,
+        level: 'error',
+        startedAt: new Date(),
+        endedAt: new Date(),
+        totalDurationMs: 1,
+        executionData: { errorMessage: 'Workflow execution was cancelled' },
+      }
+    })
+    m.cancelWorkflow.mockResolvedValue({ status: 'finished', pendingExecutionId: executionId })
+    m.drainWorkflow.mockImplementationOnce(() => child.promise)
+    const workflows = (await m.storage.getStore('workflows'))!
+    const reading = command({ command: 'tool.execute', action: 'readback', target })
+    await entered.promise
+    const owner = await readCopilotThreadOwnership(scope, threadId)
+    const settled = vi.fn()
+    const stopping = command({ command: 'cancel', threadId, runId }).finally(settled)
+    try {
+      await vi.waitFor(async () => {
+        expect(await isCopilotRunCancelled(runId)).toBe(true)
+        expect(m.cancelWorkflow).toHaveBeenCalledExactlyOnceWith({
+          pendingExecutionId: executionId,
+          userId: scope.actorUserId,
+          workflowId,
+          workspaceId,
+        })
+      })
+      expect((await message({ threadId })).result.status).toBe('refused')
+      expect(await readCopilotThreadOwnership(scope, threadId)).toMatchObject({
+        ownerId: runId,
+        generation: owner!.generation,
+        live: true,
+      })
+      expect(await workflows.getWorkflowRunById({ runId })).not.toBeNull()
+      expect(settled).not.toHaveBeenCalled()
+      finish.resolve()
+      expect((await reading).result.status).toBe('aborted')
+      expect(m.contacts).toHaveLength(1)
+      expect((await message({ threadId })).result.status).toBe('refused')
+      expect(await workflows.getWorkflowRunById({ runId })).not.toBeNull()
+      expect(settled).not.toHaveBeenCalled()
+    } finally {
+      finish.resolve()
+      child.resolve()
+      await Promise.all([reading, stopping])
+    }
+    expect((await stopping).result).toEqual({ status: 'cancel_requested', runId })
+    expect(await workflows.getWorkflowRunById({ runId })).toBeNull()
+    expect(await readCopilotThreadRun(scope, threadId)).toBeUndefined()
+    expect(m.cancelWorkflow).toHaveBeenCalledOnce()
+    expect(m.contacts).toHaveLength(1)
+  })
+
+  it.each(['cancelling', 'finished'])(
+    'waits for an admitted workflow and child to retire after a %s queue response',
+    async (status) => {
+      const workflowId = workflowCall.args.entityId
+      const workspaceId = 'business-workspace'
+      setModel(workflowCall, { text: 'Ready again' })
+      const toolContext = {
+        contextEntityKind: 'workflow',
+        contextEntityId: workflowId,
+        workspaceId,
+      }
+      const initial = suspended((await message({ accessLevel: 'full', toolContext })).result)
+      const { target } = initial.pending[0]
+      const { threadId, runId, toolCallId } = target
+      await db.transaction((tx) =>
+        claimCopilotWorkflowAdmission({ scope, threadId, runId }, toolCallId, tx)
+      )
+      const executionId = nativeToolCallId(target)
+      m.executionLog.mockRejectedValueOnce(
+        new ObserveWorkflowExecution({ workflowId, executionId, taskId: executionId })
+      )
+      const reading = suspended(
+        (await command({ command: 'tool.execute', action: 'readback', target })).result
+      )
+      expect(reading.pending).toEqual(initial.pending)
+      expect(m.contacts).toHaveLength(1)
+      const cancel = { command: 'cancel', threadId, runId }
+      restart()
+      const foreign = await command({ ...cancel, scope: { ...scope, actorUserId: 'other' } })
+      expect(foreign.response.ok).toBe(false)
+      expect(m.cancelWorkflow).not.toHaveBeenCalled()
+      m.cancelWorkflow.mockResolvedValueOnce({ status: 'not_found' })
+      expect((await command(cancel)).response.ok).toBe(false)
+      expect(await pending(threadId)).toEqual(initial.pending)
+      expect(await isCopilotRunCancelled(runId)).toBe(false)
+      const task = {
+        pendingExecutionId: executionId,
+        userId: scope.actorUserId,
+        workflowId,
+        workspaceId,
+      }
+      const queueResult = { status, pendingExecutionId: executionId }
+      m.cancelWorkflow.mockResolvedValue(queueResult)
+      const deadline = new AbortController()
+      const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(deadline.signal)
+      const firstCheck = deferred()
+      m.drainWorkflow.mockImplementationOnce(async (_task, _result, signal: AbortSignal) => {
+        await firstCheck.promise
+        signal.throwIfAborted()
+      })
+      const expiring = command(cancel)
+      try {
+        await vi.waitFor(async () => expect(await isCopilotRunCancelled(runId)).toBe(true))
+        expect(m.cancelWorkflow).toHaveBeenCalledTimes(2)
+        deadline.abort(new DOMException('Timed out', 'TimeoutError'))
+      } finally {
+        firstCheck.resolve()
+        timeout.mockRestore()
+      }
+      expect((await expiring).response.status).toBe(503)
+      restart()
+      expect(await isCopilotRunCancelled(runId)).toBe(true)
+      expect(await readCopilotThreadRun(scope, threadId)).toBe(runId)
+      expect(await pending(threadId)).toEqual(initial.pending)
+      expect((await message({ threadId })).result.status).toBe('refused')
+      const parent = deferred()
+      const child = deferred()
+      m.drainWorkflow.mockImplementationOnce(async () => {
+        await parent.promise
+        await child.promise
+      })
+      const acknowledged = vi.fn()
+      const stopping = command(cancel).finally(acknowledged)
+      try {
+        await vi.waitFor(() => expect(m.drainWorkflow).toHaveBeenCalledTimes(2))
+        expect(m.cancelWorkflow).toHaveBeenLastCalledWith(task)
+        expect(m.drainWorkflow).toHaveBeenLastCalledWith(task, queueResult, expect.any(AbortSignal))
+        expect(acknowledged).not.toHaveBeenCalled()
+        expect(await pending(threadId)).toEqual(initial.pending)
+        const readback = await command({ command: 'tool.execute', action: 'readback', target })
+        expect(readback.response.status).toBe(409)
+        expect(m.contacts).toHaveLength(1)
+        parent.resolve()
+        expect(await pending(threadId)).toEqual(initial.pending)
+        expect((await message({ threadId })).result.status).toBe('refused')
+        expect(acknowledged).not.toHaveBeenCalled()
+      } finally {
+        parent.resolve()
+        child.resolve()
+      }
+      expect((await stopping).result).toEqual({ status: 'cancel_requested', runId })
+      expect(acknowledged).toHaveBeenCalledOnce()
+      expect(await pending(threadId)).toEqual([])
+      expect((await message({ threadId })).result).toMatchObject({ text: 'Ready again' })
+      expect(m.contacts).toHaveLength(2)
+    }
+  )
+
+  it('retries native Stop for a never-admitted workflow after restart without replay', async () => {
+    setModel(workflowCall)
+    const initial = suspended((await message({ accessLevel: 'full' })).result)
+    const target = initial.pending[0].target
+    const run = { scope, runId: target.runId, threadId: target.threadId }
+    const stop = { command: 'cancel', threadId: run.threadId, runId: run.runId }
+    m.cancelInsert.mockRejectedValueOnce(new Error('Native cancellation interrupted'))
+    expect((await command(stop)).response.status).toBe(503)
+    expect(await isCopilotRunCancelled(run.runId)).toBe(false)
+    restart()
+    expect(await pending(run.threadId)).toEqual(initial.pending)
+    expect((await command(stop)).result).toEqual({ status: 'cancel_requested', runId: run.runId })
+    expect(await pending(run.threadId)).toEqual([])
+    await expect(
+      db.transaction((tx) => claimCopilotWorkflowAdmission(run, target.toolCallId, tx))
+    ).rejects.toMatchObject({ status: 409 })
+    expect(m.cancelWorkflow).not.toHaveBeenCalled()
+    expect(m.contacts).toHaveLength(1)
+  })
+
+  it('rechecks a newly reported sibling admitted while Stop drains the first workflow', async () => {
+    setModel(workflowCall)
+    const initial = suspended((await message({ accessLevel: 'full' })).result)
+    const run = { scope, runId: initial.runId, threadId: initial.threadId }
+    const first = initial.pending[0].target
+    const second = { ...first, toolCallId: 'late-workflow-sibling' }
+    const list = m.agent.listSuspendedRuns.bind(m.agent)
+    let siblingVisible = false
+    // Control when discovery exposes a sibling with the same scoped arguments as the real suspension.
+    const discovery = vi.spyOn(m.agent, 'listSuspendedRuns').mockImplementation(async (options) => {
+      const found = await list(options)
+      const suspended = found.runs.find((item) => item.runId === run.runId)
+      if (siblingVisible && suspended?.toolCalls[0])
+        suspended.toolCalls = [
+          ...suspended.toolCalls,
+          { ...suspended.toolCalls[0], toolCallId: second.toolCallId },
+        ]
+      return found
+    })
+    await db.transaction((tx) => claimCopilotWorkflowAdmission(run, first.toolCallId, tx))
+    m.cancelWorkflow.mockResolvedValue({ status: 'finished' }).mockImplementationOnce(async () => {
+      siblingVisible = true
+      await db.transaction((tx) => claimCopilotWorkflowAdmission(run, second.toolCallId, tx))
+      return { status: 'cancelling' }
+    })
+    try {
+      const { result } = await command({
+        command: 'cancel',
+        threadId: run.threadId,
+        runId: run.runId,
+      })
+      expect(result).toEqual({ status: 'cancel_requested', runId: run.runId })
+    } finally {
+      discovery.mockRestore()
+    }
+    expect(m.cancelWorkflow.mock.calls.map(([request]) => request.pendingExecutionId)).toEqual([
+      nativeToolCallId(first),
+      nativeToolCallId(second),
+    ])
+    expect(m.contacts).toHaveLength(1)
+  })
+
+  it('orders Stop against admission when a live worker first suspends during cancellation', async () => {
+    const generating = deferred()
+    const suspend = deferred()
+    setModel({
+      ...workflowCall,
+      text: (async function* () {
+        generating.resolve()
+        await suspend.promise
+        yield 'Running the workflow'
+      })(),
+    })
+    const writing = deferred()
+    const commit = deferred()
+    m.cancelInsert.mockImplementationOnce(async () => {
+      writing.resolve()
+      await commit.promise
+    })
+    const response = message({ accessLevel: 'full' })
+    await generating.promise
+    const [runId] = m.jobs.keys()
+    const run = { scope, threadId: runId, runId }
+    const stopping = command({ command: 'cancel', threadId: run.threadId, runId: run.runId })
+    try {
+      await writing.promise
+      expect((await m.agent.listSuspendedRuns({ threadId: run.threadId })).runs).toEqual([])
+      suspend.resolve()
+      const initial = suspended((await response).result)
+      const [call] = initial.pending
+      expect(call.target.toolName).toBe('run_workflow')
+      let admitted = false
+      const admission = db.transaction(async (tx) => {
+        await claimCopilotWorkflowAdmission(run, call.target.toolCallId, tx)
+        admitted = true
+      })
+      const refused = expect(admission).rejects.toMatchObject({ status: 409 })
+      commit.resolve()
+      await refused
+      expect((await stopping).result).toEqual({ status: 'cancel_requested', runId: run.runId })
+      expect(admitted).toBe(false)
+      expect(m.cancelWorkflow).not.toHaveBeenCalled()
+      expect(await pending(run.threadId)).toEqual([])
+    } finally {
+      suspend.resolve()
+      commit.resolve()
+      await stopping
+    }
+  })
   it.each(['info', 'error'])(
     'resumes a retained %s workflow result after deletion without live-workflow admission',
     async (level) => {
@@ -1466,13 +2253,10 @@ describe('Copilot background execution and native history', () => {
         action: 'readback',
       })
       expect(result).toMatchObject({ status: 'success', text: 'Recovered execution result' })
-      expect(m.business).toHaveBeenCalledExactlyOnceWith(
+      expect(m.business).not.toHaveBeenCalled()
+      expect(m.executionLog).toHaveBeenCalledExactlyOnceWith(
         scope,
         expect.objectContaining({ target }),
-        expect.objectContaining({
-          executionId: nativeToolCallId(target),
-          data: expect.objectContaining({ success: level !== 'error', output }),
-        }),
         expect.objectContaining({ userId: scope.actorUserId })
       )
       expect(JSON.stringify(m.contacts[1])).toContain(output.retained)
@@ -1606,23 +2390,18 @@ describe('Copilot background execution and native history', () => {
     const initial = suspended((await message({ accessLevel: 'limited' })).result)
     m.startJobs = false
     m.route.mockResolvedValue({
+      success: true,
+      entityKind: 'workflow',
       entityId: 'workflow',
       entityName: 'Changed',
       workspaceId: scope.workspaceId,
     })
-    const response = await executeCopilotCommand(
-      {
-        command: 'tool.approve',
-        requestId: crypto.randomUUID(),
-        workspaceId: scope.workspaceId,
-        target: initial.pending[0].target,
-      },
-      scope.actorUserId
-    )
-    const accepted = await response.json()
+    const { result: accepted } = await command({
+      command: 'tool.approve',
+      target: initial.pending[0].target,
+    })
     expect(accepted).toMatchObject({ status: 'accepted', runId: initial.runId })
-    const thread = await m.memory.getThreadById({ threadId: initial.threadId })
-    const job = thread!.metadata!.copilotJob as { id: string }
+    const [job] = m.jobs.values()
     const cancellation = new AbortController()
     const observation = await executeCopilotCommand(
       { command: 'thread.observe', workspaceId: scope.workspaceId, threadId: initial.threadId },
@@ -1660,13 +2439,16 @@ describe('Copilot background execution and native history', () => {
   it('recovers the original preview after restart and applies a decision once', async () => {
     const originalCredential = 'first-synthetic-credential'
     const rotatedCredential = 'replacement-synthetic-credential'
-    m.resolve.mockImplementation(async (model: string) => ({
-      model,
-      apiKey: originalCredential,
-    }))
+    const reasoning = { type: 'effort', value: 'high' } as const
+    const connection = { providerId: 'openai', modelId: 'gpt-5' }
+    m.resolve.mockResolvedValue({ ...connection, apiKey: originalCredential })
     const args = { entityId: 'workflow', name: 'Renamed' }
     const preview = { requiresReview: true, reviewBaseStateHash: 'original-base' }
-    setModel({ tool: 'rename_workflow', args }, { text: 'Renamed successfully' })
+    const tokens = { inputTokens: 3, outputTokens: 2, totalTokens: 5 }
+    setModel(
+      { tool: 'rename_workflow', args, usage: { ...tokens, cachedInputTokens: 0 } },
+      { text: 'Renamed successfully' }
+    )
     m.route.mockResolvedValueOnce(preview).mockResolvedValueOnce({
       success: true,
       workspaceId: 'workspace',
@@ -1683,12 +2465,29 @@ describe('Copilot background execution and native history', () => {
       (
         await message({
           accessLevel: 'limited',
-          model: 'openai/gpt-4.1',
+          model: 'openai/gpt-5',
+          reasoning,
           input: { content: 'Rename the workflow', contexts: [context] },
         })
       ).result
     )
     expect(initial.pending[0].stage).toBe('approval')
+    const pausedHistory = (await command({ command: 'thread.observe', threadId: initial.threadId }))
+      .result
+    if (pausedHistory.status !== 'history') throw new Error(JSON.stringify(pausedHistory))
+    const pausedReply = pausedHistory.items.find((item) => item.role === 'assistant')!
+    expect(pausedReply.usage).toStrictEqual({
+      ...tokens,
+      cachedInputTokens: 0,
+      cacheStatus: 'miss',
+    })
+    expect(createNativeModel).toHaveBeenLastCalledWith(
+      {
+        ...connection,
+        apiKey: originalCredential,
+      },
+      reasoning.value
+    )
     expect(m.route).not.toHaveBeenCalled()
     const workflows = (await m.storage.getStore('workflows'))!
     expect(JSON.stringify(m.model).includes(originalCredential)).toBe(true)
@@ -1700,12 +2499,13 @@ describe('Copilot background execution and native history', () => {
         originalCredential
       )
     ).toBe(false)
-    m.resolve.mockImplementation(async (model: string) => ({ model, apiKey: rotatedCredential }))
+    m.resolve.mockResolvedValue({ ...connection, apiKey: rotatedCredential })
     restart()
     expect(await readCopilotRun(scope, initial.threadId, initial.runId)).toMatchObject({
       scope,
-      model: 'openai/gpt-4.1',
+      model: 'openai/gpt-5',
       accessLevel: 'limited',
+      reasoning,
     })
     await expect(
       readCopilotRun({ ...scope, actorUserId: 'foreign' }, initial.threadId, initial.runId)
@@ -1720,10 +2520,10 @@ describe('Copilot background execution and native history', () => {
     }
     const approved = suspended((await command(approval)).result)
     expect((await command(approval)).result).toMatchObject(approved)
-    expect(m.resolve).toHaveBeenLastCalledWith('openai/gpt-4.1')
-    expect(createConfiguredLanguageModel).toHaveBeenLastCalledWith(
-      'openai/gpt-4.1',
-      rotatedCredential
+    expect(m.resolve).toHaveBeenLastCalledWith('openai/gpt-5', reasoning)
+    expect(createNativeModel).toHaveBeenLastCalledWith(
+      { ...connection, apiKey: rotatedCredential },
+      reasoning.value
     )
     expect(JSON.stringify(m.model).includes(rotatedCredential)).toBe(true)
     const resumedSnapshot = JSON.stringify(
@@ -1771,6 +2571,10 @@ describe('Copilot background execution and native history', () => {
     })
     expect(m.route).toHaveBeenCalledTimes(2)
     expectWorkspaceScope(m.contacts[1], scope.workspaceId)
+    expect(createNativeModel).toHaveBeenLastCalledWith(
+      { ...connection, apiKey: rotatedCredential },
+      reasoning.value
+    )
     expect(JSON.stringify(m.contacts[1])).toContain(privateContext)
     expect(m.route).toHaveBeenLastCalledWith(
       'rename_workflow',
@@ -1782,11 +2586,13 @@ describe('Copilot background execution and native history', () => {
     if (history.status !== 'history') throw new Error(JSON.stringify(history))
     const assistants = history.items.filter((item) => item.role === 'assistant')
     expect(assistants).toHaveLength(2)
+    expect(assistants[0]).toMatchObject({ id: pausedReply.id, usage: pausedReply.usage })
+    expect(assistants[1].id).not.toBe(pausedReply.id)
+    expect(assistants[1].usage).toStrictEqual(tokens)
     for (const assistant of assistants) {
       expect(assistant.runId).toBe(initial.runId)
-      expect(assistant.usage).toEqual({ inputTokens: 3, outputTokens: 2, totalTokens: 5 })
-      expect(assistant.cost).toMatchObject({ status: 'estimated', currency: 'USD' })
-      expect(assistant.cost?.total).toBeCloseTo(0.000022, 12)
+      expect(assistant.cost).toMatchObject({ currency: 'USD' })
+      expect(assistant.cost?.total).toBeCloseTo(0.00002375, 12)
     }
     const contacts = m.contacts.length
     const settlements = m.accept.mock.calls.length
@@ -1806,7 +2612,17 @@ describe('Copilot background execution and native history', () => {
         { text: 'Done' }
       )
       m.route.mockResolvedValueOnce({ status: 200, data: 'Read' })
-      const initial = suspended((await message({ toolContext, accessLevel: 'limited' })).result)
+      const reasoning = { type: 'effort', value: 'high' } as const
+      const initial = suspended(
+        (
+          await message({
+            toolContext,
+            accessLevel: 'limited',
+            model: 'google/gemini-2.5-flash',
+            reasoning,
+          })
+        ).result
+      )
       const expected = toolContext ?? { workspaceId: scope.workspaceId }
       expect(initial.pending[0]).toMatchObject({ stage: 'approval', context: expected })
       restart()
@@ -1836,6 +2652,40 @@ describe('Copilot background execution and native history', () => {
           })
         ).result
       ).toMatchObject({ status: 'success', text: 'Done' })
+      expect(m.contacts).toHaveLength(3)
+      for (const [, level] of vi.mocked(createNativeModel).mock.calls)
+        expect(level).toBe(reasoning.value)
+    }
+  )
+
+  it.each([undefined, 'high'] as const)(
+    'keeps the admitted effort for %s on cold decline',
+    async (value) => {
+      const reasoning = value && { type: 'effort' as const, value }
+      const admitted = { type: 'effort', value: value ?? 'low' } as const
+      vi.mocked(validateCopilotModel).mockResolvedValueOnce({
+        model: 'google/gemini-2.5-flash',
+        reasoning: admitted,
+      })
+      setModel(
+        { tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } },
+        { text: 'No edit applied' }
+      )
+      const initial = suspended(
+        (await message({ accessLevel: 'limited', model: 'google/gemini-2.5-flash', reasoning }))
+          .result
+      )
+      restart()
+      const { result } = await command({
+        command: 'tool.decline',
+        target: initial.pending[0].target,
+        reason: 'Declined',
+      })
+      expect(result).toMatchObject({ status: 'success', text: 'No edit applied' })
+      expect(m.route).not.toHaveBeenCalled()
+      expect(m.contacts).toHaveLength(2)
+      for (const [, level] of vi.mocked(createNativeModel).mock.calls)
+        expect(level).toBe(admitted.value)
     }
   )
 
@@ -1908,12 +2758,11 @@ describe('Copilot background execution and native history', () => {
   it.each(
     ['local', 'trigger'].flatMap((mode) =>
       [
-        { command: 'tool.approve', requestId: crypto.randomUUID() },
-        { command: 'tool.decline', requestId: crypto.randomUUID(), reason: 'Declined' },
-        { command: 'tool.execute', requestId: crypto.randomUUID(), action: 'readback' },
+        { command: 'tool.approve' },
+        { command: 'tool.decline', reason: 'Declined' },
+        { command: 'tool.execute', action: 'readback' },
         {
           command: 'tool.result',
-          requestId: crypto.randomUUID(),
           assertion: { kind: 'timer.completed', data: {} },
         },
       ].map((request) => ({ mode, request }))
@@ -1942,22 +2791,15 @@ describe('Copilot background execution and native history', () => {
       m.triggerState.mockResolvedValue({ mode })
       vi.stubEnv('REDIS_URL', 'redis://shared-streams.invalid')
       m.dispatch.mockClear()
-      const response = await executeCopilotCommand(
-        {
-          ...request,
-          workspaceId: scope.workspaceId,
-          target: {
-            ...victim.pending[0].target,
-            threadId,
-            resourceId: nativeConversationIdentity(scope).resourceId,
-          },
-        } as CopilotRequest,
-        scope.actorUserId
-      )
-      await executeCopilotCommand(
-        { command: 'cancel', workspaceId: scope.workspaceId, threadId, runId: victim.runId },
-        scope.actorUserId
-      )
+      const { response } = await command({
+        ...request,
+        target: {
+          ...victim.pending[0].target,
+          threadId,
+          resourceId: nativeConversationIdentity(scope).resourceId,
+        },
+      })
+      await command({ command: 'cancel', threadId, runId: victim.runId })
       expect(await isCopilotRunCancelled(victim.runId)).toBe(false)
       expect(m.receipts).toEqual(receipts)
       expect(await workflows.getWorkflowRunById({ runId: victim.runId })).toEqual(snapshot)
@@ -1972,7 +2814,7 @@ describe('Copilot background execution and native history', () => {
     }
   )
 
-  it('durably cancels pending work so another instance cannot resume generation or effects', async () => {
+  it('refuses to resume cancelled work after restart and deletes its native receipts with the thread', async () => {
     setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
     const initial = suspended((await message({ accessLevel: 'limited' })).result)
     const original = initial.pending[0]
@@ -1994,8 +2836,218 @@ describe('Copilot background execution and native history', () => {
     expect(m.route).not.toHaveBeenCalled()
     expect(m.contacts).toHaveLength(1)
     expect(m.accept).toHaveBeenCalledTimes(charges)
+    expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
+    expect(
+      (await command({ command: 'thread.delete', threadId: initial.threadId })).result
+    ).toMatchObject({ status: 'updated', operation: 'thread.delete' })
+    expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
+    expect(await m.memory.getThreadById({ threadId: initial.threadId })).toBeNull()
+    expect(await isCopilotRunCancelled(initial.runId)).toBe(false)
     expect(await threadClaims()).toHaveLength(0)
   })
+
+  it('uses one native preflight without polling while generation runs or after browser suspension', async () => {
+    setModel({ tool: 'sleep', args: { seconds: 1 } }, { text: 'Continued answer' })
+    const entered = deferred()
+    const finish = deferred()
+    const generate = m.model.doStream.bind(m.model)
+    const provider = vi.spyOn(m.model, 'doStream').mockImplementation(async (input) => {
+      entered.resolve()
+      await finish.promise
+      return generate(input)
+    })
+    const operations: string[] = []
+    const nativeFetch = globalThis.fetch
+    const transport = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const request = new Request(input, init)
+      operations.push((await request.clone().json()).operation)
+      return nativeFetch(input, init)
+    })
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const responding = message({ accessLevel: 'full' })
+    try {
+      await entered.promise
+      expect(operations.filter((operation) => operation === 'active')).toHaveLength(1)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(operations.filter((operation) => operation === 'active')).toHaveLength(1)
+      finish.resolve()
+      const initial = suspended((await responding).result)
+      expect((await readCopilotThreadOwnership(scope, initial.threadId))?.live).toBe(false)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(operations.filter((operation) => operation === 'active')).toHaveLength(1)
+      expect(operations).not.toContain('cancel')
+      expect(await isCopilotRunCancelled(initial.runId)).toBe(false)
+      expect(await pending(initial.threadId)).toEqual(initial.pending)
+      expect(initial.pending[0]).toMatchObject({ stage: 'result', target: { toolName: 'sleep' } })
+      vi.useRealTimers()
+      expect(
+        (
+          await command({
+            command: 'tool.result',
+            target: initial.pending[0].target,
+            assertion: { kind: 'timer.completed', data: { success: true, seconds: 1 } },
+          })
+        ).result
+      ).toMatchObject({ status: 'success', text: 'Continued answer' })
+    } finally {
+      finish.resolve()
+      await responding
+      provider.mockRestore()
+      transport.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('honors Stop recorded between a Studio handback and the next native step', async () => {
+    setModel({ tool: 'search_online', args: { query: 'test' } })
+    m.route.mockResolvedValueOnce({
+      results: [],
+      query: 'test',
+      type: 'search',
+      totalResults: 0,
+      source: 'exa',
+    })
+    const nativeFetch = globalThis.fetch
+    let checks = 0
+    const transport = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const { identity, operation } = await new Request(input, init).json()
+      if (operation === 'active' && ++checks === 2)
+        await cancelCopilotRun({ scope, threadId: identity.threadId, runId: identity.runId })
+      return nativeFetch(input, init)
+    })
+    try {
+      const { result } = await message({ accessLevel: 'full' })
+      expect(result).toMatchObject({ status: 'aborted', pending: [] })
+      expect(m.contacts).toHaveLength(1)
+      expect(m.route).toHaveBeenCalledTimes(1)
+    } finally {
+      transport.mockRestore()
+    }
+  })
+
+  it('propagates worker cancellation before draining a dispatched Studio tool', async () => {
+    m.startJobs = false
+    setModel({ tool: 'search_online', args: { query: 'test' } })
+    const entered = deferred()
+    const finish = deferred()
+    let toolSignal: AbortSignal | undefined
+    m.route.mockImplementationOnce(async (_name, _args, context) => {
+      toolSignal = context.signal
+      entered.resolve()
+      await finish.promise
+      toolSignal?.throwIfAborted()
+      return { results: [], query: 'test', type: 'search', totalResults: 0, source: 'exa' }
+    })
+    const { result: accepted } = await message({ accessLevel: 'full' })
+    if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
+    const controller = new AbortController()
+    let settled = false
+    const running = executeCopilotJob(
+      m.jobs.get(accepted.runId)!.payload,
+      controller.signal
+    ).finally(() => {
+      settled = true
+    })
+    try {
+      await entered.promise
+      controller.abort(new Error('Trigger run cancelled'))
+      await vi.waitFor(async () => {
+        expect(await isCopilotRunCancelled(accepted.runId)).toBe(true)
+        expect(toolSignal?.aborted).toBe(true)
+      })
+      expect(settled).toBe(false)
+      expect(await readCopilotThreadRun(scope, accepted.threadId)).toBe(accepted.runId)
+      await expect(
+        claimCopilotThread(scope, accepted.threadId, 'competing-run')
+      ).rejects.toMatchObject({ status: 409 })
+      finish.resolve()
+      await running
+      expect(
+        (await m.memory.getThreadById({ threadId: accepted.threadId }))!.metadata!.copilotJob
+      ).toMatchObject({ status: 'aborted' })
+      expect(await readCopilotThreadRun(scope, accepted.threadId)).toBeUndefined()
+    } finally {
+      // Unblock the baseline implementation even when it misses the parent cancellation.
+      await cancelCopilotRun({ scope, threadId: accepted.threadId, runId: accepted.runId })
+      finish.resolve()
+      await running
+    }
+  })
+
+  it.each(['connection reset', 'gateway timeout', 'malformed response'] as const)(
+    'retains an executing Studio tool after a %s',
+    async (failure) => {
+      m.startJobs = false
+      setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
+      const entered = deferred()
+      const finish = deferred()
+      let remote: Promise<unknown> | undefined
+      m.route.mockImplementationOnce(async () => {
+        entered.resolve()
+        await finish.promise
+        return {
+          success: true,
+          entityKind: 'workflow',
+          entityId: 'workflow',
+          entityName: 'Changed',
+          workspaceId: scope.workspaceId,
+        }
+      })
+      const nativeFetch = globalThis.fetch
+      const transport = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+        const request = new Request(input, init)
+        const { operation } = await request.clone().json()
+        const server = nativeFetch(input, init)
+        if (operation !== 'tool') return server
+        remote = server
+        void remote.catch(() => undefined)
+        await entered.promise
+        if (failure === 'connection reset') throw new TypeError('fetch failed: ECONNRESET')
+        return failure === 'gateway timeout'
+          ? Response.json({ error: { message: 'Gateway timeout' } }, { status: 504 })
+          : Response.json({ result: {} })
+      })
+      vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+      const { result: accepted } = await message({ accessLevel: 'full' })
+      if (accepted.status !== 'accepted') throw new Error(JSON.stringify(accepted))
+      const running = executeCopilotJob(m.jobs.get(accepted.runId)!.payload)
+      try {
+        await entered.promise
+        const owner = await readCopilotThreadOwnership(scope, accepted.threadId)
+        expect(owner?.live).toBe(true)
+        expect(
+          (await m.memory.getThreadById({ threadId: accepted.threadId }))!.metadata!.copilotJob
+        ).not.toHaveProperty('status')
+        expect(m.contacts).toHaveLength(1)
+        expect((await message({ threadId: accepted.threadId })).result.status).toBe('refused')
+        const deadline = owner!.leaseExpiresAt!.getTime()
+        await vi.advanceTimersByTimeAsync(THREAD_LEASE_MS * 2)
+        const held = await readCopilotThreadOwnership(scope, accepted.threadId)
+        expect(held?.live).toBe(true)
+        expect(held!.leaseExpiresAt!.getTime()).toBeGreaterThan(deadline)
+        expect((await message({ threadId: accepted.threadId })).result.status).toBe('refused')
+        finish.resolve()
+        await remote!.catch(() => undefined)
+        await running
+        expect(
+          (await m.memory.getThreadById({ threadId: accepted.threadId }))?.metadata?.copilotJob
+        ).toMatchObject({ status: 'failed' })
+        m.startJobs = true
+        setModel({ text: 'Recovered answer' })
+        expect((await message({ threadId: accepted.threadId })).result).toMatchObject({
+          status: 'success',
+          text: 'Recovered answer',
+        })
+      } finally {
+        finish.resolve()
+        await remote?.catch(() => undefined)
+        await running
+        transport.mockRestore()
+        vi.useRealTimers()
+      }
+    }
+  )
+
   it.each(['approval', 'review'])(
     'retains a resumed %s writer until its approved effect settles despite cancellation',
     async (stage) => {
@@ -2027,9 +3079,16 @@ describe('Copilot background execution and native history', () => {
         entered.resolve()
         await effect.promise
         settled = true
-        return { entityId: 'workflow', entityName: 'Changed', workspaceId: scope.workspaceId }
+        return {
+          success: true,
+          entityKind: 'workflow',
+          entityId: 'workflow',
+          entityName: 'Changed',
+          workspaceId: scope.workspaceId,
+        }
       })
       let acknowledged = false
+      const stoppingAbort = vi.spyOn(m.pubsub, 'publish')
       const stopping = command({
         command: 'cancel',
         threadId: initial.threadId,
@@ -2046,16 +3105,6 @@ describe('Copilot background execution and native history', () => {
         ...(stage === 'review' ? { action: 'review.accept' } : {}),
       })
       await entered.promise
-      const native = await m.agent.subscribeToThread({
-        ...nativeConversationIdentity(scope),
-        threadId: initial.threadId,
-        withRunStatus: true,
-      })
-      const nativeAborted = (async () => {
-        for await (const event of native.stream)
-          if (event.type === 'thread-run-status' && event.payload.status === 'aborted') return
-        throw new Error('Native cancellation status was not delivered')
-      })()
       const observing = new AbortController()
       const observation = await executeCopilotCommand(
         { command: 'thread.observe', workspaceId: scope.workspaceId, threadId: initial.threadId },
@@ -2075,7 +3124,11 @@ describe('Copilot background execution and native history', () => {
       cancellation.resolve()
       try {
         await vi.waitFor(() => expect(signal?.aborted).toBe(true))
-        await nativeAborted
+        expect(stoppingAbort).toHaveBeenCalledWith(AGENT_CONTROL_TOPIC(initial.runId), {
+          type: AgentControlEventTypes.ABORT_REQUEST,
+          runId: initial.runId,
+          data: {},
+        })
         await new Promise<void>((resolve) => setImmediate(resolve))
         expect(cancellationObserved).toBe(false)
         expect(settled).toBe(false)
@@ -2098,11 +3151,62 @@ describe('Copilot background execution and native history', () => {
           })
         } finally {
           observing.abort()
-          native.unsubscribe()
         }
       }
       expect(settled).toBe(true)
       expect(await readCopilotThreadRun(scope, initial.threadId)).toBeUndefined()
+      expect(await pending(initial.threadId)).toEqual([])
+      setModel({ text: 'Continued after Stop' })
+      expect((await message({ threadId: initial.threadId })).result).toMatchObject({
+        status: 'success',
+        text: 'Continued after Stop',
+      })
+    }
+  )
+  it.each(['before worker start', 'during Studio readback'])(
+    'keeps an admitted workflow available to Stop after a readback is interrupted %s',
+    async (interruption) => {
+      setModel(workflowCall)
+      const initial = suspended((await message({ accessLevel: 'full' })).result)
+      const { target } = initial.pending[0]
+      const run = { scope, threadId: target.threadId, runId: target.runId }
+      await db.transaction((tx) => claimCopilotWorkflowAdmission(run, target.toolCallId, tx))
+      m.startJobs = false
+      m.triggerState.mockResolvedValue({ mode: 'trigger' })
+      vi.stubEnv('REDIS_URL', 'redis://shared-streams.invalid')
+      const { response } = await command({ command: 'tool.execute', action: 'readback', target })
+      expect(response.status).toBe(202)
+      const [job] = m.jobs.values()
+      if (interruption === 'before worker start') {
+        await finalizeCopilotJob(job.payload, 'Interrupted before readback')
+      } else {
+        const entered = deferred()
+        const finish = deferred()
+        m.executionLog.mockImplementationOnce(async () => {
+          entered.resolve()
+          await finish.promise
+          throw new NativeTargetError('Original workflow execution has no terminal result', 409)
+        })
+        const controller = new AbortController()
+        const running = executeJob(job.id, controller.signal)
+        await entered.promise
+        controller.abort()
+        finish.resolve()
+        await running
+      }
+      restart()
+      expect(await pending(run.threadId)).toEqual(initial.pending)
+      m.cancelWorkflow.mockResolvedValue({ status: 'cancelling' })
+      expect(
+        (await command({ command: 'cancel', threadId: run.threadId, runId: run.runId })).result
+      ).toEqual({ status: 'cancel_requested', runId: run.runId })
+      expect(m.cancelWorkflow).toHaveBeenCalledExactlyOnceWith({
+        pendingExecutionId: nativeToolCallId(target),
+        userId: scope.actorUserId,
+        workflowId: workflowCall.args.entityId,
+      })
+      expect(await pending(run.threadId)).toEqual([])
+      expect(m.contacts).toHaveLength(1)
     }
   )
   it('retains an admitted resume until cancellation settles its preflight', async () => {
@@ -2113,7 +3217,7 @@ describe('Copilot background execution and native history', () => {
     m.resolve.mockImplementationOnce(async () => {
       entered.resolve()
       await preflight.promise
-      return { apiKey: 'admin-key' }
+      return { providerId: 'configured', modelId: 'model', apiKey: 'admin-key' }
     })
     const continuing = command({
       command: 'tool.approve',
@@ -2150,12 +3254,18 @@ describe('Copilot background execution and native history', () => {
     m.resolve.mockImplementation(async () => {
       ready.resolve()
       await preflight.promise
-      return { apiKey: 'admin-key' }
+      return { providerId: 'configured', modelId: 'model', apiKey: 'admin-key' }
     })
     m.route.mockImplementationOnce(async () => {
       executing.resolve()
       await effect.promise
-      return { entityId: 'workflow', entityName: 'Changed', workspaceId: scope.workspaceId }
+      return {
+        success: true,
+        entityKind: 'workflow',
+        entityId: 'workflow',
+        entityName: 'Changed',
+        workspaceId: scope.workspaceId,
+      }
     })
     const statuses: string[] = []
     const attempts = [0, 1].map(() =>
@@ -2209,6 +3319,82 @@ describe('Copilot background execution and native history', () => {
     })
     expect(m.route).not.toHaveBeenCalled()
   })
+  it.each(['private dispatch', 'following approval'] as const)(
+    'recovers a real %s after its first discovery read fails',
+    async (failure) => {
+      const approval = failure === 'following approval'
+      const tool = approval ? 'rename_workflow' : 'list_workflows'
+      setModel(
+        { tool: 'list_workflows', args: { workspaceId: scope.workspaceId } },
+        ...(approval ? [{ tool, args: { entityId: 'workflow', name: 'Changed' } }] : []),
+        { text: 'Continued' }
+      )
+      m.route.mockResolvedValueOnce({ entityKind: 'workflow', entities: [], count: 0 })
+      const list = m.agent.listSuspendedRuns.bind(m.agent)
+      const discovered = vi.fn()
+      const spy = vi.spyOn(m.agent, 'listSuspendedRuns').mockImplementation(async (options) => {
+        const result = await list(options)
+        const call = result.runs
+          .flatMap((run) => run.toolCalls)
+          .find((call) => call.toolName === tool)
+        if (call && !discovered.mock.calls.length) {
+          discovered(call)
+          throw new Error('Storage unavailable')
+        }
+        return result
+      })
+      try {
+        const { result } = await message({ accessLevel: approval ? 'limited' : 'full' })
+        expect(discovered).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining(
+            approval
+              ? { requiresApproval: true }
+              : { suspendPayload: expect.objectContaining({ studioDispatch: true }) }
+          )
+        )
+        expect(result).toMatchObject({ status: 'failed' })
+        if (result.status !== 'failed' || !('pending' in result))
+          throw new Error(JSON.stringify(result))
+        const { threadId, runId } = result
+        const workflows = (await m.storage.getStore('workflows'))!
+        if (approval) {
+          expect(result.pending).toMatchObject([
+            { stage: 'approval', target: { toolName: tool, runId } },
+          ])
+          expect(await readCopilotThreadRun(scope, threadId)).toBe(runId)
+          expect(
+            (
+              await command({
+                command: 'tool.decline',
+                target: result.pending[0].target,
+                reason: 'Keep the name',
+              })
+            ).result
+          ).toMatchObject({ status: 'success', text: 'Continued' })
+          expect(m.route.mock.calls.map(([name]) => name)).toEqual(['list_workflows'])
+        } else {
+          expect(result.pending).toEqual([])
+          expect((await list({ threadId })).runs).toEqual([])
+          expect(await workflows.getWorkflowRunById({ runId })).toBeNull()
+          expect(await readCopilotThreadRun(scope, threadId)).toBeUndefined()
+          expect(await threadClaims()).toHaveLength(0)
+          expect((await message({ threadId })).result).toMatchObject({
+            status: 'success',
+            text: 'Continued',
+          })
+          expect((await command({ command: 'thread.delete', threadId })).result).toMatchObject({
+            status: 'updated',
+            operation: 'thread.delete',
+            threadId,
+          })
+          expect(await m.memory.getThreadById({ threadId })).toBeNull()
+          expect(m.route).not.toHaveBeenCalled()
+        }
+      } finally {
+        spy.mockRestore()
+      }
+    }
+  )
   it('preserves a known native suspension when pending discovery fails', async () => {
     setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Changed' } })
     const list = m.agent.listSuspendedRuns.bind(m.agent)
@@ -2255,7 +3441,7 @@ describe('Copilot background execution and native history', () => {
     const charges = m.accept.mock.calls.length
     const dispatches = m.route.mock.calls.length
     const receipts = m.receipts.size
-    const models = vi.mocked(createConfiguredLanguageModel).mock.calls.length
+    const models = vi.mocked(createNativeModel).mock.calls.length
     const error = new NativeTargetError(
       status === 409 ? 'The Copilot API key is not configured' : 'Copilot model unavailable',
       status
@@ -2275,11 +3461,11 @@ describe('Copilot background execution and native history', () => {
       status: 'failed',
       error: { code: status === 409 ? 'STALE_TARGET' : 'INVALID_REQUEST', message: error.message },
     })
-    expect(m.resolve).toHaveBeenLastCalledWith('configured/model')
+    expect(m.resolve).toHaveBeenLastCalledWith('configured/model', undefined)
     expect(m.route).toHaveBeenCalledTimes(dispatches)
     expect(m.receipts.size).toBe(receipts + 1)
     expect(m.contacts).toHaveLength(1)
-    expect(createConfiguredLanguageModel).toHaveBeenCalledTimes(models)
+    expect(createNativeModel).toHaveBeenCalledTimes(models)
     expect(m.admit).toHaveBeenCalledTimes(admissions)
     expect(m.accept).toHaveBeenCalledTimes(charges)
     expect(await pending(initial.threadId)).toEqual(initial.pending)
@@ -2330,21 +3516,6 @@ describe('Copilot background execution and native history', () => {
       spy.mockRestore()
       await successor?.release()
     }
-  })
-
-  it('deletes cancelled native suspensions and their application receipts with the conversation', async () => {
-    setModel({ tool: 'rename_workflow', args: { entityId: 'workflow', name: 'Renamed' } })
-    const initial = suspended((await message({ accessLevel: 'limited' })).result)
-    vi.spyOn(m.agent, 'abortThreadStream').mockReturnValueOnce(false)
-    await command({ command: 'cancel', threadId: initial.threadId, runId: initial.runId })
-    expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
-    expect(
-      (await command({ command: 'thread.delete', threadId: initial.threadId })).result
-    ).toMatchObject({ status: 'updated', operation: 'thread.delete' })
-    expect((await m.agent.listSuspendedRuns({ threadId: initial.threadId })).runs).toEqual([])
-    expect(await m.memory.getThreadById({ threadId: initial.threadId })).toBeNull()
-    expect(await isCopilotRunCancelled(initial.runId)).toBe(false)
-    expect(await threadClaims()).toHaveLength(0)
   })
 
   it('refuses to recreate a thread deleted after preflight but before writer admission', async () => {
@@ -2519,7 +3690,7 @@ describe('Copilot background execution and native history', () => {
         const owner = await readCopilotThreadOwnership(scope, initial.threadId)
         vi.setSystemTime(owner!.leaseExpiresAt!.getTime() + 1)
         restart()
-        const abort = vi.spyOn(m.agent, 'abortThreadStream')
+        const abort = vi.spyOn(m.pubsub, 'publish')
         expect(
           (
             await message({
@@ -2539,7 +3710,9 @@ describe('Copilot background execution and native history', () => {
         expect(
           (await m.memory.getThreadById({ threadId: initial.threadId }))!.metadata!.copilotJob
         ).toEqual(completedJob)
-        expect(abort).not.toHaveBeenCalled()
+        expect(
+          abort.mock.calls.some(([, event]) => event.type === AgentControlEventTypes.ABORT_REQUEST)
+        ).toBe(false)
       } finally {
         gate.resolve()
         await editing
@@ -2587,6 +3760,8 @@ describe('Copilot background execution and native history', () => {
         expect(first.status).toBe('accepted')
         await writing.promise
         if (otherInstance) restart()
+        const abort = vi.spyOn(m.pubsub, 'publish')
+        const contacts = m.contacts.length
         let acknowledged = false
         const stopping = executeCopilotCommand(
           {
@@ -2601,8 +3776,12 @@ describe('Copilot background execution and native history', () => {
           return response
         })
         await vi.waitFor(async () => expect(await isCopilotRunCancelled(first.runId)).toBe(true))
-        if (otherInstance)
-          await vi.waitFor(() => expect(m.admit.mock.calls.at(-1)?.[0].signal.aborted).toBe(true))
+        expect(abort).toHaveBeenCalledWith(AGENT_CONTROL_TOPIC(first.runId), {
+          type: AgentControlEventTypes.ABORT_REQUEST,
+          runId: first.runId,
+          data: {},
+        })
+        expect(m.contacts).toHaveLength(contacts)
         expect(acknowledged).toBe(false)
         expect(await readCopilotThreadRun(scope, first.threadId)).toBe(first.runId)
         expect(persisted).toBe(false)
@@ -2617,6 +3796,7 @@ describe('Copilot background execution and native history', () => {
         })
         expect(persisted).toBe(true)
         expect(await readCopilotThreadRun(scope, first.threadId)).toBeUndefined()
+        expect(await pending(first.threadId)).toEqual([])
         const history = await memory.listMessages({
           threadId: first.threadId,
           resourceId: nativeConversationIdentity(scope).resourceId,

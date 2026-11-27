@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateEmbeddings } from '@/lib/embeddings/utils'
 import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
 import { projectNativeMessage } from '@/lib/mastra/messages'
+import { createModelUsageAccounting } from '@/lib/mastra/request'
 import type { NativeCost } from '@/lib/mastra/usage'
 import { usageProcessors } from '@/lib/mastra/usage-processors'
 import {
@@ -156,7 +157,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 async function nativeGeneration(scope: ModelUsageScope, mode: 'generate' | 'stream') {
-  const accounting = await usageProcessors(scope)
+  const accounting = await usageProcessors(scope, createModelUsageAccounting(scope))
   const contact = vi.fn()
   const model = new MastraLanguageModelV2Mock({
     doGenerate: async () => {
@@ -453,16 +454,15 @@ it('accrues model usage when no matching active execution exists', async () => {
   expect(parameters(fixture.writes[0].values.totalTokensUsed)).toEqual([15])
 })
 
-it.each([
-  { total: 0, status: 'reported' as const },
-  { total: 0, status: 'estimated' as const },
-  { total: 1.25, status: 'estimated' as const },
-])('accepts an explicit complete USD cost %j', async (completeCost) => {
-  await recordModelUsage(scope, usage, completeCost)
-  expect(parameters(fixture.writes[0].values.currentPeriodCopilotCost)).toEqual([
-    completeCost.total * 3,
-  ])
-})
+it.each([{ total: 0, status: 'reported' as const }, { total: 0 }, { total: 1.25 }])(
+  'accepts an explicit complete USD cost %j',
+  async (completeCost) => {
+    await recordModelUsage(scope, usage, completeCost)
+    expect(parameters(fixture.writes[0].values.currentPeriodCopilotCost)).toEqual([
+      completeCost.total * 3,
+    ])
+  }
+)
 
 it.each(
   ['copilot', 'title', 'wand'].flatMap((purpose) =>
@@ -500,7 +500,7 @@ it.each(unknownCosts)(
 it.each([
   { status: 'reported' as const, total: Number.NaN },
   { status: 'reported' as const, total: -1 },
-  { status: 'estimated' as const, total: Number.POSITIVE_INFINITY },
+  { total: Number.POSITIVE_INFINITY },
   { status: 'partial' as const, total: -1 },
 ])(
   'refuses malformed reported totals rather than treating them as unknown: %j',
@@ -514,7 +514,8 @@ it.each([
 )
 
 it('completes successful native inference for a new unpriced Copilot model with billing enabled', async () => {
-  const accounting = await usageProcessors({ ...scope, model: 'openai/new-unpriced-model' })
+  const nativeScope = { ...scope, model: 'openai/new-unpriced-model' }
+  const accounting = await usageProcessors(nativeScope, createModelUsageAccounting(nativeScope))
   const agent = new Agent({
     id: 'unpriced-copilot-test',
     name: 'Unpriced Copilot test',
@@ -557,17 +558,13 @@ it('reports the same scaled components as the final account charge', async () =>
       input: 0.75,
       output: 0.5,
       total: 1.25,
-      estimated: true,
       currency: 'USD',
-      status: 'estimated',
     })
   ).toEqual({
     input: 2.25,
     output: 1.5,
     total: 3.75,
-    estimated: true,
     currency: 'USD',
-    status: 'estimated',
   })
   expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([3.75])
 })
@@ -581,7 +578,7 @@ it('uses the existing model-tier multiplier for direct account-funded model work
   expect(parameters(fixture.writes[0].values.currentPeriodCost)).toEqual([report.total])
 })
 
-it('reports BYOK standard estimates without checking or debiting the Studio model balance', async () => {
+it('reports BYOK standard costs without checking or debiting the Studio model balance', async () => {
   fixture.limits.mockResolvedValue({ isExceeded: true, message: 'Allowance exhausted' })
   const byok = { ...scope, funding: 'byok' as const }
   await expect(assertModelUsageAllowed(byok)).resolves.toBeUndefined()
@@ -598,7 +595,7 @@ it('reports BYOK standard estimates without checking or debiting the Studio mode
 
 it('persists native dollar reports using the same Studio-tier amount as account usage', async () => {
   const observed = { inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }
-  const accounting = await usageProcessors(scope)
+  const accounting = await usageProcessors(scope, createModelUsageAccounting(scope))
   const agent = new Agent({
     id: 'account-priced-native-report',
     name: 'Account priced native report',
@@ -622,7 +619,6 @@ it('persists native dollar reports using the same Studio-tier amount as account 
     input: expect.closeTo(0.006, 12),
     output: expect.closeTo(0.0024, 12),
     total: expect.closeTo(0.0084, 12),
-    status: 'estimated',
     currency: 'USD',
   })
   const assistant = response.messages.find((message) => message.role === 'assistant')!
@@ -641,7 +637,7 @@ it('persists native dollar reports using the same Studio-tier amount as account 
 it('persists standard BYOK prices through native generation when the Studio balance is exhausted', async () => {
   fixture.limits.mockResolvedValue({ isExceeded: true, message: 'Allowance exhausted' })
   const nativeScope = { ...scope, funding: 'byok' as const }
-  const accounting = await usageProcessors(nativeScope)
+  const accounting = await usageProcessors(nativeScope, createModelUsageAccounting(nativeScope))
   const agent = new Agent({
     id: 'byok-priced-native-report',
     name: 'BYOK priced native report',
@@ -660,9 +656,9 @@ it('persists standard BYOK prices through native generation when the Studio bala
   const response = await agent.generate('hello', { runId: nativeScope.runId, maxSteps: 1 })
   await accounting.verifyComplete()
   const report = accounting.getCost()
-  expect(report).toMatchObject({ total: 0.0028, status: 'estimated', accountCost: null })
+  expect(report).toMatchObject({ total: 0.0028, accountCost: null })
   const assistant = response.messages.find((message) => message.role === 'assistant')!
-  expect(projectNativeMessage(assistant).cost).toMatchObject({ total: 0.0028, status: 'estimated' })
+  expect(projectNativeMessage(assistant).cost).toMatchObject({ total: 0.0028 })
   expect(fixture.writes).toEqual([])
   expect(fixture.limits).not.toHaveBeenCalled()
   expect(fixture.workspace).not.toHaveBeenCalled()

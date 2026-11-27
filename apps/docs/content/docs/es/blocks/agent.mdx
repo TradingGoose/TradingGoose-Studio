@@ -43,26 +43,16 @@ Selecciona un identificador `proveedor/modelo` de la lista de modelos disponible
             "id": "model",
             "type": "combobox",
             "title": "Model",
-            "layout": "half",
+            "layout": "full",
             "placeholder": "Type or select a model...",
             "required": true
         },
         {
-            "id": "temperature",
-            "type": "short-input",
-            "title": "Temperature",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "description": "Available in Additional Fields. Shown when model supports temperature."
-        },
-        {
-            "id": "maxTokens",
-            "type": "short-input",
-            "title": "Max Output Tokens",
-            "layout": "half",
-            "placeholder": "Use the provider default",
-            "min": 1,
-            "description": "Available in Additional Fields."
+            "id": "reasoningEffort",
+            "type": "combobox",
+            "title": "Nivel de razonamiento",
+            "layout": "full",
+            "description": "Se muestra si el modelo admite niveles de razonamiento."
         },
         {
             "id": "apiKey",
@@ -100,7 +90,9 @@ Selecciona un identificador `proveedor/modelo` de la lista de modelos disponible
 
 ## Uso y salidas
 
-Configura los mensajes del sistema y del usuario, las herramientas, las habilidades y el historial. En Campos adicionales puedes configurar el formato de respuesta, el máximo de tokens de salida y los ajustes nativos disponibles. Dejar un ajuste vacío conserva el valor predeterminado del proveedor. Los metadatos publicados del modelo se muestran como orientación.
+Configura los mensajes del sistema y del usuario, las herramientas y las habilidades. En Campos adicionales puedes conectar el historial y configurar el formato de respuesta.
+
+**Nivel de razonamiento** aparece debajo de **Modelo** cuando Mastra ofrece niveles. Si el modelo admite el nivel guardado en el bloque o, en Copilot, el que guardaste para este espacio de trabajo, Studio lo conserva. En caso contrario, Studio usa el nivel activo que Mastra Code obtiene de su preferencia de razonamiento. Si esa preferencia no da lugar a un nivel activo, Studio selecciona el primer nivel activo de la lista de Mastra.
 
 Auto permite que el modelo elija una herramienta; Force exige cada herramienta marcada en el orden configurado y después vuelve a Auto; None excluye la herramienta. Una combinación no admitida o una secuencia forzada incompleta produce un error. Se conservan los argumentos fijos y el contexto autorizado del flujo.
 
@@ -108,4 +100,4 @@ Sin formato estructurado, las salidas incluyen `content`, `model`, `tokens` y `c
 
 ## Uso y coste
 
-Los registros distinguen el coste informado por el proveedor, la estimación nativa y el coste no disponible. Un coste ausente no es cero; los tokens conocidos se conservan aunque falten dólares. Los cargos propios del producto se calculan por separado. Las incrustaciones independientes conservan los vectores y el uso nativo disponible, pero su coste en USD se muestra como no disponible.
+Studio calcula el coste con los precios del catálogo models.dev de OpenCode. Un coste ausente no es cero; los tokens conocidos se conservan aunque falten dólares. Los cargos propios del producto se calculan por separado. Las incrustaciones independientes conservan los vectores y el uso nativo disponible, y el coste en USD cuando se conocen los precios y el uso.

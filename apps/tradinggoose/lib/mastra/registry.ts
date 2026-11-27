@@ -5,7 +5,9 @@ import {
   parseModelString,
 } from '@mastra/core/llm'
 import { providers as modelCatalog } from '@opencode-ai/models/snapshot'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 import { getModelProviders } from '@/lib/mastra/providers'
+import type { ReasoningOption } from '@/lib/mastra/reasoning'
 import { listSystemServices } from '@/lib/system-services/service'
 
 export interface RegistryModel {
@@ -13,6 +15,7 @@ export interface RegistryModel {
   temperature?: boolean
   structuredOutput?: boolean
   toolCall?: boolean
+  reasoningOptions?: ReasoningOption[]
 }
 
 export interface RegistryProvider {
@@ -23,10 +26,6 @@ export interface RegistryProvider {
 
 /** Check native text generation compatibility, including function tools when required. */
 export function isLanguageModel(provider: string, modelId: string, requireTools = false): boolean {
-  // Google Deep Research requires Interactions, not the adapter's generateContent API.
-  if (provider === 'google' && modelId.startsWith('deep-research-')) return false
-  // Tinfoil's encoder lacks a catalog type: https://docs.tinfoil.sh/models/embedding
-  if (provider === 'tinfoil' && modelId === 'nomic-embed-text') return false
   const model = modelCatalog[provider]?.models?.[modelId]
   if (requireTools && model?.tool_call === false) return false
   if (
@@ -89,6 +88,7 @@ export function getNativeModel(model: string): RegistryModel {
     temperature: modelSupportsTemperature(model),
     structuredOutput: modelSupportsStructuredOutput(model),
     toolCall: provider ? modelCatalog[provider]?.models?.[modelId]?.tool_call : undefined,
+    reasoningOptions: getReasoningOptions(model),
   }
 }
 

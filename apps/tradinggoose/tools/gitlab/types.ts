@@ -176,20 +176,6 @@ export interface GitLabLabel {
   text_color: string
 }
 
-export interface GitLabMilestone {
-  id: number
-  iid: number
-  project_id: number
-  title: string
-  description?: string
-  state: string
-  created_at: string
-  updated_at: string
-  due_date?: string
-  start_date?: string
-  web_url: string
-}
-
 // ===== Common Parameters =====
 
 interface GitLabBaseParams {
@@ -364,87 +350,16 @@ export interface GitLabCancelPipelineParams extends GitLabBaseParams {
   pipelineId: number
 }
 
-// ===== Branch Parameters =====
-
-export interface GitLabListBranchesParams extends GitLabBaseParams {
-  projectId: string | number
-  search?: string
-  perPage?: number
-  page?: number
-}
-
-export interface GitLabGetBranchParams extends GitLabBaseParams {
-  projectId: string | number
-  branch: string
-}
-
-export interface GitLabCreateBranchParams extends GitLabBaseParams {
-  projectId: string | number
-  branch: string
-  ref: string
-}
-
-export interface GitLabDeleteBranchParams extends GitLabBaseParams {
-  projectId: string | number
-  branch: string
-}
-
-// ===== Note/Comment Parameters =====
-
-export interface GitLabListIssueNotesParams extends GitLabBaseParams {
-  projectId: string | number
-  issueIid: number
-  orderBy?: 'created_at' | 'updated_at'
-  sort?: 'asc' | 'desc'
-  perPage?: number
-  page?: number
-}
-
 export interface GitLabCreateIssueNoteParams extends GitLabBaseParams {
   projectId: string | number
   issueIid: number
   body: string
 }
 
-export interface GitLabListMergeRequestNotesParams extends GitLabBaseParams {
-  projectId: string | number
-  mergeRequestIid: number
-  orderBy?: 'created_at' | 'updated_at'
-  sort?: 'asc' | 'desc'
-  perPage?: number
-  page?: number
-}
-
 export interface GitLabCreateMergeRequestNoteParams extends GitLabBaseParams {
   projectId: string | number
   mergeRequestIid: number
   body: string
-}
-
-// ===== Label Parameters =====
-
-export interface GitLabListLabelsParams extends GitLabBaseParams {
-  projectId: string | number
-  search?: string
-  perPage?: number
-  page?: number
-}
-
-export interface GitLabCreateLabelParams extends GitLabBaseParams {
-  projectId: string | number
-  name: string
-  color: string
-  description?: string
-}
-
-// ===== User Parameters =====
-
-export interface GitLabGetCurrentUserParams extends GitLabBaseParams {}
-
-export interface GitLabListUsersParams extends GitLabBaseParams {
-  search?: string
-  perPage?: number
-  page?: number
 }
 
 // ===== Response Types =====

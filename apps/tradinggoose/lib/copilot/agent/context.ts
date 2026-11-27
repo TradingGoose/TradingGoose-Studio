@@ -1,20 +1,14 @@
+import type { GatewayLanguageModel } from '@mastra/core/llm'
 import { RequestContext } from '@mastra/core/request-context'
-import { z } from 'zod'
-import type { Scope } from '@/lib/copilot/native/contract'
+import type { JsonObject, Scope } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
 import { nativeConversationIdentity } from '@/lib/copilot/native/identity'
-import type { ServerPending } from '@/lib/copilot/native/target'
+import type { ToolId } from '@/lib/copilot/registry'
 import { resolveCopilotToolContext } from '@/lib/copilot/tool-context'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import type { createConfiguredLanguageModel } from '@/lib/mastra/connections'
 import { getNativeWorkflowsStore } from '@/lib/mastra/runtime'
-import type { CopilotRun } from './state'
-
-export const CopilotSuspendSchema = z.object({
-  originalArgs: z.record(z.string(), z.json()),
-  preview: z.record(z.string(), z.json()).optional(),
-  reviewBaseStateHash: z.string().min(1).optional(),
-})
+import type { CopilotRun } from './ownership'
+import type { CopilotWorkerToolResult } from './worker-contract'
 
 export type CopilotDecision =
   | { action: 'review.accept' | 'review.reject' }
@@ -22,11 +16,14 @@ export type CopilotDecision =
 
 export interface CopilotExecution {
   run: CopilotRun
-  model: Awaited<ReturnType<typeof createConfiguredLanguageModel>>
+  model: GatewayLanguageModel
   signal: AbortSignal
   assertOwnership: () => Promise<void>
-  pending?: ServerPending
-  decision?: CopilotDecision
+  executeTool: (
+    name: ToolId,
+    args: JsonObject,
+    toolCallId: string
+  ) => Promise<CopilotWorkerToolResult>
   pendingTools: Set<Promise<void>>
 }
 

@@ -410,7 +410,7 @@ describe('POST /api/workflows/[id]/queue', () => {
         toolName: 'run_workflow',
       },
     }
-    const admission = vi.fn(async () => true)
+    const admission = vi.fn(async () => {})
     nativeEffectMock.mockResolvedValueOnce(admission)
     enqueuePendingExecutionMock.mockResolvedValueOnce({ inserted: false })
     const response = await queue({
@@ -432,7 +432,7 @@ describe('POST /api/workflows/[id]/queue', () => {
       enqueuePendingExecutionMock.mock.invocationCallOrder[0]!
     )
     expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
-      expect.objectContaining({ beforeEnqueue: admission })
+      expect.objectContaining({ afterInsert: admission })
     )
     expect(admission).not.toHaveBeenCalled()
     expect(response.status).toBe(409)

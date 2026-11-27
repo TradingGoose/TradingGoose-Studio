@@ -2,9 +2,10 @@
 
 import { type KeyboardEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { isCopilotMentionBoundary } from '@/lib/copilot/chat-contexts'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
-import type { ChatContext, CopilotDraftUpdate } from '@/stores/copilot/types'
+import type { CopilotDraftUpdate } from '@/stores/copilot/types'
 import {
   buildCopilotWorkspaceEntityContext,
   isCopilotWorkspaceEntityMentionOption,

@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { OrganizationTransaction } from '@/lib/organization/admission'
 
 describe('validateSeatAvailability', () => {
   const selectMock = vi.fn()
@@ -69,6 +70,49 @@ describe('validateSeatAvailability', () => {
     })
     expect(selectMock).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['single', ['guest@example.com'], 1, 1],
+    ['batch', ['guest@example.com', 'GUEST@example.com'], 1, 1],
+    ['last seat already occupied', ['guest@example.com'], 2, 0],
+  ] as const)(
+    'reserves the available seat once for %s',
+    async (_name, emails, members, expected) => {
+      const { quickValidateEmail } = await import('@/lib/email/validation')
+      const actual =
+        await vi.importActual<typeof import('@/lib/email/validation')>('@/lib/email/validation')
+      vi.mocked(quickValidateEmail).mockImplementation(actual.quickValidateEmail)
+      getOrganizationSubscriptionMock.mockResolvedValue({
+        seats: 2,
+        tier: { ownerType: 'organization', seatCount: 2 },
+      })
+      const where = vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ count: members }])
+        .mockResolvedValueOnce([{ count: 0 }])
+      const reads = { from: vi.fn().mockReturnThis(), innerJoin: vi.fn().mockReturnThis(), where }
+      const values = vi.fn()
+      const tx = {
+        select: () => reads,
+        insert: () => ({ values }),
+      } as unknown as OrganizationTransaction
+      const { reserveOrganizationInvitations } = await import('./seat-management')
+      const result = await reserveOrganizationInvitations(tx, {
+        organizationId: 'org',
+        inviterId: 'owner',
+        emails: [...emails],
+        role: 'member',
+      })
+      expect(result.invitations).toHaveLength(expected)
+      expect(values).toHaveBeenCalledTimes(expected)
+      if (expected)
+        expect(values).toHaveBeenCalledWith([
+          expect.objectContaining({ email: 'guest@example.com', status: 'pending' }),
+        ])
+    }
+  )
 
   it('counts pending invitations against the available seat total', async () => {
     getOrganizationSubscriptionMock.mockResolvedValue({

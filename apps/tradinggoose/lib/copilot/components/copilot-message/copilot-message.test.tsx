@@ -72,7 +72,7 @@ vi.mock('@/lib/copilot/inline-tool-call', () => ({
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
-  useCopilotStore: () => mockStoreState,
+  useCopilotStore: (selector: (state: any) => unknown) => selector(mockStoreState),
   useCopilotStoreApi: () => ({
     getState: () => mockStoreState,
   }),
@@ -149,7 +149,14 @@ describe('CopilotMessage', () => {
         <CopilotMessage
           message={message}
           runtimeContext={context}
-          isStreaming={false}
+          isLastMessage={mockStoreState.messages.at(-1)?.id === message.id}
+          isLastUserMessage={
+            mockStoreState.messages.findLast((m: CopilotMessageType) => m.role === 'user')?.id ===
+            message.id
+          }
+          isTurnInProgress={
+            mockStoreState.isSendingMessage || mockStoreState.isAwaitingContinuation
+          }
           panelWidth={308}
           isDimmed={false}
           onEditModeChange={vi.fn()}
@@ -199,32 +206,44 @@ describe('CopilotMessage', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('shows persisted message tokens and USD provenance and updates metrics on the same message', async () => {
+  it('shows cache status, input and output counts and USD with reachable usage labels', async () => {
+    const footer = () => container.querySelector('[data-testid="message-usage"]')
+    const values = () => Array.from(footer()?.children ?? [], (field) => field.textContent)
     await renderMessage({
       ...assistantMessage,
-      usage: { inputTokens: 12, outputTokens: 3, totalTokens: 15 },
-      cost: { status: 'estimated', total: 0.002, estimated: true, currency: 'USD' },
+      usage: {
+        inputTokens: 12_345,
+        cachedInputTokens: 0,
+        cacheCreationInputTokens: 12_000,
+        cacheStatus: 'miss',
+        outputTokens: 3,
+        totalTokens: 12_348,
+      },
+      cost: { total: 0.002, currency: 'USD' },
     })
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
-      '15 tokens'
-    )
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
-      'Estimated $0.0020 USD'
-    )
+    const triggers = footer()!.querySelectorAll('button')
+    expect(triggers).toHaveLength(3)
+    expect(values()).toEqual(['miss', '12,345', '3', '0.0020 USD'])
+    expect(triggers[1].querySelector('.lucide-arrow-up')).toBeTruthy()
+    expect(triggers[2].querySelector('.lucide-arrow-down')).toBeTruthy()
+    for (const [index, label] of ['Cache', 'Input tokens', 'Output tokens'].entries()) {
+      const trigger = triggers[index]
+      expect(trigger).toHaveAccessibleName(`${label} ${trigger.textContent}`)
+      await act(async () => trigger.focus())
+      expect(trigger).toHaveAttribute('data-popup-open')
+      expect(document.body).toHaveTextContent(label)
+    }
+
+    await renderMessage({ ...assistantMessage, usage: { outputTokens: 0 } })
+    expect(values()).toEqual(['0'])
+    await renderMessage({ ...assistantMessage, cost: { status: 'reported', total: 0 } })
+    expect(values()).toEqual(['0 USD'])
     await renderMessage({
       ...assistantMessage,
       usage: { totalTokens: 20 },
-      cost: { status: 'partial', estimated: true, availableTotal: 0.003, currency: 'USD' },
+      cost: { status: 'partial', availableTotal: 0.003 },
     })
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
-      '20 tokens'
-    )
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).toContain(
-      'Unavailable USD (estimated $0.0030 available)'
-    )
-    expect(container.querySelector('[data-testid="message-usage"]')?.textContent).not.toContain(
-      '$0 USD'
-    )
+    expect(footer()).toBeNull()
   })
 
   it('renders assistant content', async () => {

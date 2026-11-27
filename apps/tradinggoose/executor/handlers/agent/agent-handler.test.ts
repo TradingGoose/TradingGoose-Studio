@@ -2,8 +2,9 @@ import { InMemoryStore } from '@mastra/core/storage'
 import { Memory } from '@mastra/memory'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { TraceSpan } from '@/lib/logs/types'
-import '@/lib/mastra/__test-utils__/managed-services'
-import { createConfiguredLanguageModel } from '@/lib/mastra/connections'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
+import { resolveConfiguredModel } from '@/lib/mastra/connections'
+import { createNativeModel } from '@/lib/mastra/native-reasoning'
 import { getInferenceFacts, withInferenceFacts } from '@/lib/mastra/result'
 import { getAgentMemory, getNativeMemoryStore } from '@/lib/mastra/runtime'
 import { sumNativeUsage } from '@/lib/mastra/usage'
@@ -11,9 +12,10 @@ import { mcpService } from '@/lib/mcp/service'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
 
-vi.mock('@/lib/mastra/connections', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/connections')>()),
-  createConfiguredLanguageModel: vi.fn(() => state.model),
+vi.mock('@/lib/mastra/connections', { spy: true })
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/native-reasoning')>()),
+  createNativeModel: vi.fn(() => state.model),
 }))
 vi.mock('@/lib/mastra/usage-processors', () => ({
   usageProcessors: async (scope: unknown) => {
@@ -65,6 +67,7 @@ import { Agent } from '@mastra/core/agent'
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getBlock } from '@/blocks'
+import { AgentBlock } from '@/blocks/blocks/agent'
 import { Executor } from '@/executor'
 import { createMinimalWorkflow } from '@/executor/__test-utils__/executor-mocks'
 import {
@@ -77,6 +80,10 @@ import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
 import type { ToolConfig } from '@/tools/types'
 import { getTool } from '@/tools/utils'
+
+const { createNativeModel: realCreateNativeModel } = await vi.importActual<
+  typeof import('@/lib/mastra/native-reasoning')
+>('@/lib/mastra/native-reasoning')
 
 const state = vi.hoisted(() => ({
   storage: undefined as unknown as InMemoryStore,
@@ -147,12 +154,13 @@ const customDefinition: ToolConfig = {
   inputSchema: schema,
   request: { url: '/api/function/execute', method: 'POST', headers: () => ({}) },
 }
-function fixture(text = 'Native response') {
+function fixture(text = 'Native response', toolText?: string) {
   return new MastraLanguageModelV2Mock({
     doGenerate: async (options) => ({
       content:
         options.toolChoice?.type === 'tool'
           ? [
+              ...(toolText ? [{ type: 'text' as const, text: toolText }] : []),
               {
                 type: 'tool-call' as const,
                 toolCallId: crypto.randomUUID(),
@@ -164,17 +172,6 @@ function fixture(text = 'Native response') {
       finishReason: options.toolChoice?.type === 'tool' ? 'tool-calls' : 'stop',
       usage,
       warnings: [],
-    }),
-    doStream: async () => ({
-      stream: new ReadableStream({
-        start(controller) {
-          controller.enqueue({ type: 'text-start', id: 'text' })
-          controller.enqueue({ type: 'text-delta', id: 'text', delta: text })
-          controller.enqueue({ type: 'text-end', id: 'text' })
-          controller.enqueue({ type: 'finish', finishReason: 'stop', usage })
-          controller.close()
-        },
-      }),
     }),
   })
 }
@@ -205,7 +202,11 @@ function createOwnedTestToolSet(
 }
 
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-key' }
+  managedServices.credentials.google = { apiKey: 'fixture-key' }
+  managedServices.credentials.deepseek = { apiKey: 'fixture-key' }
   vi.clearAllMocks()
+  vi.mocked(getBlock).mockImplementation((type) => (type === 'agent' ? AgentBlock : undefined))
   state.storage = new InMemoryStore()
   state.memory = new Memory({ storage: state.storage })
   state.model = fixture()
@@ -240,6 +241,43 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('native Agent workflow execution', () => {
+  it('rejects an unsupported workflow reasoning choice before admitting inference', async () => {
+    await expect(
+      new AgentBlockHandler().execute(
+        block,
+        { model: 'openai/gpt-5', reasoningEffort: 'max', userPrompt: 'Answer' },
+        context()
+      )
+    ).rejects.toThrow(/unsupported/i)
+    expect(state.finance).not.toHaveBeenCalled()
+    expect(state.configurations).toHaveLength(0)
+  })
+
+  it.each([
+    ['openai/gpt-5', undefined, 'low'],
+    ['openai/gpt-5', null, 'low'],
+    ['openai/gpt-5', '', 'low'],
+    ['openai/gpt-5', 'low', 'low'],
+    ['openai/gpt-5', 'high', 'high'],
+    ['google/gemini-2.5-flash', 'medium', 'medium'],
+  ] as const)('passes %s workflow choice %s to Mastra as %s', async (model, value, expected) => {
+    const [providerId, modelId] = model.split('/')
+    await new AgentBlockHandler().execute(
+      block,
+      {
+        model,
+        userPrompt: 'Answer',
+        reasoningEffort: value,
+      },
+      context()
+    )
+    expect(createNativeModel).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId, modelId }),
+      expected
+    )
+    expect(state.model.doGenerateCalls).toHaveLength(1)
+  })
+
   it.each([
     { apiKey: undefined, expectedKey: undefined, funding: 'account' },
     { apiKey: '', expectedKey: undefined, funding: 'account' },
@@ -257,27 +295,8 @@ describe('native Agent workflow execution', () => {
       expect(state.finance).toHaveBeenCalledWith(
         expect.objectContaining({ funding, actorUserId: 'user-1', workflowId: 'workflow-1' })
       )
-      expect(createConfiguredLanguageModel).toHaveBeenCalledWith('openai/gpt-4.1', expectedKey)
+      expect(resolveConfiguredModel).toHaveBeenCalledWith('openai/gpt-4.1', expectedKey)
       expect(JSON.stringify(state.finance.mock.calls)).not.toContain('caller-key')
-    }
-  )
-
-  it.each(
-    [0, -1, 1.5, Number.POSITIVE_INFINITY, 'invalid', '0', false, [], {}].map((maxSteps) => ({
-      maxSteps,
-    }))
-  )(
-    'rejects invalid Max Steps $maxSteps before admission or model contact',
-    async ({ maxSteps }) => {
-      await expect(
-        new AgentBlockHandler().execute(
-          block,
-          { model: 'openai/gpt-4.1', maxSteps: maxSteps as any },
-          context()
-        )
-      ).rejects.toThrow('Max Steps must be a positive integer')
-      expect(state.finance).not.toHaveBeenCalled()
-      expect(state.configurations).toHaveLength(0)
     }
   )
 
@@ -430,8 +449,6 @@ describe('native Agent workflow execution', () => {
           { role: 'user', content: 'Previous question' },
           { role: 'assistant', content: 'Previous answer' },
         ],
-        maxTokens: 73,
-        temperature: 0,
       },
       context()
     )
@@ -441,8 +458,8 @@ describe('native Agent workflow execution', () => {
       tokens: { prompt: 2, completion: 3, total: 5 },
       cost: { status: 'unavailable' },
     })
-    expect(state.model.doGenerateCalls[0].maxOutputTokens).toBe(73)
-    expect(state.model.doGenerateCalls[0].temperature).toBe(0)
+    expect(state.model.doGenerateCalls[0].maxOutputTokens).toBeUndefined()
+    expect(state.model.doGenerateCalls[0].temperature).toBeUndefined()
     expect(JSON.stringify(state.model.doGenerateCalls[0].prompt)).toContain('Follow the policy')
     expect(JSON.stringify(state.model.doGenerateCalls[0].prompt)).toContain('Previous answer')
   })
@@ -493,13 +510,14 @@ describe('native Agent workflow execution', () => {
       context()
     )
     await handler.execute(block, { model: 'openai/gpt-4.1', apiKey: 'tenant-two' }, context())
-    expect(
-      vi.mocked(createConfiguredLanguageModel).mock.calls.map(([_model, apiKey]) => apiKey)
-    ).toEqual(['tenant-one', 'tenant-two'])
+    expect(vi.mocked(resolveConfiguredModel).mock.calls.map(([_model, apiKey]) => apiKey)).toEqual([
+      'tenant-one',
+      'tenant-two',
+    ])
     expect(process.env.OPENAI_API_KEY).toBe(original)
   })
 
-  it('streams native text and retains final workflow metadata', async () => {
+  it('publishes the selected Agent answer from one non-streaming model request', async () => {
     const result = (await new AgentBlockHandler().execute(
       block,
       {
@@ -509,6 +527,8 @@ describe('native Agent workflow execution', () => {
       context({ stream: true })
     )) as StreamingExecution
     expect(await new Response(result.stream).text()).toBe('Native response')
+    expect(state.model.doGenerateCalls).toHaveLength(1)
+    expect(state.model.doStreamCalls).toHaveLength(0)
     expect(result.execution.output).toMatchObject({
       content: 'Native response',
       tokens: { total: 5 },
@@ -521,79 +541,44 @@ describe('native Agent workflow execution', () => {
       name: 'tool-free text',
       tools: false,
       usageControl: 'auto',
-      maxSteps: 5,
-      structured: false,
-    },
-    {
-      name: 'reserved final step',
-      tools: true,
-      usageControl: 'auto',
-      maxSteps: 1,
       structured: false,
     },
     {
       name: 'completed forced tool',
       tools: true,
       usageControl: 'force',
-      maxSteps: 2,
       structured: false,
     },
     {
       name: 'early tool-enabled answer',
       tools: true,
       usageControl: 'auto',
-      maxSteps: 5,
       structured: false,
     },
     {
       name: 'structured answer',
       tools: false,
       usageControl: 'auto',
-      maxSteps: 1,
       structured: true,
     },
   ] as const)('delivers $name after native completion and validation', async (scenario) => {
-    const parts = scenario.structured ? ['{"answer":', '42}'] : ['Final ', 'answer']
+    const answer = scenario.structured ? '{"answer":42}' : 'Final answer'
+    const model = fixture(answer, 'Searching...')
     let finish: (() => void) | undefined
     state.model = new MastraLanguageModelV2Mock({
-      doStream: async (options) => ({
-        stream: new ReadableStream({
-          start(controller) {
-            const forced = options.toolChoice?.type === 'tool'
-            controller.enqueue({ type: 'text-start', id: 'text' })
-            controller.enqueue({
-              type: 'text-delta',
-              id: 'text',
-              delta: forced ? 'Searching...' : parts[0],
-            })
-            if (options.toolChoice?.type === 'tool') {
-              controller.enqueue({ type: 'text-end', id: 'text' })
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: 'streamed-lookup',
-                toolName: options.toolChoice.toolName,
-                input: '{"query":"lookup"}',
-              })
-              controller.enqueue({ type: 'finish', finishReason: 'tool-calls', usage })
-              controller.close()
-              return
-            }
-            finish = () => {
-              controller.enqueue({ type: 'text-delta', id: 'text', delta: parts[1] })
-              controller.enqueue({ type: 'text-end', id: 'text' })
-              controller.enqueue({ type: 'finish', finishReason: 'stop', usage })
-              controller.close()
-            }
-          },
-        }),
-      }),
+      doGenerate: async (options) => {
+        if (options.toolChoice?.type !== 'tool')
+          await new Promise<void>((resolve) => {
+            finish = resolve
+          })
+        return model.doGenerate(options)
+      },
     })
     const result = (await new AgentBlockHandler().execute(
       block,
       {
         model: 'openai/gpt-4.1',
         userPrompt: 'Answer using available information',
-        maxSteps: scenario.maxSteps,
         tools: scenario.tools ? [{ ...customTool, usageControl: scenario.usageControl }] : [],
         responseFormat: scenario.structured
           ? {
@@ -630,7 +615,7 @@ describe('native Agent workflow execution', () => {
         text += decoder.decode(value)
       }
     }
-    expect(text).toBe(parts.join(''))
+    expect(text).toBe(answer)
     expect(text).not.toContain('Searching...')
     expect(result.execution.output).toMatchObject(
       scenario.structured ? { answer: 42 } : { content: 'Final answer' }
@@ -640,7 +625,7 @@ describe('native Agent workflow execution', () => {
     })
   })
 
-  it.each(['model settings', 'schema', 'native setup'])(
+  it.each(['reasoning effort', 'schema', 'native setup'])(
     'does not start cancellation polling when %s rejects before generation',
     async (failure) => {
       vi.useFakeTimers()
@@ -652,7 +637,7 @@ describe('native Agent workflow execution', () => {
             block,
             {
               model: 'openai/gpt-4.1',
-              ...(failure === 'model settings' ? { temperature: 'invalid' as any } : {}),
+              ...(failure === 'reasoning effort' ? { reasoningEffort: 'high' } : {}),
               ...(failure === 'schema' ? { responseFormat: { schema: [] } } : {}),
             },
             context({ shouldCancelExecution })
@@ -801,10 +786,7 @@ describe('native Agent MCP integration', () => {
           inputSchema: parameters,
         },
       ])
-      const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
-        '@/lib/mastra/connections'
-      )
-      state.model = await native.createConfiguredLanguageModel('openai/gpt-4.1', 'fixture-key')
+      vi.mocked(createNativeModel).mockImplementationOnce(realCreateNativeModel)
       vi.mocked(getToolAsync).mockResolvedValue({
         ...customDefinition,
         id: 'custom_dictionary',
@@ -1219,7 +1201,7 @@ describe('native forced sequence failures and completion accounting', () => {
         const result = new AgentBlockHandler()
           .execute(
             block,
-            { model: 'openai/gpt-4.1', maxSteps: 2, tools: [customTool], userPrompt: 'Lookup' },
+            { model: 'openai/gpt-4.1', tools: [customTool], userPrompt: 'Lookup' },
             context({ shouldCancelExecution })
           )
           .catch((error) => error)
@@ -1237,7 +1219,7 @@ describe('native forced sequence failures and completion accounting', () => {
           expect(output).toMatchObject({ content: 'Native response' })
           expect(state.model.doGenerateCalls.map((call: any) => call.toolChoice)).toEqual([
             { type: 'tool', toolName: 'custom_lookup' },
-            { type: 'none' },
+            { type: 'auto' },
           ])
         }
         const checks = shouldCancelExecution.mock.calls.length
@@ -1250,91 +1232,10 @@ describe('native forced sequence failures and completion accounting', () => {
       }
     }
   )
-  it.each([
-    { stream: false, maxSteps: 1, steps: 1 },
-    { stream: true, maxSteps: '1', steps: 1 },
-    { stream: false, maxSteps: 2, steps: 2 },
-    { stream: true, maxSteps: '2', steps: 2 },
-    { stream: false, maxSteps: undefined, steps: 5 },
-    { stream: false, maxSteps: '', steps: 5 },
-    { stream: false, maxSteps: '  ', steps: 5 },
-    { stream: false, maxSteps: 5, steps: 5 },
-  ])(
-    'rejects noncompliance at native maxSteps $maxSteps (stream=$stream), retaining completed usage',
-    async ({ stream, maxSteps, steps }) => {
-      state.nativeCost = { total: 0.006, status: 'estimated' }
-      const toolCall = () => ({
-        type: 'tool-call' as const,
-        toolCallId: crypto.randomUUID(),
-        toolName: 'custom_lookup',
-        input: '{"query":"keep searching"}',
-      })
-      state.model = new MastraLanguageModelV2Mock({
-        doGenerate: async () => ({
-          content: [{ type: 'text', text: 'Still searching' }, toolCall()],
-          finishReason: 'tool-calls',
-          usage,
-          warnings: [],
-        }),
-        doStream: async () => ({
-          stream: new ReadableStream({
-            start(controller) {
-              controller.enqueue({ type: 'text-start', id: 'text' })
-              controller.enqueue({ type: 'text-delta', id: 'text', delta: 'Still searching' })
-              controller.enqueue({ type: 'text-end', id: 'text' })
-              controller.enqueue(toolCall())
-              controller.enqueue({ type: 'finish', finishReason: 'tool-calls', usage })
-              controller.close()
-            },
-          }),
-        }),
-      })
-      let failure: unknown
-      let streamed: StreamingExecution | undefined
-      try {
-        const result = await new AgentBlockHandler().execute(
-          block,
-          {
-            model: 'openai/gpt-4.1',
-            maxSteps,
-            userPrompt: 'Search until done',
-            tools: [{ ...customTool, usageControl: 'auto' }],
-          },
-          context({ stream })
-        )
-        if (stream) {
-          streamed = result as StreamingExecution
-          await new Response(streamed.stream).text()
-        }
-      } catch (error) {
-        failure = error
-      }
-      expect(failure).toBeInstanceOf(Error)
-      expect((failure as Error).message).toContain('step limit')
-      const accounted = streamed?.execution.output ?? failure
-      expect(accounted).toMatchObject({
-        tokens: { prompt: steps * 2, completion: steps * 3, total: steps * 5 },
-        cost: { total: 0.006, status: 'estimated' },
-      })
-      expect(accounted).not.toHaveProperty('content')
-      expect(getInferenceFacts(accounted)?.history).toBeDefined()
-      expect(stream ? state.model.doStreamCalls : state.model.doGenerateCalls).toHaveLength(steps)
-      expect(executeTool).toHaveBeenCalledTimes(steps - 1)
-      const lastCall = (stream ? state.model.doStreamCalls : state.model.doGenerateCalls).at(-1)
-      expect(lastCall).toMatchObject({ toolChoice: { type: 'none' }, tools: undefined })
-    }
-  )
-  it.each(
-    [false, true].flatMap((stream) =>
-      [1, 2, 5, undefined, '', '  '].map((maxSteps) => ({
-        stream,
-        maxSteps,
-        steps: typeof maxSteps === 'number' ? maxSteps : 5,
-      }))
-    )
-  )(
-    'reserves the final answer within native maxSteps $maxSteps (stream=$stream)',
-    async ({ stream, maxSteps, steps }) => {
+  it.each([false, true])(
+    'reserves the final native step for an answer when the model keeps calling tools (stream=%s)',
+    async (stream) => {
+      const steps = 5
       const toolCall = () => ({
         type: 'tool-call' as const,
         toolCallId: crypto.randomUUID(),
@@ -1353,33 +1254,11 @@ describe('native forced sequence failures and completion accounting', () => {
             warnings: [],
           }
         },
-        doStream: async (options) => ({
-          stream: new ReadableStream({
-            start(controller) {
-              const final = options.toolChoice?.type === 'none'
-              controller.enqueue({ type: 'text-start', id: 'text' })
-              controller.enqueue({
-                type: 'text-delta',
-                id: 'text',
-                delta: final ? 'Final answer from available results' : 'Still searching',
-              })
-              controller.enqueue({ type: 'text-end', id: 'text' })
-              if (!final) controller.enqueue(toolCall())
-              controller.enqueue({
-                type: 'finish',
-                finishReason: final ? 'stop' : 'tool-calls',
-                usage,
-              })
-              controller.close()
-            },
-          }),
-        }),
       })
       const result = await new AgentBlockHandler().execute(
         block,
         {
           model: 'openai/gpt-4.1',
-          maxSteps,
           systemPrompt: 'Respect the original policy',
           userPrompt: 'Search until done',
           tools: [{ ...customTool, usageControl: 'auto' }],
@@ -1398,17 +1277,13 @@ describe('native forced sequence failures and completion accounting', () => {
         content: 'Final answer from available results',
         tokens: { prompt: steps * 2, completion: steps * 3, total: steps * 5 },
       })
-      const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
+      const calls = state.model.doGenerateCalls
       expect(calls).toHaveLength(steps)
       expect(executeTool).toHaveBeenCalledTimes(steps - 1)
       expect(calls.at(-1)).toMatchObject({ toolChoice: { type: 'none' }, tools: undefined })
-      const finalPrompt = JSON.stringify(calls.at(-1).prompt)
-      expect(finalPrompt).toContain('Respect the original policy')
-      expect(finalPrompt).toContain('No model steps remain after this one')
-      expect(finalPrompt).toContain('explain missing information instead of inventing it')
+      expect(JSON.stringify(calls.at(-1).prompt)).toContain('Respect the original policy')
       for (const call of calls.slice(0, -1)) {
         expect(call.tools).toContainEqual(expect.objectContaining({ name: 'custom_lookup' }))
-        expect(JSON.stringify(call.prompt)).not.toContain('No model steps remain after this one')
       }
     }
   )
@@ -1419,7 +1294,7 @@ describe('native forced sequence failures and completion accounting', () => {
       state.model = fixture(' \n\t ')
       const generate = new AgentBlockHandler().execute(
         block,
-        { model: 'openai/gpt-4.1', maxSteps: 1 },
+        { model: 'openai/gpt-4.1' },
         context({ stream })
       )
       if (stream) {
@@ -1430,11 +1305,19 @@ describe('native forced sequence failures and completion accounting', () => {
     }
   )
 
-  it('does not satisfy an unfinished Force tool by reserving a final-answer step', async () => {
+  it('rejects an answer that leaves an explicitly forced tool unfinished', async () => {
+    state.model = new MastraLanguageModelV2Mock({
+      doGenerate: async () => ({
+        content: [{ type: 'text', text: 'Skipped the lookup' }],
+        finishReason: 'stop',
+        usage,
+        warnings: [],
+      }),
+    })
     await expect(
       new AgentBlockHandler().execute(
         block,
-        { model: 'openai/gpt-4.1', maxSteps: 1, tools: [customTool] },
+        { model: 'openai/gpt-4.1', tools: [customTool] },
         context()
       )
     ).rejects.toMatchObject({
@@ -1501,6 +1384,7 @@ describe('native forced sequence failures and completion accounting', () => {
     const requests: any[] = []
     vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
       expect(String(url)).toContain('generativelanguage.googleapis.com')
+      expect(new URL(String(url)).pathname).toMatch(/:generateContent$/)
       const body = JSON.parse(String(init?.body))
       requests.push(body)
       if (body.tools?.length && body.generationConfig?.responseMimeType === 'application/json')
@@ -1528,20 +1412,14 @@ describe('native forced sequence failures and completion accounting', () => {
         ],
         usageMetadata: { promptTokenCount: 2, candidatesTokenCount: 3, totalTokenCount: 5 },
       }
-      return stream
-        ? new Response(`data: ${JSON.stringify(response)}\n\n`, {
-            headers: { 'content-type': 'text/event-stream' },
-          })
-        : Response.json(response)
+      return Response.json(response)
     })
-    const native = await vi.importActual<typeof import('@/lib/mastra/connections')>(
-      '@/lib/mastra/connections'
-    )
-    state.model = await native.createConfiguredLanguageModel('google/gemini-2.5-pro', 'fixture-key')
+    vi.mocked(createNativeModel).mockImplementationOnce(realCreateNativeModel)
     const result = await new AgentBlockHandler().execute(
       block,
       {
-        model: 'google/gemini-2.5-pro',
+        model: 'google/gemini-3-flash-preview',
+        reasoningEffort: 'low',
         tools: withTools ? [customTool] : [],
         userPrompt: 'Lookup then answer',
         responseFormat: {
@@ -1659,7 +1537,7 @@ describe('native structured streams through the workflow executor', () => {
     ['{"answer":42}', true],
     ['{"answer":"invalid"}', false],
   ])('finalizes native output %s and retains completed accounting', async (finalText, valid) => {
-    state.nativeCost = { total: 0.006, status: 'estimated' }
+    state.nativeCost = { total: 0.006 }
     vi.mocked(executeTool).mockResolvedValue({
       success: true,
       output: withInferenceFacts(
@@ -1667,43 +1545,16 @@ describe('native structured streams through the workflow executor', () => {
         { cost: { total: 0.004, status: 'reported' }, generatedFields: ['cost'] }
       ),
     })
-    state.model = new MastraLanguageModelV2Mock({
-      doStream: async (options) => ({
-        stream: new ReadableStream({
-          start(controller) {
-            const forced = options.toolChoice?.type === 'tool'
-            controller.enqueue({ type: 'text-start', id: 'text' })
-            controller.enqueue({
-              type: 'text-delta',
-              id: 'text',
-              delta: forced ? 'Searching...' : finalText,
-            })
-            controller.enqueue({ type: 'text-end', id: 'text' })
-            if (options.toolChoice?.type === 'tool') {
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: 'completed-lookup',
-                toolName: options.toolChoice.toolName,
-                input: '{"query":"lookup"}',
-              })
-            }
-            controller.enqueue({
-              type: 'finish',
-              finishReason: forced ? 'tool-calls' : 'stop',
-              usage,
-            })
-            controller.close()
-          },
-        }),
-      }),
-    })
+    state.model = fixture(finalText, 'Searching...')
     const workflow = createMinimalWorkflow()
     workflow.blocks[1].metadata!.id = 'agent'
+    workflow.blocks[1].inputs.temperature = 'number'
     workflow.blocks[1].config = {
       tool: 'llm_chat',
       params: {
         model: 'openai/gpt-4.1',
         userPrompt: 'Lookup then answer',
+        temperature: '{{RETIRED_AGENT_SETTING}}',
         tools: [customTool],
         responseFormat: {
           schema: {
@@ -1734,14 +1585,16 @@ describe('native structured streams through the workflow executor', () => {
 
     expect(result.success).toBe(valid)
     expect(executeTool).toHaveBeenCalledTimes(1)
-    const output = result.logs?.find((log) => log.blockId === 'block1')?.output
+    const log = result.logs?.find((log) => log.blockId === 'block1')
+    expect(log?.input).not.toHaveProperty('temperature')
+    const output = log?.output
     expect(output).toMatchObject({
       model: 'openai/gpt-4.1',
-      cost: { total: 0.006, status: 'estimated' },
+      cost: { total: 0.006 },
     })
     expect(output).not.toHaveProperty('toolResults')
     expect(JSON.stringify(getInferenceFacts(output))).not.toContain('"found"')
-    expect(state.model.doStreamCalls).toHaveLength(2)
+    expect(state.model.doGenerateCalls).toHaveLength(2)
     expect(output?.tokens?.total).toBe(10)
     expect(contextSpy.mock.results[0].value.blockStates.get('block1').output).toMatchObject(output)
     if (valid) {
@@ -1768,53 +1621,26 @@ it.each(['no-tools', 'forced-tool', 'final-answer', 'terminal-error'])(
   async (scenario) => {
     const withTools = scenario === 'forced-tool' || scenario === 'final-answer'
     let failed = false
-    const transient = Object.assign(new Error('Provider stream failed'), {
+    const transient = Object.assign(new Error('Provider request failed'), {
       statusCode: scenario === 'terminal-error' ? 401 : 503,
       isRetryable: scenario !== 'terminal-error',
     })
     state.nativeCost = { status: 'partial', availableTotal: 0.006 }
+    const model = fixture('Recovered answer', 'Searching...')
     state.model = new MastraLanguageModelV2Mock({
-      doStream: async (options) => ({
-        stream: new ReadableStream({
-          start(controller) {
-            const forced = options.toolChoice?.type === 'tool'
-            const reject = !failed && (scenario !== 'final-answer' || !forced)
-            controller.enqueue({ type: 'stream-start', warnings: [] })
-            controller.enqueue({ type: 'text-start', id: 'answer' })
-            controller.enqueue({
-              type: 'text-delta',
-              id: 'answer',
-              delta: reject ? 'Wrong partial. ' : forced ? 'Searching. ' : 'Recovered answer',
-            })
-            if (reject) {
-              failed = true
-              controller.enqueue({ type: 'error', error: transient })
-            } else {
-              controller.enqueue({ type: 'text-end', id: 'answer' })
-              if (forced)
-                controller.enqueue({
-                  type: 'tool-call',
-                  toolCallId: 'completed-lookup',
-                  toolName: 'custom_lookup',
-                  input: '{"query":"generated"}',
-                })
-              controller.enqueue({
-                type: 'finish',
-                finishReason: forced ? 'tool-calls' : 'stop',
-                usage,
-              })
-            }
-            controller.close()
-          },
-        }),
-      }),
+      doGenerate: async (options) => {
+        if (!failed && (scenario !== 'final-answer' || options.toolChoice?.type !== 'tool')) {
+          failed = true
+          throw transient
+        }
+        return model.doGenerate(options)
+      },
     })
     const workflow = createMinimalWorkflow()
     workflow.blocks[1].metadata!.id = 'agent'
     workflow.blocks[1].config.params = {
       model: 'openai/gpt-4.1',
       userPrompt: 'Answer after any required tool',
-      maxSteps: withTools ? 2 : 1,
       tools: withTools ? [customTool] : [],
     }
     const chat = createChatOutputEventReader(['block1'])
@@ -1847,15 +1673,15 @@ it.each(['no-tools', 'forced-tool', 'final-answer', 'terminal-error'])(
     expect(chunks).toEqual(succeeded ? ['Recovered answer'] : [])
     expect(published).toEqual(chunks)
     expect(executeTool).toHaveBeenCalledTimes(withTools ? 1 : 0)
-    const calls = state.model.doStreamCalls
-    expect(calls.map((call: any) => call.toolChoice.type)).toEqual(
+    const calls = state.model.doGenerateCalls
+    expect(calls.map((call: any) => call.toolChoice?.type)).toEqual(
       scenario === 'forced-tool'
-        ? ['tool', 'tool', 'none']
+        ? ['tool', 'tool', 'auto']
         : scenario === 'final-answer'
-          ? ['tool', 'none', 'none']
+          ? ['tool', 'auto', 'auto']
           : succeeded
-            ? ['none', 'none']
-            : ['none']
+            ? [undefined, undefined]
+            : [undefined]
     )
     if (succeeded)
       expect(result.output).toMatchObject({
@@ -1897,12 +1723,12 @@ it.each(
     if (phase === 'accounting') state.outputStep.mockImplementationOnce(hold)
     const result = (await new AgentBlockHandler().execute(
       block,
-      { model: 'openai/gpt-4.1', userPrompt: 'Finish the request', maxSteps: 1 },
+      { model: 'openai/gpt-4.1', userPrompt: 'Finish the request' },
       context({
         stream: true,
         shouldCancelExecution: async () => {
-          if (source === 'workflow' && state.model.doStreamCalls.length) await entered
-          return source === 'workflow' && state.model.doStreamCalls.length > 0
+          if (source === 'workflow' && state.model.doGenerateCalls.length) await entered
+          return source === 'workflow' && state.model.doGenerateCalls.length > 0
         },
       })
     )) as StreamingExecution
@@ -1934,75 +1760,58 @@ it.each(
   }
 )
 
-it.each([2, undefined])(
-  'aborts a native stream and retains earlier work (maxSteps=%s)',
-  async (maxSteps) => {
-    let cancelled = false
-    let cancelStep: (() => void) | undefined
-    let started!: () => void
-    const modelStepStarted = new Promise<void>((resolve) => {
-      started = resolve
-    })
-    vi.mocked(executeTool).mockResolvedValue({
-      success: true,
-      output: withInferenceFacts(
-        { found: true, cost: { total: 0.004, status: 'reported' } },
-        { cost: { total: 0.004, status: 'reported' }, generatedFields: ['cost'] }
-      ),
-    })
-    const model = liveToolModel()
-    const streamTool = model.doStream.bind(model)
-    vi.spyOn(model, 'doStream').mockImplementation(async (options) => {
-      if (options.toolChoice?.type === 'tool') return streamTool(options)
-      return {
-        stream: new ReadableStream({
-          start(controller) {
-            options.abortSignal?.addEventListener(
-              'abort',
-              () => controller.error(options.abortSignal?.reason),
-              { once: true }
-            )
-            controller.enqueue({ type: 'text-start', id: 'partial' })
-            controller.enqueue({ type: 'text-delta', id: 'partial', delta: 'Partial answer' })
-            cancelStep = () => {
-              cancelled = true
-              controller.enqueue({ type: 'text-end', id: 'partial' })
-            }
-            started()
-          },
-        }),
-      }
-    })
-    state.model = model
-    const result = (await new AgentBlockHandler().execute(
-      block,
-      {
-        model: 'openai/gpt-4.1',
-        maxSteps,
-        userPrompt: 'Lookup then stream',
-        tools: [customTool],
-      },
-      context({ stream: true, shouldCancelExecution: async () => cancelled })
-    )) as StreamingExecution
-    const reader = result.stream.getReader()
-    const firstRead = reader.read()
-    await modelStepStarted
-    cancelStep!()
-    await expect(firstRead).rejects.toThrow()
-    expect(result.execution.output.tokens).toMatchObject({ total: 5 })
-    expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
-  }
-)
+it('aborts an in-flight model request and retains earlier work', async () => {
+  let cancelled = false
+  let started!: () => void
+  const modelStepStarted = new Promise<void>((resolve) => {
+    started = resolve
+  })
+  vi.mocked(executeTool).mockResolvedValue({
+    success: true,
+    output: withInferenceFacts(
+      { found: true, cost: { total: 0.004, status: 'reported' } },
+      { cost: { total: 0.004, status: 'reported' }, generatedFields: ['cost'] }
+    ),
+  })
+  const model = fixture()
+  state.model = new MastraLanguageModelV2Mock({
+    doGenerate: async (options) => {
+      if (options.toolChoice?.type === 'tool') return model.doGenerate(options)
+      return new Promise((_resolve, reject) => {
+        options.abortSignal!.addEventListener('abort', () => reject(options.abortSignal!.reason), {
+          once: true,
+        })
+        started()
+      })
+    },
+  })
+  const result = (await new AgentBlockHandler().execute(
+    block,
+    {
+      model: 'openai/gpt-4.1',
+      userPrompt: 'Lookup then stream',
+      tools: [customTool],
+    },
+    context({ stream: true, shouldCancelExecution: async () => cancelled })
+  )) as StreamingExecution
+  const reader = result.stream.getReader()
+  const firstRead = reader.read()
+  await modelStepStarted
+  cancelled = true
+  await expect(firstRead).rejects.toThrow()
+  expect(result.execution.output.tokens).toMatchObject({ total: 5 })
+  expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
+})
 
 it('propagates a failed inference tool callback to the native loop', async () => {
   vi.mocked(executeTool).mockResolvedValue({
     success: false,
     error: 'Vision cancelled',
     output: withInferenceFacts(
-      { tokens: { total: 9 }, cost: { total: 0.002, status: 'estimated' } },
+      { tokens: { total: 9 }, cost: { total: 0.002 } },
       {
         tokens: { total: 9 },
-        cost: { total: 0.002, status: 'estimated' },
+        cost: { total: 0.002 },
         generatedFields: ['tokens', 'cost'],
       }
     ),
@@ -2131,7 +1940,7 @@ it('refuses an embedding model before generation admission or model contact', as
     )
   ).rejects.toMatchObject({ status: 400 })
   expect(state.finance).not.toHaveBeenCalled()
-  expect(createConfiguredLanguageModel).not.toHaveBeenCalled()
+  expect(resolveConfiguredModel).not.toHaveBeenCalled()
   expect(state.configurations).toEqual([])
   expect(executeTool).not.toHaveBeenCalled()
 })
@@ -2150,59 +1959,11 @@ const generatedFile = {
   uploadedAt: '2026-11-14T00:00:00.000Z',
   expiresAt: '2026-11-15T00:00:00.000Z',
 }
-function liveToolModel() {
-  const first = (options: { toolChoice?: { type: string; toolName?: string } }) =>
-    options.toolChoice?.type === 'tool'
-  return new MastraLanguageModelV2Mock({
-    doGenerate: async (options) => ({
-      content: first(options)
-        ? [
-            { type: 'text' as const, text: 'Known before media delivery' },
-            {
-              type: 'tool-call' as const,
-              toolCallId: 'live-tool',
-              toolName: options.tools![0].name,
-              input: '{"query":"generated"}',
-            },
-          ]
-        : [{ type: 'text' as const, text: 'Verified media answer' }],
-      finishReason: first(options) ? 'tool-calls' : 'stop',
-      usage,
-      warnings: [],
-    }),
-    doStream: async (options) => ({
-      stream: new ReadableStream({
-        start(controller) {
-          controller.enqueue({ type: 'text-start', id: 'live-text' })
-          controller.enqueue({
-            type: 'text-delta',
-            id: 'live-text',
-            delta: first(options) ? 'Known before media delivery' : 'Verified media answer',
-          })
-          controller.enqueue({ type: 'text-end', id: 'live-text' })
-          if (first(options))
-            controller.enqueue({
-              type: 'tool-call',
-              toolCallId: 'live-tool',
-              toolName: options.tools![0].name,
-              input: '{"query":"generated"}',
-            })
-          controller.enqueue({
-            type: 'finish',
-            finishReason: first(options) ? 'tool-calls' : 'stop',
-            usage,
-          })
-          controller.close()
-        },
-      }),
-    }),
-  })
-}
 it.each([false, true])(
   'preserves complete MCP results as JSON without promoting media (stream=%s)',
   async (stream) => {
     state.trackAdmissions = true
-    state.model = liveToolModel()
+    state.model = fixture('Verified media answer')
     const functional = {
       content: [
         { type: 'text', text: 'Exact tool text' },
@@ -2230,7 +1991,7 @@ it.each([false, true])(
       while (!(await reader.read()).done) {}
       output = streamed.execution.output
     }
-    const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
+    const calls = state.model.doGenerateCalls
     expect(calls).toHaveLength(2)
     expect(state.admissions).toHaveBeenCalledTimes(2)
     expect(fetch).not.toHaveBeenCalled()
@@ -2299,7 +2060,7 @@ it.each(['owner-cancel', 'native-cancel'])(
 it.each([false, true])(
   'retains generated files after a later completion failure (stream=%s)',
   async (stream) => {
-    state.model = liveToolModel()
+    state.model = fixture('Verified media answer')
     state.completionError = new Error('Completion failed after tool execution')
     vi.mocked(executeTool).mockResolvedValue({
       success: true,
@@ -2323,7 +2084,7 @@ it.each([false, true])(
     expect(getInferenceFacts(failure)?.files).toEqual([generatedFile])
     expect(failure).not.toHaveProperty('toolResults')
     expect(executeTool).toHaveBeenCalledOnce()
-    expect(stream ? state.model.doStreamCalls : state.model.doGenerateCalls).toHaveLength(2)
+    expect(state.model.doGenerateCalls).toHaveLength(2)
   }
 )
 
@@ -2348,7 +2109,7 @@ it.each(
   'preserves custom-tool $shape as JSON without a source fetch (stream=$stream)',
   async ({ raw, stream }) => {
     state.trackAdmissions = true
-    state.model = liveToolModel()
+    state.model = fixture('Verified media answer')
     vi.mocked(executeTool).mockResolvedValue({ success: true, output: raw })
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
@@ -2368,7 +2129,7 @@ it.each(
       output = streamed.execution.output
     }
     expect(output).toMatchObject({ content: 'Verified media answer' })
-    const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
+    const calls = state.model.doGenerateCalls
     expect(calls).toHaveLength(2)
     expect(state.admissions).toHaveBeenCalledTimes(2)
     expect(executeTool).toHaveBeenCalledOnce()

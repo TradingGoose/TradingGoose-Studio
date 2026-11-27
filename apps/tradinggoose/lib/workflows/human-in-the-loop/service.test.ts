@@ -45,7 +45,10 @@ vi.mock('drizzle-orm', () => ({
   sql:
     (strings: TemplateStringsArray, ...values: unknown[]) =>
     (row: Record<string, any>) => {
-      if (strings.join('').includes('queuedExecution')) {
+      const expression = strings.join('')
+      if (expression.includes("->'environment'")) return row.executionData.environment?.userId
+      if (expression.includes('coalesce(')) return row.workflowId ?? row.workflowSummary?.id
+      if (expression.includes('queuedExecution')) {
         const expected = JSON.parse(values.at(-1) as string)
         const metadata = row.executionData.trigger?.data?.queuedExecution
         return (
@@ -62,13 +65,23 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@tradinggoose/db', () => {
   const rows = () => [state.log, ...state.children]
   const store = {
-    select: () => {
+    select: (columns?: Record<string, string | ((row: Record<string, unknown>) => unknown)>) => {
       let table: object
       let predicate = (_row: Record<string, unknown>) => true
-      const read = () =>
-        (table === workflowExecutionLogs ? rows() : state.authorizationRows.get(table)!).filter(
-          predicate
+      const read = () => {
+        const matches = (
+          table === workflowExecutionLogs ? rows() : state.authorizationRows.get(table)!
+        ).filter(predicate)
+        if (table !== workflowExecutionLogs || !columns) return matches
+        return matches.map((row) =>
+          Object.fromEntries(
+            Object.entries(columns).map(([key, field]) => [
+              key,
+              typeof field === 'function' ? field(row) : row[field],
+            ])
+          )
         )
+      }
       const chain = {
         from: (value: object) => {
           table = value
@@ -511,6 +524,8 @@ describe('durable workflow checkpoint lifecycle', () => {
   it('finds unfinished children from canonical trigger metadata even without a parent checkpoint', async () => {
     const child = {
       executionId: 'child',
+      workflowId: 'child-workflow',
+      workspaceId: 'child-workspace',
       endedAt: null,
       executionData: {
         environment: { userId: 'original' },
@@ -521,11 +536,26 @@ describe('durable workflow checkpoint lifecycle', () => {
     }
     state.children = [
       child,
-      { ...child, executionId: 'ended-child', endedAt: new Date() },
+      {
+        ...child,
+        executionId: 'ended-child',
+        endedAt: new Date(),
+        workflowId: null,
+        workflowSummary: { id: 'child-workflow' },
+      },
       { ...child, executionId: 'other-child', executionData: { environment: { userId: 'other' } } },
     ]
+    const identity = {
+      userId: 'original',
+      workflowId: 'child-workflow',
+      workspaceId: 'child-workspace',
+    }
     expect(await readWorkflowCheckpointChildren('execution')).toEqual([
-      { id: 'child', userId: 'original' },
+      { id: 'child', ...identity, endedAt: null },
+    ])
+    expect(await readWorkflowCheckpointChildren('execution', true)).toEqual([
+      { id: 'child', ...identity, endedAt: null },
+      { id: 'ended-child', ...identity, endedAt: expect.any(Date) },
     ])
     expect(state.log.executionData.checkpoint).toBeUndefined()
   })

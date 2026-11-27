@@ -68,15 +68,6 @@ export interface BillingTierSummary {
   hasStripeMonthlyPriceId: boolean
 }
 
-export interface BillingData {
-  currentPeriodCost: number
-  projectedCost: number
-  limit: number
-  billingPeriodStart: Date | null
-  billingPeriodEnd: Date | null
-  daysRemaining: number
-}
-
 export interface UserSubscriptionState {
   tier: BillingTierSummary
   effectiveSubscription: any | null

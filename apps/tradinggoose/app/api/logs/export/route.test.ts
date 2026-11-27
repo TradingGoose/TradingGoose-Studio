@@ -269,23 +269,19 @@ describe('logs export route', () => {
       {
         status: 'reported',
         total: 0.004,
-        estimated: false,
         availableTotal: 0.004,
         unavailableComponents: 0,
         currency: 'USD',
       },
       {
-        status: 'estimated',
         total: 0.002,
-        estimated: true,
         availableTotal: 0.002,
         unavailableComponents: 0,
         currency: 'USD',
       },
-      { status: 'partial', estimated: false, availableTotal: 0.002, unavailableComponents: 1 },
+      { status: 'partial', availableTotal: 0.002, unavailableComponents: 1 },
       {
         status: 'partial',
-        estimated: true,
         availableTotal: 0.003,
         unavailableComponents: 2,
         currency: 'USD',
@@ -294,13 +290,11 @@ describe('logs export route', () => {
       {
         status: 'reported',
         total: 0,
-        estimated: false,
         availableTotal: 0,
         unavailableComponents: 0,
       },
       {
         status: 'partial',
-        estimated: true,
         availableTotal: 0,
         unavailableComponents: 1,
       },
@@ -323,7 +317,6 @@ describe('logs export route', () => {
     const costColumns = [
       'costTotal',
       'costStatus',
-      'costEstimated',
       'costAvailableTotal',
       'costUnavailableComponents',
       'costCurrency',
@@ -335,14 +328,14 @@ describe('logs export route', () => {
         return costColumns.map((column) => values[columns.indexOf(column)])
       })
     ).toEqual([
-      ['0.004', 'reported', 'false', '0.004', '0', 'USD'],
-      ['0.002', 'estimated', 'true', '0.002', '0', 'USD'],
-      ['', 'partial', 'false', '0.002', '1', ''],
-      ['', 'partial', 'true', '0.003', '2', 'USD'],
-      ['', 'unavailable', '', '', '1', ''],
-      ['0', 'reported', 'false', '0', '0', ''],
-      ['', 'partial', 'true', '0', '1', ''],
-      ['', '', '', '', '', ''],
+      ['0.004', 'reported', '0.004', '0', 'USD'],
+      ['0.002', 'reported', '0.002', '0', 'USD'],
+      ['', 'partial', '0.002', '1', ''],
+      ['', 'partial', '0.003', '2', 'USD'],
+      ['', 'unavailable', '', '1', ''],
+      ['0', 'reported', '0', '0', ''],
+      ['', 'partial', '0', '1', ''],
+      ['', '', '', '', ''],
     ])
   })
 

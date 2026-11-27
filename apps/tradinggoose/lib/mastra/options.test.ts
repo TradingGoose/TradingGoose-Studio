@@ -30,6 +30,7 @@ it.each([
   { seed: '1.5' },
   { stopSequences: ['ok', 1] },
   { reasoning: 'invented' },
+  { reasoning: 'high' },
   { anthropic: { mcpServers: [{ url: 'https://mcp.example.test' }] } },
   { providerOptions: { anthropic: { mcpServers: [] } } },
 ])('rejects invalid native settings before inference: %j', (settings) => {

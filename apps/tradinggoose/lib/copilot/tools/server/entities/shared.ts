@@ -31,8 +31,6 @@ import {
 } from '@/lib/saved-entities/identity'
 import { WatchlistDocumentError } from '@/lib/watchlists/validation'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
-import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
-import { readBootstrappedSavedEntityFields } from '@/lib/yjs/server/bootstrap-review-target'
 import {
   type EntityListBeforeInsert,
   type EntityListReadStore,
@@ -290,6 +288,9 @@ export async function readSavedEntityDocument(
   workspaceId: string,
   ownerUserId?: string | null
 ): Promise<{ entityName: string; fields: Record<string, unknown> }> {
+  const { readBootstrappedSavedEntityFields } = await import(
+    '@/lib/yjs/server/bootstrap-review-target'
+  )
   const [fields, entityName] = await Promise.all([
     readBootstrappedSavedEntityFields(kind as SavedEntityKind, entityId, workspaceId, ownerUserId),
     readSavedEntityName(kind, entityId, workspaceId, ownerUserId),
@@ -443,6 +444,7 @@ export async function executeUpdateEntityDocumentMutation(
 
   const entityName = await readSavedEntityName(kind, entityId, workspaceId)
 
+  const { applySavedEntityState } = await import('@/lib/yjs/server/apply-entity-state')
   const persistedFields = await applySavedEntityState(
     kind,
     entityId,

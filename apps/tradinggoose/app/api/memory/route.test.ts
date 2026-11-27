@@ -17,7 +17,9 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.unmock('@/blocks/registry')
 vi.mock('@/lib/auth/hybrid', () => ({ checkSessionOrInternalAuth: mocks.auth }))
-vi.mock('@/lib/auth/internal', () => ({ generateInternalToken: async () => 'internal-token' }))
+vi.mock('@/lib/auth/internal-token', () => ({
+  generateInternalToken: async () => 'internal-token',
+}))
 vi.mock('@/lib/mastra/workflow-memory', () => ({
   getAllWorkflowMemory: mocks.list,
   getWorkflowMemory: mocks.get,

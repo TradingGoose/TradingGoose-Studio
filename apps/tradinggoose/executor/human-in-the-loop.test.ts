@@ -18,7 +18,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 vi.mock('@/blocks', () => ({ getBlock: () => undefined }))
 vi.mock('@/blocks/index', () => ({ getBlock: () => undefined }))
 vi.mock('@/lib/urls/utils', () => ({ getBaseUrl: () => 'http://localhost:3000' }))
-vi.mock('@/lib/auth/internal', () => ({
+vi.mock('@/lib/auth/internal-token', () => ({
   generateInternalToken: mocks.token,
 }))
 vi.mock('@/executor/handlers', async () => {
@@ -63,7 +63,7 @@ const block = (
   id,
   position: { x: 0, y: 0 },
   config: { tool: type, params },
-  inputs: {},
+  inputs: Object.fromEntries(Object.keys(params).map((key) => [key, 'json'])),
   outputs: {},
   enabled: true,
   metadata: { id: type, name: id, ...(type === 'input_trigger' ? { category: 'triggers' } : {}) },
@@ -271,6 +271,8 @@ describe('Real executor durable Human in the Loop', () => {
     expect(mocks.effect.mock.calls.map(([id]) => id)).toEqual(['before'])
     expect(paused.checkpoint?.context.executedBlocks).not.toContain('approval')
     expect(paused.checkpoint?.context).not.toHaveProperty('pendingExecutionId')
+    const downstream = paused.checkpoint!.workflow.blocks.find((entry) => entry.id === 'after')!
+    downstream.config.params.retired = '{{RETIRED_APPROVAL_SETTING}}'
     const completed = await resume(paused, new Map([['approval', { approved: true }]]))
     expect(completed.success).toBe(true)
     expect(completed.status).not.toBe('paused')

@@ -1,8 +1,9 @@
-import '@/lib/mastra/__test-utils__/managed-services'
+import { managedServices } from '@/lib/mastra/__test-utils__/managed-services'
+import type { NativeModelConnection } from '@/lib/mastra/connections'
 
-vi.mock('@/lib/mastra/connections', async (original) => ({
-  ...(await original<typeof import('@/lib/mastra/connections')>()),
-  createConfiguredLanguageModel: (id: string, apiKey?: string) => ({ id, apiKey }),
+vi.mock('@/lib/mastra/native-reasoning', async (original) => ({
+  ...(await original<typeof import('@/lib/mastra/native-reasoning')>()),
+  createNativeModel: (connection: NativeModelConnection) => connection,
 }))
 vi.mock('undici/index.js', async (original) => ({
   ...(await original<typeof import('undici/index.js')>()),
@@ -73,6 +74,7 @@ function request(body: Record<string, unknown>, query = '') {
 }
 
 beforeEach(() => {
+  managedServices.credentials.openai = { defaultApiKey: 'fixture-key' }
   vi.clearAllMocks()
   mocks.cost.mockReset().mockReturnValue({ status: 'unavailable' })
   mocks.usage.mockReset().mockReturnValue({ inputTokens: 12, outputTokens: 3, totalTokens: 15 })
@@ -211,7 +213,8 @@ describe('native Vision input and authorization', () => {
     )
     expect(response.status).toBe(200)
     expect(mocks.configurations[0].model).toEqual({
-      id: 'anthropic/claude-opus-4-6',
+      providerId: 'anthropic',
+      modelId: 'claude-opus-4-6',
       apiKey: 'request-key',
     })
     expect(mocks.generate).toHaveBeenCalledWith(

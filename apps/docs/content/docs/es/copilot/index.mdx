@@ -101,7 +101,9 @@ Puedes editar un prompt anterior para truncar y regenerar los mensajes que le si
 
 ## Facturación
 
-Copilot comparte las comprobaciones de uso y el registro de facturación de Studio. Las estimaciones de modelos usan los precios estándar publicados en models.dev y el uso de tokens informado. Para el uso de la cuenta de Studio, el multiplicador de Copilot del plan de suscripción se aplica a los costos conocidos, y el importe en USD de los informes y del historial coincide con el cargo contabilizado. Si no se puede determinar el costo, Copilot, los títulos y Wand pueden completarse: se registran las llamadas y los tokens informados, el costo permanece no disponible y no se añade un cargo en USD al registro de Studio por ese uso sin precio.
+Al pie de cada respuesta aparecen ↑ tokens de entrada, ↓ tokens de salida y el costo en USD. Cuando el modelo informa de las lecturas de caché, **acierto** indica que reutilizó parte de la entrada y **fallo** indica que no reutilizó ningún token. La respuesta guardada conserva los recuentos de lectura y escritura de caché.
+
+Copilot comparte las comprobaciones de uso y el registro de facturación de Studio. Studio calcula el costo de los tokens con la versión fijada del catálogo models.dev de OpenCode. Para el uso de la cuenta de Studio, el multiplicador de Copilot del plan de suscripción se aplica a los costos conocidos, y el importe en USD de los informes y del historial coincide con el cargo contabilizado. Si no se puede determinar el costo, Copilot, los títulos y Wand pueden completarse: se registran las llamadas y los tokens informados, el costo permanece no disponible y no se añade un cargo en USD al registro de Studio por ese uso sin precio.
 
 <Callout type="info">
   El recorte automático del contexto no realiza una llamada adicional al modelo.

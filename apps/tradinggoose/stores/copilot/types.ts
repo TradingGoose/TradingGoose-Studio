@@ -1,11 +1,9 @@
 import type { MastraMessagePart } from '@mastra/core/agent/message-list'
-import type { ChatContext } from '@/lib/copilot/chat-context-schema'
-
-export type { ChatContext } from '@/lib/copilot/chat-context-schema'
-
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import type {
   BrowserAssertion,
+  CopilotRequest,
   CopilotToolContext,
   ImagePart,
   Pending,
@@ -83,6 +81,7 @@ export interface WorkflowChatDeploymentRequest {
 export interface CopilotState {
   accessLevel: CopilotAccessLevel
   selectedModel: string | null
+  reasoning?: Extract<CopilotRequest, { command: 'message' }>['reasoning']
 
   currentChat: CopilotChat | null
   conversationWorkspaceId: string | null
@@ -92,6 +91,12 @@ export interface CopilotState {
   chats: CopilotChat[]
   messages: CopilotMessage[]
 
+  chatsWorkspaceId: string | null
+  chatsError: string | null
+  historyPage: { through?: string; page: number; hasMore: boolean } | null
+  loadingEarlier: boolean
+  earlierError: string | null
+  historyError: string | null
   isLoadingChats: boolean
   isSendingMessage: boolean
   isAwaitingContinuation: boolean
@@ -106,9 +111,11 @@ export interface CopilotState {
 
 export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
-  setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
+  setSelectedModel: (model: CopilotStore['selectedModel']) => void
+  setReasoning: (options: CopilotStore['reasoning']) => void
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
+  loadEarlierMessages: () => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>
   createNewChat: (workspaceId?: string | null) => Promise<void>
   deleteChat: (threadId: string) => Promise<void>

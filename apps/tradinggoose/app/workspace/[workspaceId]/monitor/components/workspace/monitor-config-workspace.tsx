@@ -3,11 +3,11 @@
 import { useCallback, useMemo } from 'react'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { getConfigBoardLabels, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { GlobalCopilotContextPublisher } from '@/global-navbar/copilot-context'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { formatTemplate } from '@/i18n/utils'
-import type { ChatContext } from '@/stores/copilot/types'
 import { buildConfigBoardSections, type ConfigBoardContext } from '../config/config-board-state'
 import { buildConfigMonitorCards } from '../config/config-card-model'
 import {

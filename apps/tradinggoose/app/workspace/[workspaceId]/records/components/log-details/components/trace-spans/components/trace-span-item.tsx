@@ -323,7 +323,6 @@ export function TraceSpanItem({
                   <TooltipTrigger
                     render={
                       <span className='cursor-default rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
-                        {displayCost.status === 'estimated' ? '~' : ''}
                         {formatCost(displayCost.total)}
                       </span>
                     }

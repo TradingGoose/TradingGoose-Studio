@@ -1,5 +1,4 @@
 import { executeInE2B, isE2BWarmSandboxLimitError } from '@/lib/execution/e2b'
-import { CodeLanguage } from '@/lib/execution/languages'
 import { resolveExecutionRuntimeConfig } from '@/lib/execution/runtime-config'
 import { buildPineTSFunctionIndicatorRuntimePrologue } from '@/lib/indicators/execution/e2b-script-builder'
 import {
@@ -104,7 +103,6 @@ export const executeFunctionInE2B = async ({
     error: e2bError,
   } = await executeInE2B({
     code: codeForE2B,
-    language: CodeLanguage.JavaScript,
     timeoutMs: timeout,
     template: e2bTemplate,
     keepWarmMs: e2bKeepWarmMs,

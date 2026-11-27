@@ -63,7 +63,6 @@ describe('installed native embedding transport', () => {
     expect(result.tokens).toEqual({ prompt: 2049, total: 2049 })
     expect(result.usage).toEqual({ status: 'reported', batches: 2 })
     expect(result.cost).toMatchObject({
-      status: 'estimated',
       input: expect.closeTo(0.00004098, 12),
       total: expect.closeTo(0.00004098, 12),
       currency: 'USD',
@@ -135,7 +134,7 @@ describe('installed native embedding transport', () => {
         embeddings: [[1, 2]],
         tokens: { prompt: 7, total: 7 },
         usage: { status: 'reported', batches: 1 },
-        cost: { status: 'estimated' },
+        cost: { total: expect.closeTo(0.00000014, 12) },
       })
       await vi.waitFor(() => expect(fetch).toHaveBeenCalled())
       await vi.runAllTimersAsync()

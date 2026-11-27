@@ -1,6 +1,7 @@
 import type { RegistryModel } from '@/lib/mastra/registry'
 import type { SubBlockCondition } from '@/blocks/types'
 import { getRegistryModel } from '@/stores/model-registry'
+import { containsWorkflowReference } from './references'
 
 /** Native metadata disables known unsupported controls; unknown model support stays editable. */
 function matchesConditionValue(
@@ -14,7 +15,14 @@ function matchesConditionValue(
     condition.operator === 'modelCapability'
       ? typeof fieldValue === 'string' &&
         Boolean(fieldValue) &&
-        getModel(fieldValue)?.[condition.value] !== false
+        (condition.value === 'structuredOutput'
+          ? getModel(fieldValue)?.structuredOutput !== false
+          : !!(
+              containsWorkflowReference(fieldValue) ||
+              getModel(fieldValue)?.reasoningOptions?.some(
+                (option) => option.type === condition.value
+              )
+            ))
       : Array.isArray(condition.value)
         ? condition.value.includes(fieldValue as string | number | boolean)
         : fieldValue === condition.value

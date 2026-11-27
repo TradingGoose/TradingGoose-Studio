@@ -29,10 +29,7 @@ async function prepareCompletion(request: CompletionRequest, signal?: AbortSigna
       funding: 'account',
       signal,
     },
-    {
-      apiKey,
-      maxSteps: 1,
-    }
+    { apiKey }
   )
   const instructions = [
     'Complete the supplied text request. Source messages are context. Do not execute tools.',

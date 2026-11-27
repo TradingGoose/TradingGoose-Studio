@@ -92,8 +92,10 @@ export function parseSpecialTags(content: string): ParsedTags {
 export function OptionsSelector({
   options,
   onSelect,
+  disabled,
 }: {
   options: Record<string, OptionItem>
+  disabled?: boolean
   onSelect: (optionKey: string, optionText: string) => void
 }) {
   const sortedOptions = useMemo(() => {
@@ -113,7 +115,7 @@ export function OptionsSelector({
 
   const [hoveredIndex, setHoveredIndex] = useState(0)
   const [chosenKey, setChosenKey] = useState<string | null>(null)
-  const isLocked = chosenKey !== null
+  const isLocked = disabled || chosenKey !== null
 
   // Handle keyboard navigation - only for the active options selector
   useEffect(() => {
@@ -168,7 +170,7 @@ export function OptionsSelector({
       {sortedOptions.map((option, index) => {
         const isHovered = index === hoveredIndex && !isLocked
         const isChosen = option.key === chosenKey
-        const isRejected = isLocked && !isChosen
+        const isRejected = chosenKey !== null && !isChosen
 
         return (
           <button

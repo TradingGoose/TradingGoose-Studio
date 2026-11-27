@@ -20,9 +20,12 @@ export const useModelRegistry = create<ModelRegistryState>((set, get) => ({
     set({ isLoading: true, error: undefined })
     try {
       const response = await fetch('/api/models')
-      if (!response.ok) throw new Error(`Model registry is unavailable (HTTP ${response.status}).`)
-      const { providers, managedProviders } = await response.json()
-      set({ providers, managedProviders })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json().catch(() => null)
+      if (!Array.isArray(data?.providers) || !Array.isArray(data.managedProviders)) {
+        throw new Error(`Invalid model registry response (HTTP ${response.status}).`)
+      }
+      set({ providers: data.providers, managedProviders: data.managedProviders })
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Model registry is unavailable.' })
     } finally {

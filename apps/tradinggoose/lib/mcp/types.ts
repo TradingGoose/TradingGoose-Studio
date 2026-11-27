@@ -20,12 +20,6 @@ export interface JsonRpcResponse<T = any> {
   error?: JsonRpcError
 }
 
-export interface JsonRpcNotification {
-  jsonrpc: '2.0'
-  method: string
-  params?: any
-}
-
 export interface JsonRpcError {
   code: number
   message: string
@@ -81,16 +75,6 @@ export interface McpInitializeParams {
 export interface McpVersionInfo {
   supported: string[] // List of supported protocol versions
   preferred: string // Preferred version to use
-}
-
-export interface McpVersionNegotiationError extends JsonRpcError {
-  code: -32000 // Custom error code for version negotiation failures
-  message: 'Version negotiation failed'
-  data: {
-    clientVersions: string[]
-    serverVersions: string[]
-    reason: string
-  }
 }
 
 export interface McpInitializeResult {
@@ -166,42 +150,6 @@ export interface McpToolResult {
   [key: string]: any
 }
 
-// MCP Resource Types
-export interface McpResource {
-  uri: string
-  name: string
-  description?: string
-  mimeType?: string
-}
-
-export interface McpResourceContent {
-  uri: string
-  mimeType?: string
-  text?: string
-  blob?: string
-}
-
-// MCP Prompt Types
-export interface McpPrompt {
-  name: string
-  description?: string
-  arguments?: Array<{
-    name: string
-    description?: string
-    required?: boolean
-  }>
-}
-
-export interface McpPromptMessage {
-  role: 'user' | 'assistant'
-  content: {
-    type: 'text' | 'image' | 'resource'
-    text?: string
-    data?: string
-    mimeType?: string
-  }
-}
-
 // Connection and Error Types
 export interface McpConnectionStatus {
   connected: boolean
@@ -233,28 +181,6 @@ export class McpTimeoutError extends McpError {
     super(`MCP request to server ${serverId} timed out after ${timeout}ms`)
     this.name = 'McpTimeoutError'
   }
-}
-
-// Integration Types (for existing platform)
-export interface McpToolInput {
-  type: 'mcp'
-  serverId: string
-  toolName: string
-  params: Record<string, any>
-  usageControl?: 'auto' | 'force' | 'none'
-}
-
-export interface McpServerSummary {
-  id: string
-  name: string
-  url?: string
-  transport?: McpTransport
-  status: 'connected' | 'disconnected' | 'error'
-  toolCount: number
-  resourceCount?: number
-  promptCount?: number
-  lastSeen?: Date
-  error?: string
 }
 
 // API Response Types

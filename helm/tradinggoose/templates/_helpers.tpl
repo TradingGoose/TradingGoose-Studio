@@ -167,7 +167,7 @@ Database URL for internal PostgreSQL
 {{- $port := .Values.postgresql.service.port }}
 {{- $username := .Values.postgresql.auth.username }}
 {{- $database := .Values.postgresql.auth.database }}
-{{- $sslMode := ternary "require" "disable" .Values.postgresql.tls.enabled }}
+{{- $sslMode := ternary "verify-full" "disable" .Values.postgresql.tls.enabled }}
 {{- printf "postgresql://%s:$(POSTGRES_PASSWORD)@%s:%v/%s?sslmode=%s" $username $host $port $database $sslMode }}
 {{- else if .Values.externalDatabase.enabled }}
 {{- $host := .Values.externalDatabase.host }}

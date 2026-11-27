@@ -74,7 +74,6 @@ function executionCost(billing: ExecutionBilling) {
       summary.status === 'unavailable' && baseExecutionCharge > 0
         ? ('partial' as const)
         : summary.status,
-    estimated: summary.estimated,
     baseExecutionCharge,
     modelCost: scale(summary.modelCost),
     input: scale(summary.totalInputCost),

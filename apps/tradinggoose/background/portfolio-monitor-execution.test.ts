@@ -71,9 +71,11 @@ describe('executePortfolioMonitorJob', () => {
         result: { success: true, status, output: { matched: true } },
       })
 
-      const result = await executePortfolioMonitorJob(payload)
+      const signal = new AbortController().signal
+      const result = await executePortfolioMonitorJob(payload, signal)
 
       expect(mocks.runWorkflowExecution).toHaveBeenCalledExactlyOnceWith({
+        signal,
         workflowId: payload.monitor.workflowId,
         actorUserId: payload.monitor.actorUserId,
         requestId: 'executio',

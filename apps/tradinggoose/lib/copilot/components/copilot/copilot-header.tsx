@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, Clock3, Plus, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { useShallow } from 'zustand/react/shallow'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,8 @@ import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import type { CopilotChat } from '@/stores/copilot/types'
 
 type CopilotHistoryMessages = ReturnType<typeof useCopilotMessages>['history']
+const CHAT_MENU_PAGE_SIZE = 40
+
 type ChatGroupKey = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'older'
 
 const formatRelativeTime = (
@@ -61,7 +64,7 @@ const formatRelativeTime = (
   return new Intl.DateTimeFormat(locale).format(date)
 }
 
-const groupChats = (chats: CopilotChat[]) => {
+const groupChats = (chats: CopilotChat[], limit: number) => {
   if (chats.length === 0) return [] as Array<[ChatGroupKey, CopilotChat[]]>
   const sorted = [...chats].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -81,7 +84,7 @@ const groupChats = (chats: CopilotChat[]) => {
     older: [],
   }
 
-  sorted.forEach((chat) => {
+  sorted.slice(0, limit).forEach((chat) => {
     const chatDate = new Date(chat.updatedAt)
     const chatDay = new Date(chatDate.getFullYear(), chatDate.getMonth(), chatDate.getDate())
 
@@ -109,8 +112,6 @@ interface ChatHistoryGroupProps {
   onSelect: (chat: CopilotChat) => Promise<void> | void
   onDelete: (chatId: string) => Promise<void> | void
   isSendingMessage: boolean
-  hoveredChatId: string | null
-  onHoverChat: (chatId: string | null) => void
   locale: LocaleCode
   historyCopy: CopilotHistoryMessages
 }
@@ -120,8 +121,6 @@ interface ChatHistoryItemProps {
   onSelect: (chat: CopilotChat) => Promise<void> | void
   onDelete: (chatId: string) => Promise<void> | void
   isSendingMessage: boolean
-  isHovered: boolean
-  onHoverChat: (chatId: string | null) => void
   locale: LocaleCode
   historyCopy: CopilotHistoryMessages
 }
@@ -131,8 +130,6 @@ function ChatHistoryItem({
   onSelect,
   onDelete,
   isSendingMessage,
-  isHovered,
-  onHoverChat,
   locale,
   historyCopy,
 }: ChatHistoryItemProps) {
@@ -143,11 +140,7 @@ function ChatHistoryItem({
   )
 
   return (
-    <div
-      className='group flex w-full items-center'
-      onMouseEnter={() => onHoverChat(chat.threadId)}
-      onMouseLeave={() => onHoverChat(null)}
-    >
+    <div className='group flex w-full items-center'>
       <DropdownMenuItem
         className='min-w-0 flex-1 justify-between rounded-xs py-2 text-left font-normal text-foreground text-sm transition-colors data-[highlighted]:bg-muted'
         closeOnClick={false}
@@ -173,7 +166,7 @@ function ChatHistoryItem({
           aria-label={historyCopy.deleteChatAria}
           className={cn(
             'inline-flex h-6 w-6 items-center justify-center gap-2 whitespace-nowrap rounded-md p-0 font-medium text-muted-foreground text-sm ring-offset-background transition-opacity hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
-            isHovered ? 'opacity-100' : 'pointer-events-none opacity-0'
+            'pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100'
           )}
         >
           <Trash2 className='h-3.5 w-3.5' />
@@ -189,8 +182,6 @@ function ChatHistoryGroup({
   onSelect,
   onDelete,
   isSendingMessage,
-  hoveredChatId,
-  onHoverChat,
   locale,
   historyCopy,
 }: ChatHistoryGroupProps) {
@@ -205,8 +196,6 @@ function ChatHistoryGroup({
             onSelect={onSelect}
             onDelete={onDelete}
             isSendingMessage={isSendingMessage}
-            isHovered={hoveredChatId === chat.threadId}
-            onHoverChat={onHoverChat}
             locale={locale}
             historyCopy={historyCopy}
           />
@@ -220,11 +209,36 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
   const store = useCopilotStoreApi()
   const locale = useLocale() as LocaleCode
   const historyCopy = useCopilotMessages().history
-  const [hoveredChatId, setHoveredChatId] = useState<string | null>(null)
+  const [limit, setLimit] = useState(CHAT_MENU_PAGE_SIZE)
   const [deleteChatId, setDeleteChatId] = useState<string | null>(null)
 
-  const { currentChat, chats, isLoadingChats, isSendingMessage } = useCopilotStore()
-  const grouped = groupChats(chats)
+  const retry = useTranslations('workspace.widgets.stateMessage')('retry')
+  const { currentChat, chats, chatsError, chatsWorkspaceId, isLoadingChats, isSendingMessage } =
+    useCopilotStore(
+      useShallow(
+        ({
+          currentChat,
+          chats,
+          chatsError,
+          chatsWorkspaceId,
+          isLoadingChats,
+          isSendingMessage,
+        }) => ({
+          currentChat,
+          chats,
+          chatsError,
+          chatsWorkspaceId,
+          isLoadingChats,
+          isSendingMessage,
+        })
+      )
+    )
+  const listInScope = chatsWorkspaceId === workspaceId
+  const grouped = useMemo(
+    () => (listInScope ? groupChats(chats, limit) : []),
+    [chats, limit, listInScope]
+  )
+  const loadChats = () => store.getState().loadChats({ workspaceId })
   const groupLabels: Record<ChatGroupKey, string> = {
     today: historyCopy.groups.today,
     yesterday: historyCopy.groups.yesterday,
@@ -240,19 +254,36 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
     } catch {}
   }
 
-  const title = currentChat?.title || historyCopy.newChat
-  const deleteChat = deleteChatId ? chats.find((chat) => chat.threadId === deleteChatId) : null
+  const title =
+    (currentChat?.workspaceId === workspaceId && currentChat.title) || historyCopy.newChat
+  const deleteChat =
+    listInScope && deleteChatId ? chats.find((chat) => chat.threadId === deleteChatId) : null
+
   const dropdownMenuBody = (() => {
-    if (isLoadingChats) {
+    if (!listInScope || (isLoadingChats && grouped.length === 0 && !chatsError)) {
       return <div className='p-3 text-muted-foreground text-sm'>{historyCopy.loading}</div>
     }
 
-    if (grouped.length === 0) {
+    if (grouped.length === 0 && !chatsError) {
       return <div className='p-3 text-muted-foreground text-sm'>{historyCopy.noChatsYet}</div>
     }
 
     return (
       <div className='space-y-4 p-2'>
+        {chatsError && (
+          <div>
+            <p role='alert' className='text-destructive text-sm'>
+              {historyCopy.loadError} {chatsError}
+            </p>
+            <DropdownMenuItem
+              closeOnClick={false}
+              disabled={isLoadingChats}
+              onClick={() => void loadChats()}
+            >
+              {retry}
+            </DropdownMenuItem>
+          </div>
+        )}
         {grouped.map(([groupKey, chatsInGroup]) => (
           <ChatHistoryGroup
             key={groupKey}
@@ -261,12 +292,18 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
             onSelect={handleSelectChat}
             onDelete={setDeleteChatId}
             isSendingMessage={isSendingMessage}
-            hoveredChatId={hoveredChatId}
-            onHoverChat={setHoveredChatId}
             locale={locale}
             historyCopy={historyCopy}
           />
         ))}
+        {chats.length > limit && (
+          <DropdownMenuItem
+            closeOnClick={false}
+            onClick={() => setLimit((count) => count + CHAT_MENU_PAGE_SIZE)}
+          >
+            {historyCopy.showOlderChats}
+          </DropdownMenuItem>
+        )}
       </div>
     )
   })()
@@ -275,7 +312,8 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
     <div className='flex w-full min-w-0 items-center gap-2'>
       <DropdownMenu
         onOpenChange={(open) => {
-          if (open) void store.getState().loadChats({ workspaceId })
+          if (open) void loadChats()
+          else setLimit(CHAT_MENU_PAGE_SIZE)
         }}
       >
         <Tooltip>
@@ -322,7 +360,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
         </DropdownMenuContent>
       </DropdownMenu>
       <AlertDialog
-        open={!!deleteChatId}
+        open={!!deleteChat}
         onOpenChange={(open) => {
           if (!open) setDeleteChatId(null)
         }}

@@ -91,6 +91,7 @@ function safeCreateEnv() {
     DOCKER_BUILD: z.boolean().optional(),                 // Flag indicating Docker build environment
 
     // Background Jobs & Scheduling
+    COPILOT_STUDIO_ORIGIN: z.url({ protocol: /^https?$/ }).optional(),
     TRIGGER_PROJECT_ID: z.string().optional(),                  // Trigger.dev project ID
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),           // Trigger.dev secret key for background jobs
     CRON_SECRET: z.string().optional(),                  // Secret for authenticating cron job requests
@@ -120,9 +121,6 @@ function safeCreateEnv() {
     BLOB_READ_WRITE_TOKEN: z.string().optional(),                  // Default Vercel Blob read-write token
     VERCEL_BLOB_READ_WRITE_TOKEN: z.string().optional(),                  // Custom-named Vercel Blob read-write token
     VERCEL_BLOB_ACCESS: z.enum(['public', 'private']).optional(),                  // Vercel Blob access mode
-
-    // Knowledge Base Processing Configuration - Shared across all processing methods
-    KB_CONFIG_MAX_DURATION: z.number().optional().default(600),     // Max processing duration in seconds (10 minutes)
 
     // Real-time Communication
     SOCKET_PORT: z.number().optional(),                  // Port for the realtime socket server process
@@ -191,9 +189,5 @@ export const env = safeCreateEnv()
 // Need this utility because t3-env is returning string for boolean values.
 export const isTruthy = (value: string | boolean | number | undefined) =>
   typeof value === 'string' ? value.toLowerCase() === 'true' || value === '1' : Boolean(value)
-
-// Utility to check if a value is explicitly false (defaults to false only if explicitly set)
-export const isFalsy = (value: string | boolean | number | undefined) =>
-  typeof value === 'string' ? value.toLowerCase() === 'false' || value === '0' : value === false
 
 export { getEnv, getInternalRealtimeUrl }

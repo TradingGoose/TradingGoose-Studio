@@ -3,8 +3,9 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { extractTextMock, getDocumentProxyMock } = vi.hoisted(() => ({
+const { extractTextMock, getDocumentProxyMock, destroyMock } = vi.hoisted(() => ({
   extractTextMock: vi.fn(),
+  destroyMock: vi.fn(),
   getDocumentProxyMock: vi.fn(),
 }))
 
@@ -16,7 +17,7 @@ vi.mock('unpdf', () => ({
 describe('PdfParser', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    getDocumentProxyMock.mockResolvedValue({ numPages: 2 })
+    getDocumentProxyMock.mockResolvedValue({ numPages: 2, destroy: destroyMock })
     extractTextMock.mockResolvedValue({
       totalPages: 2,
       text: 'hello\u0000 world',
@@ -36,7 +37,10 @@ describe('PdfParser', () => {
     const result = await new PdfParser().parseBuffer(Buffer.from('%PDF test'))
 
     expect(getDocumentProxyMock).toHaveBeenCalledWith(expect.any(Uint8Array))
-    expect(extractTextMock).toHaveBeenCalledWith({ numPages: 2 }, { mergePages: true })
+    expect(extractTextMock).toHaveBeenCalledWith(expect.objectContaining({ numPages: 2 }), {
+      mergePages: true,
+    })
+    expect(destroyMock).toHaveBeenCalledOnce()
     expect(result).toEqual({
       content: 'hello world',
       metadata: {
@@ -44,5 +48,13 @@ describe('PdfParser', () => {
         source: 'unpdf',
       },
     })
+  })
+  it('destroys the native PDF document when extraction fails', async () => {
+    const { PdfParser } = await import('@/lib/file-parsers/pdf-parser')
+    extractTextMock.mockRejectedValueOnce(new Error('Invalid PDF'))
+    await expect(new PdfParser().parseBuffer(Buffer.from('%PDF test'))).rejects.toThrow(
+      'Invalid PDF'
+    )
+    expect(destroyMock).toHaveBeenCalledOnce()
   })
 })

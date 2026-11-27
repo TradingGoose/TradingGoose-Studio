@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { MastraDBMessage } from '@mastra/core/agent/message-list'
-import type { NativeCost, NativeUsage } from './usage'
+import { type NativeCost, type NativeUsage, sumCostAmounts } from './usage'
 
 export const WORKFLOW_SYSTEM_PART = 'data-workflow-system-message' as const
 export type WorkflowMessage =
@@ -31,7 +31,7 @@ export function projectNativeMessage(message: MastraDBMessage): NativeHistoryMes
       ? { usage: message.content.metadata.usage as NativeUsage }
       : {}),
     ...(message.role === 'assistant' && message.content.metadata?.cost
-      ? { cost: message.content.metadata.cost as NativeCost }
+      ? { cost: sumCostAmounts([message.content.metadata.cost as NativeCost]) }
       : {}),
   }
 }

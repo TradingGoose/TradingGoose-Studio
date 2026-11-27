@@ -16,6 +16,16 @@ export async function readNativeThread(scope: Scope, threadId: string, signal?: 
   })
 }
 
+export function publicCopilotMessage(message: NativeHistoryMessage): NativeHistoryMessage {
+  // Public pending calls and previews are projected from the authorized snapshot.
+  return {
+    ...message,
+    parts: message.parts.filter(
+      (part) => part.type !== 'data-tool-call-suspended' && part.type !== 'data-tool-call-approval'
+    ),
+  }
+}
+
 /** Native parts stay in storage unchanged; this projection is only for rendering. */
 export async function readNativeThreadHistory(
   scope: Scope,
@@ -24,11 +34,13 @@ export async function readNativeThreadHistory(
 ): Promise<NativeHistoryMessage[]> {
   if (!(await readNativeThread(scope, threadId, signal)))
     throw new NativeTargetError('Copilot thread is unavailable', 404)
-  return readNativeHistory(
-    {
-      threadId,
-      resourceId: nativeConversationIdentity(scope).resourceId,
-    },
-    signal
-  )
+  return (
+    await readNativeHistory(
+      {
+        threadId,
+        resourceId: nativeConversationIdentity(scope).resourceId,
+      },
+      signal
+    )
+  ).map(publicCopilotMessage)
 }

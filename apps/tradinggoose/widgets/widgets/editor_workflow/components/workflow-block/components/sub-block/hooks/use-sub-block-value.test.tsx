@@ -3,6 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 import { useModelRegistry } from '@/stores/model-registry'
 import { useSubBlockValue } from './use-sub-block-value'
 
@@ -13,20 +14,33 @@ const mocks = vi.hoisted(() => ({
   write: vi.fn(),
 }))
 vi.mock('@/lib/yjs/use-workflow-doc', () => ({
-  useBlock: () => ({ type: 'agent' }),
+  useWorkflowMutations: () => ({
+    setSubBlockValue: mocks.write,
+  }),
+  useBlock: () => ({
+    type: 'agent',
+    subBlocks: Object.fromEntries(
+      Object.entries(mocks.values).map(([id, value]) => [id, { value }])
+    ),
+  }),
   useSubBlockValue: (_blockId: string, field: string) => mocks.values[field],
 }))
-vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({
-  useWorkflowEditorActions: () => ({ collaborativeSetSubblockValue: mocks.write }),
+vi.mock('@/lib/yjs/workflow-session-host', () => ({
+  useWorkflowSession: () => ({ readWorkflowSnapshot: () => ({ blocks: {} }) }),
+}))
+vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () => ({
+  useOptionalWorkflowRoute: () => null,
 }))
 
 let root: Root
-let setModel: (model: string) => void
+let setValue: (value: string) => void
+let displayed: string | null
+let activeField: string
 let activeBlockId: string
 const actEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 const previousActEnvironment = actEnvironment.IS_REACT_ACT_ENVIRONMENT
 function Harness() {
-  ;[, setModel] = useSubBlockValue<string>(activeBlockId, 'model')
+  ;[displayed, setValue] = useSubBlockValue<string>(activeBlockId, activeField)
   return null
 }
 function render(model: string, blockId = 'agent') {
@@ -36,17 +50,24 @@ function render(model: string, blockId = 'agent') {
 }
 function type(model: string) {
   act(() => {
-    setModel(model)
+    setValue(model)
     root.render(<Harness />)
   })
 }
 beforeEach(() => {
+  activeField = 'model'
   useModelRegistry.setState({
     providers: [
       {
         id: 'openai',
         name: 'OpenAI',
-        models: [{ id: 'openai/gpt-4.1' }, { id: 'openai/gpt-5.6-sol' }],
+        models: [
+          { id: 'openai/gpt-5.6-sol' },
+          ...['openai/gpt-5', 'openai/gpt-5.1', 'openai/gpt-4.1'].map((id) => ({
+            id,
+            reasoningOptions: getReasoningOptions(id),
+          })),
+        ],
       },
       { id: 'anthropic', name: 'Anthropic', models: [{ id: 'anthropic/claude-sonnet-5-5' }] },
     ],
@@ -145,3 +166,40 @@ it.each(['anthropic/claude-sonnet-5-5', 'openai/gpt-5.6-sol', '<upstream.model>'
     expect(mocks.write.mock.calls.filter((call) => call[1] === 'apiKey')).toHaveLength(1)
   }
 )
+
+it.each(['high', '<variable.level>'])('writes the selected effort %s to the block', (effort) => {
+  activeField = 'reasoningEffort'
+  render('google/gemini-2.5-flash')
+  type(effort)
+  expect(mocks.write).toHaveBeenCalledExactlyOnceWith('agent', 'reasoningEffort', effort)
+  expect(displayed).toBe(effort)
+})
+
+it('keeps effort/high while typing a compatible model one character at a time', () => {
+  mocks.values.reasoningEffort = 'high'
+  render('openai/gpt-5')
+  type('openai/gpt-5.')
+  type('openai/gpt-5.1')
+  expect(mocks.values).toMatchObject({
+    model: 'openai/gpt-5.1',
+    reasoningEffort: 'high',
+  })
+  expect(mocks.write.mock.calls).toEqual([
+    ['agent', 'model', 'openai/gpt-5.'],
+    ['agent', 'model', 'openai/gpt-5.1'],
+  ])
+})
+
+it.each([
+  ['', 'high', 'high'],
+  ['openai/unlisted-model', 'high', 'high'],
+  ['<variable.model>', 'high', 'high'],
+  ['openai/gpt-4.1', '<variable.effort>', '<variable.effort>'],
+  ['openai/gpt-5.1', 'max', getReasoningOptions('openai/gpt-5.1')![0].defaultValue],
+  ['openai/gpt-4.1', 'high', ''],
+])('changing to "%s" with effort "%s" leaves "%s"', (model, effort, expected) => {
+  mocks.values.reasoningEffort = effort
+  render('openai/gpt-5')
+  type(model)
+  expect(mocks.values).toMatchObject({ model, reasoningEffort: expected })
+})

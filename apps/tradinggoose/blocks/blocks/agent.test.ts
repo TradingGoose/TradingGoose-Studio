@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { getReasoningOptions } from '@/lib/mastra/native-reasoning'
 import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { getWorkflowInspectorCopy } from '@/i18n/block-editor'
 import { useModelRegistry } from '@/stores/model-registry'
@@ -18,24 +19,39 @@ const providers = [
     models: [
       {
         id: 'example/capable',
-        temperature: true,
         structuredOutput: true,
         toolCall: true,
+        reasoningOptions: [
+          {
+            type: 'effort' as const,
+            values: ['low' as const, 'high' as const],
+            defaultValue: 'high' as const,
+          },
+        ],
       },
-      { id: 'example/plain', temperature: false, structuredOutput: false, toolCall: false },
+      {
+        id: 'example/plain',
+        structuredOutput: false,
+        toolCall: false,
+        reasoningOptions: [],
+      },
       { id: 'example/unknown' },
     ],
   },
 ]
 afterEach(() => useModelRegistry.setState(original))
-const fields = (model: string) =>
+const layout = (model: string) =>
   buildTriggerEditingLayout({
     inspectorCopy: getWorkflowInspectorCopy('en'),
     blockType: 'agent',
     blockConfig: AgentBlock,
     blockState: { subBlocks: { model: { value: model } } },
     shouldDisableWrite: false,
-  }).additionalRows.flat()
+  })
+const fields = (model: string) => {
+  const rows = layout(model)
+  return [...rows.regularRows, ...rows.additionalRows].flat()
+}
 
 describe('registry-backed model interaction', () => {
   it('uses the same grouped searchable registry selection for every model block', () => {
@@ -89,38 +105,75 @@ describe('registry-backed model interaction', () => {
   it('uses unset native model settings', () => {
     useModelRegistry.setState({ providers })
     const available = fields('example/capable')
-    for (const id of ['memories', 'responseFormat', 'temperature', 'maxTokens', 'maxSteps']) {
+    for (const id of ['memories', 'responseFormat']) {
       const field = available.find((entry) => entry.id === id)!
       expect(field.additional).toBe(true)
       expect(field.defaultValue).toBeUndefined()
       expect(field.value).toBeUndefined()
     }
-    const temperature = available.find(({ id }) => id === 'temperature')!
-    expect(temperature.type).toBe('short-input')
-    expect(temperature.min).toBeUndefined()
-    expect(temperature.max).toBeUndefined()
-    expect(
-      AgentBlock.subBlocks.some(({ id }) =>
-        [
-          'providerOptions',
-          'reasoningOptions',
-          'reasoningEffort',
-          'verbosity',
-          'thinkingLevel',
-        ].includes(id)
-      )
-    ).toBe(false)
+    expect(AgentBlock.inputs).not.toHaveProperty('temperature')
+    expect(available.find(({ id }) => id === 'reasoningMode')).toBeUndefined()
+    const effort = available.find(({ id }) => id === 'reasoningEffort')
+    expect(effort?.required).toBeFalsy()
+    expect(effort?.autoSelectFirstOption).not.toBe(false)
+    expect(effort).toMatchObject({
+      type: 'combobox',
+      title: 'Reasoning Effort',
+    })
+    expect(effort?.value?.({ model: 'example/capable' })).toBe('high')
+    expect(AgentBlock.subBlocks.every(({ layout }) => layout === 'full')).toBe(true)
+    const ids = AgentBlock.subBlocks.map(({ id }) => id)
+    for (const id of [
+      'temperature',
+      'reasoningOptions',
+      'providerOptions',
+      'verbosity',
+      'thinkingLevel',
+    ])
+      expect(ids).not.toContain(id)
   })
 
-  it.each(['temperature', 'responseFormat'])(
-    'gates %s only on explicit native non-support',
-    (id) => {
+  it('gates response format only on explicit native non-support or an empty model', () => {
+    useModelRegistry.setState({ providers })
+    for (const model of ['example/capable', 'example/unknown', 'example/unlisted'])
+      expect(fields(model).map((field) => field.id)).toContain('responseFormat')
+    for (const model of ['example/plain', ''])
+      expect(fields(model).map((field) => field.id)).not.toContain('responseFormat')
+  })
+
+  it.each(['example/unknown', 'example/unlisted', 'example/plain', ''])(
+    'hides reasoning with no requestable settings for %s',
+    (model) => {
       useModelRegistry.setState({ providers })
-      expect(fields('example/capable').map((field) => field.id)).toContain(id)
-      expect(fields('example/plain').map((field) => field.id)).not.toContain(id)
-      expect(fields('example/unknown').map((field) => field.id)).toContain(id)
-      expect(fields('example/unlisted').map((field) => field.id)).toContain(id)
-      expect(fields('').map((field) => field.id)).not.toContain(id)
+      expect(fields(model).map((field) => field.id)).not.toContain('reasoningEffort')
+    }
+  )
+  it.each(['openai/gpt-5', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'openai/gpt-4o'])(
+    'places the runtime reasoning options for %s directly below Model',
+    (id) => {
+      const options = getReasoningOptions(id) ?? []
+      const [provider] = id.split('/')
+      useModelRegistry.setState({
+        providers: [{ id: provider, name: provider, models: [{ id, reasoningOptions: options }] }],
+      })
+      const rows = layout(id)
+      expect(rows.displayAdditionalFields).toBe(false)
+      expect(rows.additionalRows.flat().some((field) => field.id.startsWith('reasoning'))).toBe(
+        false
+      )
+      const controls = rows.regularRows.flat().filter((field) => field.id.startsWith('reasoning'))
+      expect(controls).toHaveLength(options.length)
+      for (const option of options) {
+        const field = controls.find(
+          ({ condition }) => typeof condition === 'object' && condition.value === option.type
+        )!
+        const modelRow = rows.regularRows.findIndex((row) => row.some(({ id }) => id === 'model'))
+        expect(rows.regularRows[modelRow + 1]).toEqual([field])
+        expect(field.value?.({ model: id })).toBe(option.defaultValue)
+        expect(typeof field.options === 'function' && field.options({ model: id })).toEqual(
+          option.values.map((id) => ({ id, label: id }))
+        )
+      }
     }
   )
 
@@ -129,28 +182,10 @@ describe('registry-backed model interaction', () => {
     (model) => {
       useModelRegistry.setState({ providers })
       expect(fields(model).map(({ id }) => id)).toEqual(
-        expect.arrayContaining(['responseFormat', 'temperature', 'maxTokens', 'maxSteps'])
+        expect.arrayContaining(['responseFormat', 'reasoningEffort'])
       )
     }
   )
-
-  it.each([
-    ['maxTokens', 1],
-    ['maxSteps', 1],
-  ] as const)('keeps native %s available independently of metadata', (id, min) => {
-    for (const model of ['example/plain', 'example/unknown', '<upstream.model>']) {
-      const limits = fields(model).filter((field) => field.id === id)
-      expect(limits).toHaveLength(1)
-      expect(limits[0]).toMatchObject({
-        type: 'short-input',
-        inputType: 'number',
-        min,
-        integer: true,
-      })
-      expect(limits[0].max).toBeUndefined()
-      expect(limits[0].defaultValue).toBeUndefined()
-    }
-  })
 
   it('preserves condition negation and dependencies through serialization', () => {
     useModelRegistry.setState({ providers })

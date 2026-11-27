@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { INDICATOR_DOCUMENT_FORMAT } from '@/lib/copilot/entity-documents'
+import { INDICATOR_DOCUMENT_FORMAT } from '@/lib/copilot/document-formats'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
 import { listIndicatorsServerTool, readIndicatorServerTool } from './indicator'
 
