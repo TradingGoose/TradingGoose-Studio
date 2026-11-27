@@ -229,7 +229,9 @@ deployment strategy; autoscaling and pod disruption budget settings apply only t
 | `externalDatabase.username` | External database username | `postgres` |
 | `externalDatabase.password` | External database password | `""` |
 | `externalDatabase.database` | External database name | `tradinggoose` |
-| `externalDatabase.sslMode` | External database SSL mode | `require` |
+| `externalDatabase.sslMode` | External database SSL mode | `verify-full` |
+
+For a separately supplied TLS `DATABASE_URL`, set `sslmode=verify-full` on Studio and on the worker. Use the hostname on the server certificate and trust its issuing CA in both runtimes.
 
 ### Ollama Parameters
 

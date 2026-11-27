@@ -325,7 +325,7 @@ externalDatabase:
   database: tradinggoose
   
   # SSL configuration
-  sslMode: require
+  sslMode: verify-full
 
 # Ollama local AI models configuration
 ollama:
