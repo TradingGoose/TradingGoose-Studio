@@ -22407,6 +22407,8 @@
           "updated": "Actualizado {value}",
           "justNow": "Justo ahora",
           "loading": "Cargando…",
+          "showEarlier": "Mostrar mensajes anteriores",
+          "showOlderChats": "Mostrar chats anteriores",
           "loadingChatHistory": "Cargando historial del chat...",
           "loadError": "No se pudo cargar el historial de chats.",
           "noChatsYet": "Aún no hay chats",

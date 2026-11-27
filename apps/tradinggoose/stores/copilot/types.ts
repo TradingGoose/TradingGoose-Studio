@@ -93,6 +93,9 @@ export interface CopilotState {
 
   chatsWorkspaceId: string | null
   chatsError: string | null
+  historyPage: { through?: string; page: number; hasMore: boolean } | null
+  loadingEarlier: boolean
+  earlierError: string | null
   historyError: string | null
   isLoadingChats: boolean
   isSendingMessage: boolean
@@ -112,6 +115,7 @@ export interface CopilotActions {
   setReasoning: (options: CopilotStore['reasoning']) => void
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
+  loadEarlierMessages: () => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>
   createNewChat: (workspaceId?: string | null) => Promise<void>
   deleteChat: (threadId: string) => Promise<void>

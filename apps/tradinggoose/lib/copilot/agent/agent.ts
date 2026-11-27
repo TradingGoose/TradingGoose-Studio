@@ -70,6 +70,7 @@ export function createCopilotAgent(memory: Memory) {
     id: 'studio-copilot',
     name: 'Studio Copilot',
     memory,
+    durable: { cache: false },
     instructions: ({ requestContext }) => {
       const execution = getCopilotExecution(requestContext)
       if (!execution) throw new Error('An active Studio invocation is required')

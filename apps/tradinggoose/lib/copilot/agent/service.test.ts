@@ -26,6 +26,7 @@ import {
   type Scope,
 } from '@/lib/copilot/native/contract'
 import { NativeTargetError, ObserveWorkflowExecution } from '@/lib/copilot/native/errors'
+import { readNativeThreadHistory } from '@/lib/copilot/native/history'
 import { nativeConversationIdentity, nativeToolCallId } from '@/lib/copilot/native/identity'
 import { validateCopilotModel } from '@/lib/copilot/settings.server'
 import { assertAcceptedServerToolReviewBase } from '@/lib/copilot/tools/server/base-tool'
@@ -346,7 +347,10 @@ async function command(
       >
       const { result } = await command({ scope: selected, command: 'thread.observe', threadId })
       if (result.status !== 'history') throw new Error('Expected completed native history')
-      const messages = result.items.filter(
+      const items = result.hasMore
+        ? await readNativeThreadHistory(selected, threadId)
+        : result.items
+      const messages = items.filter(
         (item) => item.role === 'assistant' && item.runId === outcome.runId
       )
       body = {
@@ -1344,7 +1348,7 @@ describe('Copilot background execution and native history', () => {
       ],
     })
   })
-  it('reads complete ordered history through the authenticated Studio route without dispatch', async () => {
+  it('pages ordered history through the authenticated Studio route without dispatch', async () => {
     const post = (body: CopilotRequest) =>
       handleStudioRequest(
         new NextRequest('https://studio.test/api/copilot/native', {
@@ -1386,7 +1390,8 @@ describe('Copilot background execution and native history', () => {
         threadId: 'thread-0',
         resourceId,
         role: i % 2 ? ('assistant' as const) : ('user' as const),
-        createdAt: new Date(i * 1000),
+        // Equal timestamps straddle the initial 40-message boundary.
+        createdAt: new Date((i === 85 ? 84 : i) * 1000),
         content: { format: 2 as const, parts: [{ type: 'text' as const, text: `Message ${i}` }] },
       })),
     })
@@ -1399,10 +1404,39 @@ describe('Copilot background execution and native history', () => {
     const first = (await events.next()).value
     await events.return(undefined)
     if (first?.type !== 'thread.history') throw new Error('Expected native thread history')
-    expect(first.result.items.map((message) => message.id)).toEqual(
-      Array.from({ length: 125 }, (_, i) => `message-${i}`)
+    expect(first.result.items).toHaveLength(40)
+    let items = first.result.items
+    const through = items[0]!.createdAt
+    const pageRequest = { ...observe, command: 'thread.page', through, page: 1 } as const
+    await store.saveMessages({
+      messages: [
+        {
+          id: 'new-arrival',
+          threadId: 'thread-0',
+          resourceId,
+          role: 'user',
+          createdAt: new Date(),
+          content: { format: 2, parts: [{ type: 'text', text: 'New' }] },
+        },
+      ],
+    })
+    let hasMore = first.result.hasMore
+    for (let page = 0; hasMore && page <= 3; page++) {
+      const older = await (await post({ ...pageRequest, page })).json()
+      expect(older.status).toBe('history.page')
+      expect(older.items.length).toBeLessThanOrEqual(40)
+      const known = new Set(items.map((item) => item.id))
+      items = [...older.items.filter((item: { id: string }) => !known.has(item.id)), ...items]
+      hasMore = older.hasMore
+    }
+    expect(hasMore).toBe(false)
+    expect(items.map((message) => message.id).sort()).toEqual(
+      Array.from({ length: 125 }, (_, i) => `message-${i}`).sort()
     )
-    expect(first.result.items.slice(0, 2)).toMatchObject([
+    expect(items.map(({ createdAt }) => createdAt)).toEqual(
+      Array.from({ length: 125 }, (_, i) => new Date((i === 85 ? 84 : i) * 1000).toISOString())
+    )
+    expect(items.slice(0, 2)).toMatchObject([
       { role: 'user', parts: [{ type: 'text', text: 'Message 0' }] },
       { role: 'assistant', parts: [{ type: 'text', text: 'Message 1' }] },
     ])
@@ -1410,9 +1444,11 @@ describe('Copilot background execution and native history', () => {
       status: 'threads',
       items: [],
     })
+    expect((await post({ ...pageRequest, workspaceId: 'another-workspace' })).status).toBe(404)
     m.session.mockResolvedValue({ user: { id: 'another-actor' } })
     expect(await (await post(list)).json()).toEqual({ status: 'threads', items: [] })
     expect((await post(observe)).status).toBe(404)
+    expect((await post(pageRequest)).status).toBe(404)
     expect(m.dispatch).not.toHaveBeenCalled()
     expect(m.contacts).toHaveLength(0)
   })

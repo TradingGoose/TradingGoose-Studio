@@ -72,7 +72,7 @@ vi.mock('@/lib/copilot/inline-tool-call', () => ({
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
-  useCopilotStore: () => mockStoreState,
+  useCopilotStore: (selector: (state: any) => unknown) => selector(mockStoreState),
   useCopilotStoreApi: () => ({
     getState: () => mockStoreState,
   }),
@@ -149,7 +149,14 @@ describe('CopilotMessage', () => {
         <CopilotMessage
           message={message}
           runtimeContext={context}
-          isStreaming={false}
+          isLastMessage={mockStoreState.messages.at(-1)?.id === message.id}
+          isLastUserMessage={
+            mockStoreState.messages.findLast((m: CopilotMessageType) => m.role === 'user')?.id ===
+            message.id
+          }
+          isTurnInProgress={
+            mockStoreState.isSendingMessage || mockStoreState.isAwaitingContinuation
+          }
           panelWidth={308}
           isDimmed={false}
           onEditModeChange={vi.fn()}

@@ -451,7 +451,8 @@ function ToolActionButtons({
 }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const actionInProgressRef = useRef(false)
-  const { executeCopilotToolCall, skipCopilotToolCall } = useCopilotStore()
+  const executeCopilotToolCall = useCopilotStore((state) => state.executeCopilotToolCall)
+  const skipCopilotToolCall = useCopilotStore((state) => state.skipCopilotToolCall)
   const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
   const isReview = toolCall.state === ClientToolCallState.review
   const acceptText =
@@ -676,8 +677,10 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
   const [expanded, setExpanded] = useState(
     toolCall?.state === ClientToolCallState.pending && isExpandableTool
   )
+  const [showWorkflowOutput, setShowWorkflowOutput] = useState(false)
   const pendingDetailsId = useId()
-  const { readbackCopilotToolCall, recordToolFailure } = useCopilotStore()
+  const readbackCopilotToolCall = useCopilotStore((state) => state.readbackCopilotToolCall)
+  const recordToolFailure = useCopilotStore((state) => state.recordToolFailure)
 
   if (!toolCall) return null
 
@@ -867,11 +870,16 @@ export function InlineToolCall({ toolCall: toolCallProp, toolCallId }: InlineToo
         {workflowResult &&
           workflowResult.data.status !== 'paused' &&
           Object.keys(workflowResult.data.output).length > 0 && (
-            <details className='w-full text-xs'>
+            <details
+              className='w-full text-xs'
+              onToggle={(event) => setShowWorkflowOutput(event.currentTarget.open)}
+            >
               <summary>Workflow output</summary>
-              <pre className='overflow-x-auto'>
-                {JSON.stringify(workflowResult.data.output, null, 2)}
-              </pre>
+              {showWorkflowOutput && (
+                <pre className='overflow-x-auto'>
+                  {JSON.stringify(workflowResult.data.output, null, 2)}
+                </pre>
+              )}
             </details>
           )}
         {showButtons ? (

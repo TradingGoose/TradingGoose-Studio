@@ -105,7 +105,9 @@ async function edit(message: Message, text: string) {
       <CopilotMessage
         message={message}
         runtimeContext={runtimeContext}
-        isStreaming={false}
+        isLastMessage
+        isLastUserMessage
+        isTurnInProgress={false}
         panelWidth={375}
         isDimmed={false}
         onEditModeChange={vi.fn()}

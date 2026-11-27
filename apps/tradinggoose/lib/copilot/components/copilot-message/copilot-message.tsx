@@ -105,18 +105,22 @@ const renderUserMessageTextWithMentions = (text: string, contexts: ChatContext[]
 interface CopilotMessageProps {
   message: CopilotMessageType
   runtimeContext: CopilotSendRuntimeContext
-  isStreaming: boolean
+  isLastMessage: boolean
+  isLastUserMessage: boolean
+  isTurnInProgress: boolean
   panelWidth: number
   isDimmed: boolean
   submitDisabled?: boolean
-  onEditModeChange: (isEditing: boolean) => void
+  onEditModeChange: (messageId: string, isEditing: boolean) => void
 }
 
 const CopilotMessage: FC<CopilotMessageProps> = memo(
   ({
     message,
     runtimeContext,
-    isStreaming,
+    isLastMessage,
+    isLastUserMessage,
+    isTurnInProgress,
     panelWidth,
     isDimmed,
     submitDisabled,
@@ -137,31 +141,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const [needsExpansion, setNeedsExpansion] = useState(false)
     const [typingSegmentKeys, setTypingSegmentKeys] = useState<string[]>([])
 
-    const state = useCopilotStore()
-    const {
-      currentChat,
-      currentRunId,
-      messages,
-      sendMessage,
-      isSendingMessage,
-      isAborting,
-      abortMessage,
-    } = state
     const copilotStoreApi = useCopilotStoreApi()
-
-    // Check if this is the last user message (for showing abort button)
-    const isLastUserMessage = useMemo(() => {
-      if (!isUser) return false
-      const userMessages = messages.filter((m) => m.role === 'user')
-      return userMessages.length > 0 && userMessages[userMessages.length - 1]?.id === message.id
-    }, [isUser, messages, message.id])
-
-    const isLastMessage = useMemo(() => {
-      if (messages.length === 0) return false
-      return messages[messages.length - 1]?.id === message.id
-    }, [messages, message.id])
-
-    const isTurnInProgress = isStreaming || isCopilotBusy(state)
+    const isSendingMessage = useCopilotStore((state) => isLastUserMessage && state.isSendingMessage)
+    const isAborting = useCopilotStore(
+      (state) => (isLastUserMessage || isEditMode) && state.isAborting
+    )
+    const isStreaming = isLastMessage && isTurnInProgress
     const isMessageTyping = typingSegmentKeys.length > 0
     const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
     const shouldShowActivityIndicator =
@@ -170,20 +155,16 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const hasNativeFiles = message.contentBlocks?.some((block) => block.type === 'file') ?? false
     const userMessageContexts = extractExplicitCopilotContexts(message.contexts)
 
-    const isReplayBlockedForEdit = useMemo(
-      () => hasToolActivityAfterMessage(messages, message.id),
-      [message.id, messages]
-    )
-
     const handleEditMessage = () => {
+      const { isSendingMessage, currentRunId, messages } = copilotStoreApi.getState()
       if (isSendingMessage && !currentRunId) {
         setEditBlockedReason('Wait for the response to start before editing this message.')
         return
       }
-      if (isReplayBlockedForEdit) {
+      if (hasToolActivityAfterMessage(messages, message.id)) {
         setIsEditMode(false)
         setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
-        onEditModeChange(false)
+        onEditModeChange(message.id, false)
         return
       }
 
@@ -191,7 +172,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       setIsExpanded(false)
       setEditDraft(buildMessageEditDraft(message))
       setEditBlockedReason(null)
-      onEditModeChange(true)
+      onEditModeChange(message.id, true)
       // Focus the input and position cursor at the end after render
       setTimeout(() => {
         userInputRef.current?.focus()
@@ -201,7 +182,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const handleCancelEdit = () => {
       setIsEditMode(false)
       setEditDraft(buildMessageEditDraft(message))
-      onEditModeChange(false)
+      onEditModeChange(message.id, false)
     }
 
     const handleMessageClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -223,19 +204,21 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       contexts?: ChatContext[]
     ) => {
       if (!editedMessage.trim()) return false
+      const state = copilotStoreApi.getState()
+      const { isSendingMessage, currentRunId, messages, abortMessage } = state
       if (isSendingMessage && !currentRunId) {
         setEditBlockedReason('Wait for the response to start before editing this message.')
         return false
       }
 
-      if (isReplayBlockedForEdit) {
+      if (hasToolActivityAfterMessage(messages, message.id)) {
         handleCancelEdit()
         setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
         return false
       }
 
       // If a stream is in progress, abort it first
-      if (isTurnInProgress) {
+      if (isCopilotBusy(state)) {
         if (!(await abortMessage())) {
           setEditBlockedReason(
             copilotStoreApi.getState().error || 'The current response could not be stopped.'
@@ -265,7 +248,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         return false
       }
       try {
-        const completed = await sendMessage(editedMessage, {
+        const completed = await copilotStoreApi.getState().sendMessage(editedMessage, {
           messageId: message.id,
           contexts,
           runtimeContext,
@@ -276,7 +259,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           )
         setIsEditMode(false)
         setEditBlockedReason(null)
-        onEditModeChange(false)
+        onEditModeChange(message.id, false)
         return true
       } catch (error) {
         setEditBlockedReason(error instanceof Error ? error.message : 'Native history edit failed')
@@ -387,9 +370,9 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleOptionSelect = useCallback(
       (_optionKey: string, optionText: string) => {
-        sendMessage(optionText, { runtimeContext })
+        copilotStoreApi.getState().sendMessage(optionText, { runtimeContext })
       },
-      [runtimeContext, sendMessage]
+      [copilotStoreApi, runtimeContext]
     )
 
     const assistantSegments = useMemo(() => {
@@ -516,7 +499,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             <div ref={editContainerRef} className='relative w-full'>
               <UserInput
                 ref={userInputRef}
-                workspaceId={currentChat?.workspaceId ?? ''}
+                workspaceId={runtimeContext.workspaceId ?? ''}
                 onSubmit={handleSubmitEdit}
                 draft={editDraft}
                 onDraftChange={setEditDraft}
@@ -574,7 +557,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                             type='button'
                             onClick={(e) => {
                               e.stopPropagation()
-                              abortMessage()
+                              void copilotStoreApi.getState().abortMessage()
                             }}
                             disabled={isAborting}
                             className='flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60'

@@ -28,7 +28,9 @@ function Messages() {
       key={message.id}
       message={message}
       runtimeContext={runtimeContext}
-      isStreaming={isSendingMessage && message.id === messages.at(-1)?.id}
+      isLastMessage={message.id === messages.at(-1)?.id}
+      isLastUserMessage={message.id === messages.filter((item) => item.role === 'user').at(-1)?.id}
+      isTurnInProgress={isSendingMessage}
       panelWidth={400}
       isDimmed={false}
       onEditModeChange={onEditModeChange}

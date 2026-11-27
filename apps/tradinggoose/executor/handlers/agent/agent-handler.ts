@@ -161,82 +161,51 @@ export class AgentBlockHandler implements BlockHandler {
       },
     }
     const cancellation = watchExecutionCancellation(context.shouldCancelExecution, abortController)
-    const complete = async (result: any) => {
-      const accounting = await work.complete(result)
-      cancellation.stop()
-      policy.assertComplete(result.steps)
-      const output = extractAgentOutput(result, model, accounting, responseFormat !== undefined)
-      Object.assign(getInferenceFacts(output)!, { history, files: [...files.values()] })
-      return output
-    }
-    const fail = (error: unknown) => {
-      cancellation.stop()
-      const accounting = work.accounting()
-      const failure = new Error(safeInferenceError(error, inputs.apiKey))
-      const owned = {
-        model,
-        ...accounting,
-      }
-      Object.assign(failure, owned)
-      const facts = {
-        ...owned,
-        history,
-        files: [...files.values()],
-        generatedFields: Object.keys(owned),
-      }
-      return withInferenceFacts(failure, facts)
-    }
-    if (!this.shouldStream(block, context)) {
+    const generate = async () => {
       try {
-        return await complete(await agent.generate(modelMessages, options))
+        const result = await agent.generate(modelMessages, options)
+        const accounting = await work.complete(result)
+        await cancellation.check()
+        policy.assertComplete(result.steps)
+        const output = extractAgentOutput(result, model, accounting, responseFormat !== undefined)
+        Object.assign(getInferenceFacts(output)!, { history, files: [...files.values()] })
+        return { output, text: result.steps.at(-1)!.text }
       } catch (error) {
-        throw fail(error)
+        const owned = { model, ...work.accounting() }
+        const failure = Object.assign(new Error(safeInferenceError(error, inputs.apiKey)), owned)
+        throw withInferenceFacts(failure, {
+          ...owned,
+          history,
+          files: [...files.values()],
+          generatedFields: Object.keys(owned),
+        })
+      } finally {
+        cancellation.stop()
       }
     }
-    const execution: StreamingExecution['execution'] = {
-      output: {},
-    }
-    try {
-      const nativeStream = await agent.stream(modelMessages, options)
-      const reader = nativeStream.fullStream.getReader()
-      const failStream = async (error: unknown) => {
-        abortController.abort(error)
-        await reader.cancel(error).catch(() => undefined)
-        await nativeStream.getFullOutput().catch(() => undefined)
-        const failure = fail(error)
-        Object.assign(execution.output, failure)
-        return failure
-      }
-      const stream = new ReadableStream<Uint8Array>({
-        async pull(controller) {
-          try {
-            while (true) {
-              await cancellation.check()
-              const { done, value } = await reader.read()
-              await cancellation.check()
-              if (done) {
-                const result = await nativeStream.getFullOutput()
-                Object.assign(execution.output, await complete(result))
-                // Workflow chunks are append-only; native retries may discard earlier text.
-                controller.enqueue(new TextEncoder().encode(result.steps.at(-1)!.text))
-                controller.close()
-                return
-              }
-              if (value.type === 'error') throw value.payload.error
-              if (value.type === 'abort') throw new Error('Agent generation was cancelled')
-            }
-          } catch (error) {
-            controller.error(await failStream(error))
-          }
-        },
-        async cancel() {
-          await failStream(new Error('Agent generation was cancelled'))
-        },
-      })
-      return { stream, execution }
-    } catch (error) {
-      throw fail(error)
-    }
+    const generation = generate()
+    if (!this.shouldStream(block, context)) return (await generation).output
+
+    // Workflow output is append-only. Publish the accepted answer once, after retries and tools.
+    const execution: StreamingExecution['execution'] = { output: {} }
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        try {
+          const { output, text } = await generation
+          Object.assign(execution.output, output)
+          controller.enqueue(new TextEncoder().encode(text))
+          controller.close()
+        } catch (error) {
+          Object.assign(execution.output, error)
+          controller.error(error)
+        }
+      },
+      async cancel() {
+        abortController.abort(new Error('Agent generation was cancelled'))
+        await generation.catch(() => undefined)
+      },
+    })
+    return { stream, execution }
   }
 
   private parseResponseFormat(responseFormat?: string | object): any {

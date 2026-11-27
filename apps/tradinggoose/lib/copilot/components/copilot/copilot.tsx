@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -46,6 +46,8 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
   const retry = useTranslations('workspace.widgets.stateMessage')('retry')
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const prependScroll = useRef<{ threadId?: string; height: number; first?: string } | null>(null)
+  const visibleThread = useRef<string | undefined>(undefined)
   const [isInitialized, setIsInitialized] = useState(false)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
 
@@ -88,8 +90,31 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     !model ||
     (!reasoning && !!model.reasoningOptions?.length) ||
     !!reasoningSelectionError(model.id, model.reasoningOptions, reasoning?.value)
-  const planTodos = useMemo(() => buildPlanTodosFromMessages(messages), [messages])
   const isTurnInProgress = isCopilotBusy(state)
+  const planTodos = useMemo(
+    () => (isTurnInProgress ? buildPlanTodosFromMessages(messages) : []),
+    [isTurnInProgress, messages]
+  )
+  const showingMessages = conversationInScope && (isInitialized || messages.length > 0)
+  const lastMessage = messages.at(-1)
+  const lastUserId = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index--) {
+      if (messages[index].role === 'user') return messages[index].id
+    }
+  }, [messages])
+  const editingIndex = editingMessageId
+    ? messages.findIndex((item) => item.id === editingMessageId)
+    : -1
+  const threadId = state.currentChat?.threadId
+
+  useLayoutEffect(() => {
+    const before = prependScroll.current
+    if (!before || state.loadingEarlier) return
+    prependScroll.current = null
+    const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]')
+    if (viewport && before.threadId === threadId && before.first !== messages[0]?.id)
+      viewport.scrollTop += viewport.scrollHeight - before.height
+  }, [messages, state.loadingEarlier, threadId])
 
   useEffect(() => {
     let cancelled = false
@@ -192,7 +217,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
   useEffect(() => {
     const scrollArea = scrollAreaRef.current
-    if (!scrollArea) return
+    if (!showingMessages || !scrollArea) return
 
     const viewport = scrollArea.querySelector('[data-slot="scroll-area-viewport"]')
     if (!viewport) return
@@ -226,11 +251,11 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
         viewport.removeEventListener('scrollend', handleViewportScrollEnd)
       }
     }
-  }, [clearProgrammaticScrollLock, handleScroll])
+  }, [clearProgrammaticScrollLock, handleScroll, showingMessages])
 
   useEffect(() => {
     const messagesContainer = messagesContainerRef.current
-    if (!messagesContainer || typeof ResizeObserver === 'undefined') return
+    if (!showingMessages || !messagesContainer || typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(() => {
       const shouldAutoScroll =
@@ -250,13 +275,13 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     return () => {
       observer.disconnect()
     }
-  }, [isNearBottom, isTurnInProgress, scrollToBottom, userHasScrolledDuringStream])
+  }, [isNearBottom, isTurnInProgress, scrollToBottom, showingMessages, userHasScrolledDuringStream])
 
   // Smart auto-scroll: only scroll if user hasn't intentionally scrolled up during streaming
   useEffect(() => {
-    if (messages.length === 0) return
-
-    const lastMessage = messages[messages.length - 1]
+    if (!lastMessage) return
+    const opening = visibleThread.current !== threadId
+    visibleThread.current = threadId
     const isNewUserMessage = lastMessage?.role === 'user'
 
     // Conditions for auto-scrolling:
@@ -264,23 +289,30 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     // 2. For assistant messages during streaming: only if user hasn't scrolled up
     // 3. For assistant messages when not streaming: only if near bottom
     const shouldAutoScroll =
+      opening ||
       isNewUserMessage ||
       (isTurnInProgress && !userHasScrolledDuringStream) ||
       (!isTurnInProgress && isNearBottom)
 
     if (shouldAutoScroll) {
-      scrollToBottom(isTurnInProgress && !isNewUserMessage ? 'auto' : 'smooth')
+      scrollToBottom(opening || (isTurnInProgress && !isNewUserMessage) ? 'auto' : 'smooth')
     }
-  }, [isNearBottom, isTurnInProgress, messages, scrollToBottom, userHasScrolledDuringStream])
+  }, [
+    isNearBottom,
+    isTurnInProgress,
+    lastMessage,
+    threadId,
+    scrollToBottom,
+    userHasScrolledDuringStream,
+  ])
 
   // Reset user scroll state when streaming starts or when user sends a message
   useEffect(() => {
-    const lastMessage = messages[messages.length - 1]
     if (lastMessage?.role === 'user') {
       setUserHasScrolledDuringStream(false)
       clearProgrammaticScrollLock()
     }
-  }, [clearProgrammaticScrollLock, messages])
+  }, [clearProgrammaticScrollLock, lastMessage])
 
   // Reset user scroll state when streaming completes
   const prevIsTurnInProgressRef = useRef(false)
@@ -291,13 +323,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     }
     prevIsTurnInProgressRef.current = isTurnInProgress
   }, [isTurnInProgress])
-
-  // Auto-scroll to bottom when chat loads in
-  useEffect(() => {
-    if (isInitialized && messages.length > 0) {
-      scrollToBottom()
-    }
-  }, [isInitialized, messages.length, scrollToBottom])
 
   // Handle message submission
   const handleSubmit = useCallback(
@@ -348,7 +373,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
           </Button>
         </div>
       )}
-      {!conversationInScope || (!isInitialized && messages.length === 0) ? (
+      {!showingMessages ? (
         !historyError && (
           <div className='flex h-full w-full items-center justify-center'>
             <div className='flex flex-col items-center justify-center gap-3'>
@@ -373,6 +398,29 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
                 ref={messagesContainerRef}
                 className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'
               >
+                {state.historyPage?.hasMore && (
+                  <Button
+                    type='button'
+                    variant='link'
+                    size='sm'
+                    disabled={state.loadingEarlier}
+                    onClick={() => {
+                      const viewport = scrollAreaRef.current?.querySelector(
+                        '[data-slot="scroll-area-viewport"]'
+                      )
+                      if (viewport)
+                        prependScroll.current = {
+                          threadId,
+                          height: viewport.scrollHeight,
+                          first: messages[0]?.id,
+                        }
+                      void state.loadEarlierMessages()
+                    }}
+                  >
+                    {copilotCopy.history.showEarlier}
+                  </Button>
+                )}
+                {state.earlierError && <p role='alert'>{state.earlierError}</p>}
                 {messages.length === 0 &&
                 !historyError &&
                 !state.isLoadingChats &&
@@ -386,33 +434,20 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
                     />
                   </div>
                 ) : (
-                  messages.map((message, index) => {
-                    // Determine if this message should be dimmed
-                    let isDimmed = false
-
-                    // Dim messages after the one being edited
-                    if (editingMessageId) {
-                      const editingIndex = messages.findIndex((m) => m.id === editingMessageId)
-                      isDimmed = editingIndex !== -1 && index > editingIndex
-                    }
-
-                    return (
-                      <CopilotMessage
-                        key={message.id}
-                        message={message}
-                        runtimeContext={sendRuntimeContext}
-                        submitDisabled={submitDisabled}
-                        isStreaming={
-                          isTurnInProgress && message.id === messages[messages.length - 1]?.id
-                        }
-                        panelWidth={panelWidth}
-                        isDimmed={isDimmed}
-                        onEditModeChange={(isEditing) =>
-                          handleEditModeChange(message.id, isEditing)
-                        }
-                      />
-                    )
-                  })
+                  messages.map((message, index) => (
+                    <CopilotMessage
+                      key={message.id}
+                      message={message}
+                      runtimeContext={sendRuntimeContext}
+                      submitDisabled={submitDisabled}
+                      isLastMessage={message === lastMessage}
+                      isLastUserMessage={message.id === lastUserId}
+                      isTurnInProgress={isTurnInProgress}
+                      panelWidth={panelWidth}
+                      isDimmed={editingIndex !== -1 && index > editingIndex}
+                      onEditModeChange={handleEditModeChange}
+                    />
+                  ))
                 )}
               </div>
             </ScrollArea>

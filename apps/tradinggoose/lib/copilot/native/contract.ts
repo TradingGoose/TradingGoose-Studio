@@ -108,6 +108,15 @@ export const CopilotRequestSchema = z.discriminatedUnion('command', [
   z.object({ ...base, command: z.literal('threads.list') }).strict(),
   z.object({ ...base, command: z.literal('thread.observe'), threadId: id }).strict(),
   z
+    .object({
+      ...base,
+      command: z.literal('thread.page'),
+      threadId: id,
+      through: z.iso.datetime().optional(),
+      page: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
     .object({ ...base, command: z.literal('thread.title'), threadId: id, title: z.string() })
     .strict(),
   z.object({ ...base, command: z.literal('thread.delete'), threadId: id }).strict(),
@@ -158,6 +167,7 @@ export interface HistoryResponse {
   status: 'history'
   threadId: string
   items: NativeHistoryMessage[]
+  hasMore?: boolean
   pending: Pending[]
   readbackRequestId?: string
   workflowObservation?: WorkflowObservation
@@ -169,6 +179,7 @@ export interface MutationResponse {
 }
 export type CopilotResponse =
   | AcceptedResponse
+  | { status: 'history.page'; threadId: string; items: NativeHistoryMessage[]; hasMore: boolean }
   | CancelResponse
   | ThreadsResponse
   | MutationResponse

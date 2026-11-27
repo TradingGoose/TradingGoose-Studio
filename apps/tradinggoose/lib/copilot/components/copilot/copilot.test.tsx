@@ -57,7 +57,7 @@ vi.mock('@/hooks/queries/copilot-models', () => ({
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
-  useCopilotStore: () => mockStoreState,
+  useCopilotStore: (selector = (state: any) => state) => selector(mockStoreState),
   useCopilotStoreApi: () => ({ getState: () => mockStoreState }),
 }))
 
@@ -252,6 +252,30 @@ describe('Copilot auto-scroll', () => {
     mockStoreState.chats = []
     await renderHeader()
     expect(menu()).toHaveTextContent('No chats yet')
+  })
+
+  it('shows recent chat titles and opens an older conversation only after selection', async () => {
+    const chats = Array.from({ length: 45 }, (_, i) => ({
+      threadId: String(i),
+      title: `Chat ${i}`,
+      workspaceId: 'ws-1',
+      updatedAt: new Date(i * 1000),
+    }))
+    mockStoreState.chats = chats
+    mockStoreState.selectChat = vi.fn()
+    await act(async () => root.render(<CopilotHeader workspaceId='ws-1' />))
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Open chat history"]')!.click()
+    )
+    const items = () => Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+    expect(items()).toHaveLength(41)
+    expect(items()[0]).toHaveTextContent('Chat 44')
+    expect(items().at(-1)).toHaveTextContent('Show older chats')
+    await act(async () => items().at(-1)!.click())
+    expect(items()).toHaveLength(45)
+    expect(mockStoreState.selectChat).not.toHaveBeenCalled()
+    await act(async () => items().at(-1)!.click())
+    expect(mockStoreState.selectChat).toHaveBeenCalledExactlyOnceWith(chats[0])
   })
 
   it('does not render previous workspace messages, history rows, titles or errors on a scope change', async () => {

@@ -49,3 +49,24 @@ export async function listNativeThreads(
     throw new Error('Native Copilot thread list was unavailable.')
   return result.items
 }
+
+export async function readEarlierNativeMessages(
+  chat: { threadId: string; workspaceId: string | null },
+  through: string | undefined,
+  page: number,
+  signal: AbortSignal
+) {
+  const result = await readNativeCommand(
+    {
+      command: 'thread.page',
+      workspaceId: chat.workspaceId,
+      threadId: chat.threadId,
+      through,
+      page,
+    },
+    signal
+  )
+  if (result.status !== 'history.page' || result.threadId !== chat.threadId)
+    throw new Error('Earlier Copilot history belongs to another conversation')
+  return result
+}

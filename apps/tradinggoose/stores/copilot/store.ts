@@ -50,6 +50,7 @@ import { projectNativeHistory } from './history'
 import {
   listNativeThreads,
   postNativeCommand,
+  readEarlierNativeMessages,
   readNativeCommand,
   readNativeCommandResponse,
 } from './native-api'
@@ -108,6 +109,9 @@ const initialState = {
   chatsWorkspaceId: null as string | null,
   chatsError: null,
   historyError: null,
+  historyPage: null,
+  loadingEarlier: false,
+  earlierError: null,
   isLoadingChats: false,
   isSendingMessage: false,
   isAwaitingContinuation: false,
@@ -150,6 +154,7 @@ function createCopilotStoreInstance(channelId: string) {
   const chatKey = (chat: CopilotChat) => JSON.stringify([chat.workspaceId, chat.threadId])
   const stopFor = (chat: CopilotChat | null) => chat && workflowStops.get(chatKey(chat))
   let observation: AbortController | null = null
+  let olderRead: AbortController | null = null
   let admission: ReturnType<typeof readNativeCommandResponse> | undefined
   const inFlightTools = new Set<string>()
   const attemptedTools = new Set<string>()
@@ -268,10 +273,13 @@ function createCopilotStoreInstance(channelId: string) {
         selectedEpoch === epoch &&
         get().currentChat?.threadId === chat.threadId &&
         get().currentChat?.workspaceId === chat.workspaceId
-      const applyHistory = (
+      const applyHistory = async (
         history: HistoryResponse,
+        signal: AbortSignal,
         activeRunId: string | null = null,
-        submittedRunId?: string
+        submittedRunId?: string,
+        refreshRunId = activeRunId ?? submittedRunId,
+        readbackId?: string
       ) => {
         const chat = get().currentChat
         if (!chat || history.threadId !== chat.threadId)
@@ -288,6 +296,35 @@ function createCopilotStoreInstance(channelId: string) {
             )
           )
         )
+        const retained = stopFor(chat)
+        const targetId =
+          readbackId ??
+          (retained && !retained.pending && !currentRunId ? retained.toolId : undefined)
+        // A long turn can place its attested workflow result before the visible history page.
+        if (
+          targetId &&
+          !toolCallsById[targetId] &&
+          !pending.some((item) => nativeToolCallId(item.target) === targetId)
+        ) {
+          for (let page = 0, more = history.hasMore; more; page++) {
+            const older = await readEarlierNativeMessages(
+              chat,
+              history.items[0]?.createdAt,
+              page,
+              signal
+            )
+            signal.throwIfAborted()
+            const result = projectNativeHistory(older.items)
+              .flatMap((message) => message.contentBlocks ?? [])
+              .filter((block) => block.type === 'tool_call')
+              .find((block) => block.toolCall.id === targetId)
+            if (result) {
+              toolCallsById[targetId] = result.toolCall
+              break
+            }
+            more = older.hasMore
+          }
+        }
         let stop = stopFor(chat)
         let isAborting = get().isAborting
         if (stop) {
@@ -332,16 +369,42 @@ function createCopilotStoreInstance(channelId: string) {
         }
         for (const id of Object.keys(get().toolCallsById))
           if (!projected.toolCallsById[id]) unregisterClientTool(id)
+        const previous = get()
+        const first = messages[0]
+        const overlap =
+          history.hasMore && first && previous.historyPage?.page
+            ? previous.messages.findIndex((item) => item.id === first.id)
+            : -1
+        const historyPage = history.hasMore
+          ? { through: history.items[0]?.createdAt, page: 0, hasMore: true }
+          : null
         set({
           historyError: null,
-          messages: projected.messages,
+          historyPage: overlap >= 0 ? previous.historyPage : historyPage,
+          messages:
+            overlap > 0
+              ? [...previous.messages.slice(0, overlap), ...projected.messages]
+              : projected.messages,
           toolCallsById: projected.toolCallsById,
           isAborting,
           isAwaitingContinuation: pending.length > 0 || (!activeRunId && !!stop),
           isSendingMessage: !!activeRunId && pending.length === 0,
           currentRunId: currentRunId ?? stop?.runId ?? null,
         })
-        for (const call of Object.values(projected.toolCallsById)) void refreshToolResult(call)
+        if (refreshRunId) {
+          for (const item of history.items) {
+            if (item.runId !== refreshRunId) continue
+            for (const part of item.parts) {
+              if (part.type !== 'tool-invocation') continue
+              const id = nativeToolCallId({
+                runId: refreshRunId,
+                toolCallId: part.toolInvocation.toolCallId,
+              })
+              const call = projected.toolCallsById[id]
+              if (call) void refreshToolResult(call)
+            }
+          }
+        }
       }
       const observeChat = async (
         chat: CopilotChat,
@@ -438,7 +501,8 @@ function createCopilotStoreInstance(channelId: string) {
                 const event = JSON.parse(data) as CopilotThreadEvent
                 if (!current()) return false
                 if (event.type === 'thread.history') {
-                  applyHistory(event.result, event.activeRunId, submittedRunId)
+                  await applyHistory(event.result, abort.signal, event.activeRunId, submittedRunId)
+                  if (!current()) return false
                   receivedHistory = true
                   messageId = undefined
                   if (event.error) set({ error: event.error.message })
@@ -462,7 +526,17 @@ function createCopilotStoreInstance(channelId: string) {
                       event.history.readbackRequestId !== submittedReadback.requestId)
                   )
                     return staleReadback()
-                  applyHistory(event.history, null, submittedRunId)
+                  await applyHistory(
+                    event.history,
+                    abort.signal,
+                    null,
+                    submittedRunId,
+                    event.runId,
+                    submittedReadback && ['success', 'suspended'].includes(event.status)
+                      ? nativeToolCallId(submittedReadback.target)
+                      : undefined
+                  )
+                  if (!current()) return false
                   if (event.status === 'suspended' && event.history.workflowObservation)
                     return await followWorkflow(event.history)
                   set({
@@ -1034,6 +1108,49 @@ function createCopilotStoreInstance(channelId: string) {
             if (generation === threadsGeneration) set({ isLoadingChats: false })
           }
         },
+        loadEarlierMessages: async () => {
+          const { currentChat: chat, historyPage: cursor, loadingEarlier } = get()
+          if (!chat || !cursor?.hasMore || loadingEarlier) return
+          const selected = epoch
+          const abort = new AbortController()
+          olderRead = abort
+          set({ loadingEarlier: true, earlierError: null })
+          try {
+            const result = await readEarlierNativeMessages(
+              chat,
+              cursor.through,
+              cursor.page,
+              abort.signal
+            )
+            const latest = get().historyPage
+            if (
+              abort.signal.aborted ||
+              !ownsChat(chat, selected) ||
+              !latest ||
+              latest.page !== cursor.page ||
+              latest.through !== cursor.through
+            )
+              return
+            const current = get().messages
+            const held = new Set(current.map((item) => item.id))
+            const older = projectNativeHistory(result.items).filter((item) => !held.has(item.id))
+            set({
+              messages: [...older, ...current],
+              historyPage: { ...cursor, page: cursor.page + 1, hasMore: result.hasMore },
+            })
+          } catch (error) {
+            if (!abort.signal.aborted && ownsChat(chat, selected))
+              set({
+                earlierError:
+                  error instanceof Error ? error.message : 'Earlier history is unavailable.',
+              })
+          } finally {
+            if (olderRead === abort) {
+              olderRead = null
+              set({ loadingEarlier: false })
+            }
+          }
+        },
         selectChat: async (chat) => {
           const stop = stopFor(chat)
           const sameChat = ownsChat(chat, epoch)
@@ -1042,6 +1159,9 @@ function createCopilotStoreInstance(channelId: string) {
           ++epoch
           set({
             currentChat: chat,
+            historyPage: sameChat ? get().historyPage : null,
+            loadingEarlier: false,
+            earlierError: null,
             historyError: null,
             conversationWorkspaceId: chat.workspaceId,
             currentRunId: stop?.runId ?? null,
@@ -1062,6 +1182,9 @@ function createCopilotStoreInstance(channelId: string) {
           rememberCopilotWorkspaceSelection(channelId, scope, null)
           set({
             currentChat: null,
+            historyPage: null,
+            loadingEarlier: false,
+            earlierError: null,
             historyError: null,
             conversationWorkspaceId: scope,
             currentRunId: null,
@@ -1266,13 +1389,15 @@ function createCopilotStoreInstance(channelId: string) {
           ++threadsGeneration
           observation?.abort()
           observation = null
+          olderRead?.abort()
+          olderRead = null
           get().abortController?.abort()
           for (const [id, call] of Object.entries(get().toolCallsById)) {
             if (getClientTool(id) && call.pending && call.state === ClientToolCallState.executing)
               updateTool(id, ClientToolCallState.error)
             unregisterClientTool(id)
           }
-          set({ abortController: null, isLoadingChats: false })
+          set({ abortController: null, isLoadingChats: false, loadingEarlier: false })
         },
         reset: () => {
           workflowStops.clear()

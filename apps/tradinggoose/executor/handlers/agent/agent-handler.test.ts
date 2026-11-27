@@ -154,12 +154,13 @@ const customDefinition: ToolConfig = {
   inputSchema: schema,
   request: { url: '/api/function/execute', method: 'POST', headers: () => ({}) },
 }
-function fixture(text = 'Native response') {
+function fixture(text = 'Native response', toolText?: string) {
   return new MastraLanguageModelV2Mock({
     doGenerate: async (options) => ({
       content:
         options.toolChoice?.type === 'tool'
           ? [
+              ...(toolText ? [{ type: 'text' as const, text: toolText }] : []),
               {
                 type: 'tool-call' as const,
                 toolCallId: crypto.randomUUID(),
@@ -171,17 +172,6 @@ function fixture(text = 'Native response') {
       finishReason: options.toolChoice?.type === 'tool' ? 'tool-calls' : 'stop',
       usage,
       warnings: [],
-    }),
-    doStream: async () => ({
-      stream: new ReadableStream({
-        start(controller) {
-          controller.enqueue({ type: 'text-start', id: 'text' })
-          controller.enqueue({ type: 'text-delta', id: 'text', delta: text })
-          controller.enqueue({ type: 'text-end', id: 'text' })
-          controller.enqueue({ type: 'finish', finishReason: 'stop', usage })
-          controller.close()
-        },
-      }),
     }),
   })
 }
@@ -527,7 +517,7 @@ describe('native Agent workflow execution', () => {
     expect(process.env.OPENAI_API_KEY).toBe(original)
   })
 
-  it('streams native text and retains final workflow metadata', async () => {
+  it('publishes the selected Agent answer from one non-streaming model request', async () => {
     const result = (await new AgentBlockHandler().execute(
       block,
       {
@@ -537,6 +527,8 @@ describe('native Agent workflow execution', () => {
       context({ stream: true })
     )) as StreamingExecution
     expect(await new Response(result.stream).text()).toBe('Native response')
+    expect(state.model.doGenerateCalls).toHaveLength(1)
+    expect(state.model.doStreamCalls).toHaveLength(0)
     expect(result.execution.output).toMatchObject({
       content: 'Native response',
       tokens: { total: 5 },
@@ -570,40 +562,17 @@ describe('native Agent workflow execution', () => {
       structured: true,
     },
   ] as const)('delivers $name after native completion and validation', async (scenario) => {
-    const parts = scenario.structured ? ['{"answer":', '42}'] : ['Final ', 'answer']
+    const answer = scenario.structured ? '{"answer":42}' : 'Final answer'
+    const model = fixture(answer, 'Searching...')
     let finish: (() => void) | undefined
     state.model = new MastraLanguageModelV2Mock({
-      doStream: async (options) => ({
-        stream: new ReadableStream({
-          start(controller) {
-            const forced = options.toolChoice?.type === 'tool'
-            controller.enqueue({ type: 'text-start', id: 'text' })
-            controller.enqueue({
-              type: 'text-delta',
-              id: 'text',
-              delta: forced ? 'Searching...' : parts[0],
-            })
-            if (options.toolChoice?.type === 'tool') {
-              controller.enqueue({ type: 'text-end', id: 'text' })
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: 'streamed-lookup',
-                toolName: options.toolChoice.toolName,
-                input: '{"query":"lookup"}',
-              })
-              controller.enqueue({ type: 'finish', finishReason: 'tool-calls', usage })
-              controller.close()
-              return
-            }
-            finish = () => {
-              controller.enqueue({ type: 'text-delta', id: 'text', delta: parts[1] })
-              controller.enqueue({ type: 'text-end', id: 'text' })
-              controller.enqueue({ type: 'finish', finishReason: 'stop', usage })
-              controller.close()
-            }
-          },
-        }),
-      }),
+      doGenerate: async (options) => {
+        if (options.toolChoice?.type !== 'tool')
+          await new Promise<void>((resolve) => {
+            finish = resolve
+          })
+        return model.doGenerate(options)
+      },
     })
     const result = (await new AgentBlockHandler().execute(
       block,
@@ -646,7 +615,7 @@ describe('native Agent workflow execution', () => {
         text += decoder.decode(value)
       }
     }
-    expect(text).toBe(parts.join(''))
+    expect(text).toBe(answer)
     expect(text).not.toContain('Searching...')
     expect(result.execution.output).toMatchObject(
       scenario.structured ? { answer: 42 } : { content: 'Final answer' }
@@ -1285,27 +1254,6 @@ describe('native forced sequence failures and completion accounting', () => {
             warnings: [],
           }
         },
-        doStream: async (options) => ({
-          stream: new ReadableStream({
-            start(controller) {
-              const final = options.toolChoice?.type === 'none'
-              controller.enqueue({ type: 'text-start', id: 'text' })
-              controller.enqueue({
-                type: 'text-delta',
-                id: 'text',
-                delta: final ? 'Final answer from available results' : 'Still searching',
-              })
-              controller.enqueue({ type: 'text-end', id: 'text' })
-              if (!final) controller.enqueue(toolCall())
-              controller.enqueue({
-                type: 'finish',
-                finishReason: final ? 'stop' : 'tool-calls',
-                usage,
-              })
-              controller.close()
-            },
-          }),
-        }),
       })
       const result = await new AgentBlockHandler().execute(
         block,
@@ -1329,7 +1277,7 @@ describe('native forced sequence failures and completion accounting', () => {
         content: 'Final answer from available results',
         tokens: { prompt: steps * 2, completion: steps * 3, total: steps * 5 },
       })
-      const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
+      const calls = state.model.doGenerateCalls
       expect(calls).toHaveLength(steps)
       expect(executeTool).toHaveBeenCalledTimes(steps - 1)
       expect(calls.at(-1)).toMatchObject({ toolChoice: { type: 'none' }, tools: undefined })
@@ -1436,6 +1384,7 @@ describe('native forced sequence failures and completion accounting', () => {
     const requests: any[] = []
     vi.stubGlobal('fetch', async (url: RequestInfo | URL, init?: RequestInit) => {
       expect(String(url)).toContain('generativelanguage.googleapis.com')
+      expect(new URL(String(url)).pathname).toMatch(/:generateContent$/)
       const body = JSON.parse(String(init?.body))
       requests.push(body)
       if (body.tools?.length && body.generationConfig?.responseMimeType === 'application/json')
@@ -1463,11 +1412,7 @@ describe('native forced sequence failures and completion accounting', () => {
         ],
         usageMetadata: { promptTokenCount: 2, candidatesTokenCount: 3, totalTokenCount: 5 },
       }
-      return stream
-        ? new Response(`data: ${JSON.stringify(response)}\n\n`, {
-            headers: { 'content-type': 'text/event-stream' },
-          })
-        : Response.json(response)
+      return Response.json(response)
     })
     vi.mocked(createNativeModel).mockImplementationOnce(realCreateNativeModel)
     const result = await new AgentBlockHandler().execute(
@@ -1600,36 +1545,7 @@ describe('native structured streams through the workflow executor', () => {
         { cost: { total: 0.004, status: 'reported' }, generatedFields: ['cost'] }
       ),
     })
-    state.model = new MastraLanguageModelV2Mock({
-      doStream: async (options) => ({
-        stream: new ReadableStream({
-          start(controller) {
-            const forced = options.toolChoice?.type === 'tool'
-            controller.enqueue({ type: 'text-start', id: 'text' })
-            controller.enqueue({
-              type: 'text-delta',
-              id: 'text',
-              delta: forced ? 'Searching...' : finalText,
-            })
-            controller.enqueue({ type: 'text-end', id: 'text' })
-            if (options.toolChoice?.type === 'tool') {
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: 'completed-lookup',
-                toolName: options.toolChoice.toolName,
-                input: '{"query":"lookup"}',
-              })
-            }
-            controller.enqueue({
-              type: 'finish',
-              finishReason: forced ? 'tool-calls' : 'stop',
-              usage,
-            })
-            controller.close()
-          },
-        }),
-      }),
-    })
+    state.model = fixture(finalText, 'Searching...')
     const workflow = createMinimalWorkflow()
     workflow.blocks[1].metadata!.id = 'agent'
     workflow.blocks[1].inputs.temperature = 'number'
@@ -1678,7 +1594,7 @@ describe('native structured streams through the workflow executor', () => {
     })
     expect(output).not.toHaveProperty('toolResults')
     expect(JSON.stringify(getInferenceFacts(output))).not.toContain('"found"')
-    expect(state.model.doStreamCalls).toHaveLength(2)
+    expect(state.model.doGenerateCalls).toHaveLength(2)
     expect(output?.tokens?.total).toBe(10)
     expect(contextSpy.mock.results[0].value.blockStates.get('block1').output).toMatchObject(output)
     if (valid) {
@@ -1705,46 +1621,20 @@ it.each(['no-tools', 'forced-tool', 'final-answer', 'terminal-error'])(
   async (scenario) => {
     const withTools = scenario === 'forced-tool' || scenario === 'final-answer'
     let failed = false
-    const transient = Object.assign(new Error('Provider stream failed'), {
+    const transient = Object.assign(new Error('Provider request failed'), {
       statusCode: scenario === 'terminal-error' ? 401 : 503,
       isRetryable: scenario !== 'terminal-error',
     })
     state.nativeCost = { status: 'partial', availableTotal: 0.006 }
+    const model = fixture('Recovered answer', 'Searching...')
     state.model = new MastraLanguageModelV2Mock({
-      doStream: async (options) => ({
-        stream: new ReadableStream({
-          start(controller) {
-            const forced = options.toolChoice?.type === 'tool'
-            const reject = !failed && (scenario !== 'final-answer' || !forced)
-            controller.enqueue({ type: 'stream-start', warnings: [] })
-            controller.enqueue({ type: 'text-start', id: 'answer' })
-            controller.enqueue({
-              type: 'text-delta',
-              id: 'answer',
-              delta: reject ? 'Wrong partial. ' : forced ? 'Searching. ' : 'Recovered answer',
-            })
-            if (reject) {
-              failed = true
-              controller.enqueue({ type: 'error', error: transient })
-            } else {
-              controller.enqueue({ type: 'text-end', id: 'answer' })
-              if (forced)
-                controller.enqueue({
-                  type: 'tool-call',
-                  toolCallId: 'completed-lookup',
-                  toolName: 'custom_lookup',
-                  input: '{"query":"generated"}',
-                })
-              controller.enqueue({
-                type: 'finish',
-                finishReason: forced ? 'tool-calls' : 'stop',
-                usage,
-              })
-            }
-            controller.close()
-          },
-        }),
-      }),
+      doGenerate: async (options) => {
+        if (!failed && (scenario !== 'final-answer' || options.toolChoice?.type !== 'tool')) {
+          failed = true
+          throw transient
+        }
+        return model.doGenerate(options)
+      },
     })
     const workflow = createMinimalWorkflow()
     workflow.blocks[1].metadata!.id = 'agent'
@@ -1783,7 +1673,7 @@ it.each(['no-tools', 'forced-tool', 'final-answer', 'terminal-error'])(
     expect(chunks).toEqual(succeeded ? ['Recovered answer'] : [])
     expect(published).toEqual(chunks)
     expect(executeTool).toHaveBeenCalledTimes(withTools ? 1 : 0)
-    const calls = state.model.doStreamCalls
+    const calls = state.model.doGenerateCalls
     expect(calls.map((call: any) => call.toolChoice?.type)).toEqual(
       scenario === 'forced-tool'
         ? ['tool', 'tool', 'auto']
@@ -1837,8 +1727,8 @@ it.each(
       context({
         stream: true,
         shouldCancelExecution: async () => {
-          if (source === 'workflow' && state.model.doStreamCalls.length) await entered
-          return source === 'workflow' && state.model.doStreamCalls.length > 0
+          if (source === 'workflow' && state.model.doGenerateCalls.length) await entered
+          return source === 'workflow' && state.model.doGenerateCalls.length > 0
         },
       })
     )) as StreamingExecution
@@ -1870,9 +1760,8 @@ it.each(
   }
 )
 
-it('aborts a native stream and retains earlier work', async () => {
+it('aborts an in-flight model request and retains earlier work', async () => {
   let cancelled = false
-  let cancelStep: (() => void) | undefined
   let started!: () => void
   const modelStepStarted = new Promise<void>((resolve) => {
     started = resolve
@@ -1884,30 +1773,18 @@ it('aborts a native stream and retains earlier work', async () => {
       { cost: { total: 0.004, status: 'reported' }, generatedFields: ['cost'] }
     ),
   })
-  const model = liveToolModel()
-  const streamTool = model.doStream.bind(model)
-  vi.spyOn(model, 'doStream').mockImplementation(async (options) => {
-    if (options.toolChoice?.type === 'tool') return streamTool(options)
-    return {
-      stream: new ReadableStream({
-        start(controller) {
-          options.abortSignal?.addEventListener(
-            'abort',
-            () => controller.error(options.abortSignal?.reason),
-            { once: true }
-          )
-          controller.enqueue({ type: 'text-start', id: 'partial' })
-          controller.enqueue({ type: 'text-delta', id: 'partial', delta: 'Partial answer' })
-          cancelStep = () => {
-            cancelled = true
-            controller.enqueue({ type: 'text-end', id: 'partial' })
-          }
-          started()
-        },
-      }),
-    }
+  const model = fixture()
+  state.model = new MastraLanguageModelV2Mock({
+    doGenerate: async (options) => {
+      if (options.toolChoice?.type === 'tool') return model.doGenerate(options)
+      return new Promise((_resolve, reject) => {
+        options.abortSignal!.addEventListener('abort', () => reject(options.abortSignal!.reason), {
+          once: true,
+        })
+        started()
+      })
+    },
   })
-  state.model = model
   const result = (await new AgentBlockHandler().execute(
     block,
     {
@@ -1920,7 +1797,7 @@ it('aborts a native stream and retains earlier work', async () => {
   const reader = result.stream.getReader()
   const firstRead = reader.read()
   await modelStepStarted
-  cancelStep!()
+  cancelled = true
   await expect(firstRead).rejects.toThrow()
   expect(result.execution.output.tokens).toMatchObject({ total: 5 })
   expect(result.execution.output.cost).toMatchObject({ status: 'unavailable' })
@@ -2082,59 +1959,11 @@ const generatedFile = {
   uploadedAt: '2026-11-14T00:00:00.000Z',
   expiresAt: '2026-11-15T00:00:00.000Z',
 }
-function liveToolModel() {
-  const first = (options: { toolChoice?: { type: string; toolName?: string } }) =>
-    options.toolChoice?.type === 'tool'
-  return new MastraLanguageModelV2Mock({
-    doGenerate: async (options) => ({
-      content: first(options)
-        ? [
-            { type: 'text' as const, text: 'Known before media delivery' },
-            {
-              type: 'tool-call' as const,
-              toolCallId: 'live-tool',
-              toolName: options.tools![0].name,
-              input: '{"query":"generated"}',
-            },
-          ]
-        : [{ type: 'text' as const, text: 'Verified media answer' }],
-      finishReason: first(options) ? 'tool-calls' : 'stop',
-      usage,
-      warnings: [],
-    }),
-    doStream: async (options) => ({
-      stream: new ReadableStream({
-        start(controller) {
-          controller.enqueue({ type: 'text-start', id: 'live-text' })
-          controller.enqueue({
-            type: 'text-delta',
-            id: 'live-text',
-            delta: first(options) ? 'Known before media delivery' : 'Verified media answer',
-          })
-          controller.enqueue({ type: 'text-end', id: 'live-text' })
-          if (first(options))
-            controller.enqueue({
-              type: 'tool-call',
-              toolCallId: 'live-tool',
-              toolName: options.tools![0].name,
-              input: '{"query":"generated"}',
-            })
-          controller.enqueue({
-            type: 'finish',
-            finishReason: first(options) ? 'tool-calls' : 'stop',
-            usage,
-          })
-          controller.close()
-        },
-      }),
-    }),
-  })
-}
 it.each([false, true])(
   'preserves complete MCP results as JSON without promoting media (stream=%s)',
   async (stream) => {
     state.trackAdmissions = true
-    state.model = liveToolModel()
+    state.model = fixture('Verified media answer')
     const functional = {
       content: [
         { type: 'text', text: 'Exact tool text' },
@@ -2162,7 +1991,7 @@ it.each([false, true])(
       while (!(await reader.read()).done) {}
       output = streamed.execution.output
     }
-    const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
+    const calls = state.model.doGenerateCalls
     expect(calls).toHaveLength(2)
     expect(state.admissions).toHaveBeenCalledTimes(2)
     expect(fetch).not.toHaveBeenCalled()
@@ -2231,7 +2060,7 @@ it.each(['owner-cancel', 'native-cancel'])(
 it.each([false, true])(
   'retains generated files after a later completion failure (stream=%s)',
   async (stream) => {
-    state.model = liveToolModel()
+    state.model = fixture('Verified media answer')
     state.completionError = new Error('Completion failed after tool execution')
     vi.mocked(executeTool).mockResolvedValue({
       success: true,
@@ -2255,7 +2084,7 @@ it.each([false, true])(
     expect(getInferenceFacts(failure)?.files).toEqual([generatedFile])
     expect(failure).not.toHaveProperty('toolResults')
     expect(executeTool).toHaveBeenCalledOnce()
-    expect(stream ? state.model.doStreamCalls : state.model.doGenerateCalls).toHaveLength(2)
+    expect(state.model.doGenerateCalls).toHaveLength(2)
   }
 )
 
@@ -2280,7 +2109,7 @@ it.each(
   'preserves custom-tool $shape as JSON without a source fetch (stream=$stream)',
   async ({ raw, stream }) => {
     state.trackAdmissions = true
-    state.model = liveToolModel()
+    state.model = fixture('Verified media answer')
     vi.mocked(executeTool).mockResolvedValue({ success: true, output: raw })
     const fetcher = vi.fn()
     vi.stubGlobal('fetch', fetcher)
@@ -2300,7 +2129,7 @@ it.each(
       output = streamed.execution.output
     }
     expect(output).toMatchObject({ content: 'Verified media answer' })
-    const calls = stream ? state.model.doStreamCalls : state.model.doGenerateCalls
+    const calls = state.model.doGenerateCalls
     expect(calls).toHaveLength(2)
     expect(state.admissions).toHaveBeenCalledTimes(2)
     expect(executeTool).toHaveBeenCalledOnce()

@@ -168,7 +168,15 @@ describe('InlineToolCall', () => {
           )
           expect(container.textContent).toContain('revision 2')
         }
-        if (result.data.output.answer) expect(container.textContent).toContain('42')
+        if (result.data.output.answer) {
+          const details = container.querySelector('details')!
+          expect(details.querySelector('pre')).toBeNull()
+          await act(async () => {
+            details.open = true
+            details.dispatchEvent(new Event('toggle'))
+          })
+          expect(details.querySelector('pre')?.textContent).toContain('42')
+        }
       }
     }
   )

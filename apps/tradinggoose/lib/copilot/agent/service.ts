@@ -17,11 +17,7 @@ import {
   type Scope,
 } from '@/lib/copilot/native/contract'
 import { NativeTargetError } from '@/lib/copilot/native/errors'
-import {
-  publicCopilotMessage,
-  readNativeThread,
-  readNativeThreadHistory,
-} from '@/lib/copilot/native/history'
+import { publicCopilotMessage, readNativeThread } from '@/lib/copilot/native/history'
 import {
   nativeAdmissionId,
   nativeConversationIdentity,
@@ -210,6 +206,38 @@ async function projectPendingJob(
   }
 }
 
+const HISTORY_PAGE_SIZE = 40
+
+function projectHistoryPage(messages: MastraDBMessage[], hasMore: boolean) {
+  return {
+    items: messages.map((message) => publicCopilotMessage(projectNativeMessage(message))),
+    hasMore,
+  }
+}
+
+async function readHistoryPage(
+  scope: Scope,
+  threadId: string,
+  signal?: AbortSignal,
+  cursor?: { through?: string; page: number }
+) {
+  await requireThread(scope, threadId, signal)
+  const result = await (await getAgentMemory()).recall({
+    threadId,
+    resourceId: nativeConversationIdentity(scope).resourceId,
+    page: cursor?.page ?? 0,
+    perPage: HISTORY_PAGE_SIZE,
+    includeTotal: false,
+    orderBy: { field: 'createdAt', direction: 'DESC' },
+    ...(cursor?.through && { filter: { dateRange: { end: new Date(cursor.through) } } }),
+  })
+  signal?.throwIfAborted()
+  return projectHistoryPage(
+    result.messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
+    result.hasMore
+  )
+}
+
 async function* observeThread(
   scope: Scope,
   threadId: string,
@@ -218,7 +246,7 @@ async function* observeThread(
   const subscription = await (await getCopilotAgent()).subscribeToThread({
     ...nativeConversationIdentity(scope),
     threadId,
-    withInitialHistory: { perPage: Number.MAX_SAFE_INTEGER },
+    withInitialHistory: { perPage: HISTORY_PAGE_SIZE },
   })
   const detach = () => subscription.unsubscribe()
   signal.addEventListener('abort', detach, { once: true })
@@ -260,7 +288,7 @@ async function* observeThread(
             history: {
               status: 'history',
               threadId,
-              items: await readNativeThreadHistory(scope, threadId, signal),
+              ...(await readHistoryPage(scope, threadId, signal)),
               ...(await projectPendingJob(scope, threadId, settled, signal)),
             },
             ...(settled.error ? { error: settled.error } : {}),
@@ -284,9 +312,7 @@ async function* observeThread(
           result: {
             status: 'history',
             threadId,
-            items: part.payload.messages.map((message) =>
-              publicCopilotMessage(projectNativeMessage(message))
-            ),
+            ...projectHistoryPage(part.payload.messages, part.payload.hasMore),
             ...(await projectPendingJob(scope, threadId, job, signal)),
           },
           activeRunId,
@@ -337,6 +363,13 @@ async function readCommand(
         createdAt: thread.createdAt.toISOString(),
         updatedAt: thread.updatedAt.toISOString(),
       })),
+    }
+  }
+  if (request.command === 'thread.page') {
+    return {
+      status: 'history.page',
+      threadId: request.threadId,
+      ...(await readHistoryPage(scope, request.threadId, signal, request)),
     }
   }
   if (!('threadId' in request) || !request.threadId || request.command === 'message') return
