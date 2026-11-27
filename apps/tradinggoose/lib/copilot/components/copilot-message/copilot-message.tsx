@@ -3,6 +3,7 @@
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import { CardDescription, CardFooter } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ChatContext } from '@/lib/copilot/chat-context-schema'
 import { extractExplicitCopilotContexts } from '@/lib/copilot/chat-contexts'
@@ -596,6 +597,11 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     if (isAssistant) {
       const { cacheStatus, inputTokens, outputTokens } = message.usage ?? {}
+      const usageFields = [
+        { label: t('cache'), value: cacheStatus && t(cacheStatus) },
+        { label: t('inputTokens'), value: inputTokens?.toLocaleString(locale), Icon: ArrowUp },
+        { label: t('outputTokens'), value: outputTokens?.toLocaleString(locale), Icon: ArrowDown },
+      ].filter(({ value }) => value !== undefined)
       const cost = message.cost?.total
       return (
         <div
@@ -609,34 +615,29 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
             {shouldShowActivityIndicator && <StreamingIndicator />}
 
-            {(cacheStatus ||
-              inputTokens !== undefined ||
-              outputTokens !== undefined ||
-              cost !== undefined) && (
-              <div
-                className='flex flex-wrap items-center gap-x-2 pt-1 text-muted-foreground text-xs tabular-nums'
+            {(usageFields.length > 0 || cost !== undefined) && (
+              <CardFooter
+                className='flex-wrap gap-x-2 p-0 pt-1 text-muted-foreground text-xs tabular-nums'
                 data-testid='message-usage'
               >
-                {cacheStatus && (
-                  <span>
-                    <span className='sr-only'>{t('cache')} </span>
-                    {t(cacheStatus)}
-                  </span>
+                {usageFields.map(({ label, value, Icon }) => (
+                  <Tooltip key={label}>
+                    <TooltipTrigger
+                      aria-label={`${label} ${value}`}
+                      className='inline-flex items-center gap-0.5 rounded-sm'
+                    >
+                      {Icon && <Icon aria-hidden='true' className='size-3' />}
+                      {value}
+                    </TooltipTrigger>
+                    <TooltipContent side='top'>{label}</TooltipContent>
+                  </Tooltip>
+                ))}
+                {cost !== undefined && (
+                  <CardDescription className='whitespace-nowrap text-xs'>
+                    {formatCost(cost, 'code')}
+                  </CardDescription>
                 )}
-                {inputTokens !== undefined && (
-                  <span className='inline-flex items-center gap-0.5'>
-                    <ArrowUp className='size-3' role='img' aria-label={t('inputTokens')} />
-                    {inputTokens.toLocaleString(locale)}
-                  </span>
-                )}
-                {outputTokens !== undefined && (
-                  <span className='inline-flex items-center gap-0.5'>
-                    <ArrowDown className='size-3' role='img' aria-label={t('outputTokens')} />
-                    {outputTokens.toLocaleString(locale)}
-                  </span>
-                )}
-                {cost !== undefined && <span>{formatCost(cost, 'code')}</span>}
-              </div>
+              </CardFooter>
             )}
 
             {/* Options selector after the full assistant message has finished rendering */}

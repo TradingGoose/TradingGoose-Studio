@@ -199,7 +199,7 @@ describe('CopilotMessage', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('shows cache status, labeled input and output arrows, and USD on the reply', async () => {
+  it('shows cache status, input and output counts and USD with reachable usage labels', async () => {
     const footer = () => container.querySelector('[data-testid="message-usage"]')
     const values = () => Array.from(footer()?.children ?? [], (field) => field.textContent)
     await renderMessage({
@@ -214,14 +214,18 @@ describe('CopilotMessage', () => {
       },
       cost: { total: 0.002, currency: 'USD' },
     })
-    expect(values()).toEqual(['Cache miss', '12,345', '3', '0.0020 USD'])
-    expect(footer()?.querySelector('.lucide-arrow-up')?.getAttribute('aria-label')).toBe(
-      'Input tokens'
-    )
-    expect(footer()?.querySelector('.lucide-arrow-down')?.getAttribute('aria-label')).toBe(
-      'Output tokens'
-    )
-    expect(footer()?.querySelector('[title], [role="tooltip"]')).toBeNull()
+    const triggers = footer()!.querySelectorAll('button')
+    expect(triggers).toHaveLength(3)
+    expect(values()).toEqual(['miss', '12,345', '3', '0.0020 USD'])
+    expect(triggers[1].querySelector('.lucide-arrow-up')).toBeTruthy()
+    expect(triggers[2].querySelector('.lucide-arrow-down')).toBeTruthy()
+    for (const [index, label] of ['Cache', 'Input tokens', 'Output tokens'].entries()) {
+      const trigger = triggers[index]
+      expect(trigger).toHaveAccessibleName(`${label} ${trigger.textContent}`)
+      await act(async () => trigger.focus())
+      expect(trigger).toHaveAttribute('data-popup-open')
+      expect(document.body).toHaveTextContent(label)
+    }
 
     await renderMessage({ ...assistantMessage, usage: { outputTokens: 0 } })
     expect(values()).toEqual(['0'])
