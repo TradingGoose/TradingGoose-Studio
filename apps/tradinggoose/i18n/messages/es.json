@@ -22403,6 +22403,7 @@
           "justNow": "Justo ahora",
           "loading": "Cargando…",
           "loadingChatHistory": "Cargando historial del chat...",
+          "loadError": "No se pudo cargar el historial de chats.",
           "noChatsYet": "Aún no hay chats",
           "openChatHistory": "Abrir historial de chats",
           "deleteChatAria": "Eliminar chat",

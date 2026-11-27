@@ -21,6 +21,14 @@ it('loads every native thread in one authenticated request', async () => {
   expect(await listNativeThreads(null)).toEqual(threads)
   expect(fetcher).toHaveBeenCalledExactlyOnceWith('/api/copilot/native', expect.any(Object))
 })
+it.each([
+  [503, ''],
+  [500, '<html>private diagnostic</html>'],
+  [200, 'null'],
+])('reports the HTTP status for an unreadable native response (%i)', async (status, body) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status })))
+  await expect(listNativeThreads(null)).rejects.toThrow(`HTTP ${status}`)
+})
 it('does not contact the server after cancellation', async () => {
   const abort = new AbortController()
   abort.abort(new Error('Cancelled'))

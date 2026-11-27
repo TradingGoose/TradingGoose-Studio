@@ -16,8 +16,12 @@ export function useCopilotModels() {
     queryKey: copilotModelsKeys.all,
     queryFn: async (): Promise<CopilotModels> => {
       const response = await fetch('/api/copilot/models', { cache: 'no-store' })
-      if (!response.ok) throw new Error('Copilot models could not be loaded')
-      return response.json()
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json().catch(() => null)
+      if (!Array.isArray(data?.models)) {
+        throw new Error(`Invalid Copilot model response (HTTP ${response.status}).`)
+      }
+      return data
     },
     staleTime: 30_000,
     refetchInterval: 30_000,

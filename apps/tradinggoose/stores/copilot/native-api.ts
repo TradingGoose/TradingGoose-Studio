@@ -18,9 +18,17 @@ export function postNativeCommand(body: string, signal?: AbortSignal) {
 }
 
 export async function readNativeCommandResponse(response: Response) {
-  const result: CopilotResponse = await response.json()
-  if (!response.ok || result.status === 'failed' || result.status === 'refused')
-    throw new Error('error' in result ? result.error.message : 'Native command failed')
+  const result: CopilotResponse | null = await response.json().catch((error) => {
+    if (error instanceof SyntaxError) {
+      // An unreadable admission receipt must still retry with its original request ID.
+      throw new SyntaxError(`Native Copilot response was unreadable (HTTP ${response.status}).`)
+    }
+    throw error
+  })
+  const fallback = `Native Copilot request failed (HTTP ${response.status}).`
+  if (result?.status === 'failed' || result?.status === 'refused')
+    throw new Error(result.error?.message || fallback)
+  if (!response.ok || !result?.status) throw new Error(fallback)
   return result
 }
 
@@ -37,6 +45,7 @@ export async function listNativeThreads(
   signal?: AbortSignal
 ): Promise<Thread[]> {
   const result = await readNativeCommand({ command: 'threads.list', workspaceId }, signal)
-  if (result.status !== 'threads') throw new Error('Native threads unavailable')
+  if (result.status !== 'threads' || !Array.isArray(result.items))
+    throw new Error('Native Copilot thread list was unavailable.')
   return result.items
 }

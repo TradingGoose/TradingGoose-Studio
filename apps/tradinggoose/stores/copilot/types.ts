@@ -91,6 +91,9 @@ export interface CopilotState {
   chats: CopilotChat[]
   messages: CopilotMessage[]
 
+  chatsWorkspaceId: string | null
+  chatsError: string | null
+  historyError: string | null
   isLoadingChats: boolean
   isSendingMessage: boolean
   isAwaitingContinuation: boolean

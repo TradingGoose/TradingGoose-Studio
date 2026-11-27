@@ -12,6 +12,7 @@ import {
 import { MastraLanguageModelV2Mock } from '@mastra/core/test-utils/llm-mock'
 import { Memory } from '@mastra/memory'
 import { db } from '@tradinggoose/db'
+import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   COPILOT_CONTEXT_PART,
@@ -32,6 +33,7 @@ import type { BackgroundExecutionTaskPayload } from '@/lib/execution/background-
 import { createNativeModel } from '@/lib/mastra/native-reasoning'
 import * as runtime from '@/lib/mastra/runtime'
 import { type NativeUsage, sumNativeUsage } from '@/lib/mastra/usage'
+import { POST as handleStudioRequest } from '@/app/api/copilot/native/route'
 import { POST as handleWorkerRequest } from '@/app/api/copilot/native/tool/route'
 import { createCopilotAgent } from './agent'
 import { readCopilotRun } from './context'
@@ -50,6 +52,7 @@ const m = vi.hoisted(() => ({
   agent: undefined as unknown as ReturnType<typeof createCopilotAgent>,
   model: undefined as unknown as MastraLanguageModelV2Mock,
   contacts: [] as unknown[],
+  session: vi.fn(),
   access: vi.fn(),
   fetch: vi.fn(),
   admit: vi.fn(),
@@ -118,7 +121,7 @@ vi.mock('@/lib/copilot/settings.server', () => ({
   validateCopilotModel: vi.fn(),
   resolveCopilotModel: m.resolve,
 }))
-vi.mock('@/lib/auth', () => ({ auth: { api: { getSession: vi.fn() } } }))
+vi.mock('@/lib/auth', () => ({ getSession: m.session, auth: { api: { getSession: vi.fn() } } }))
 vi.mock('@/lib/copilot/process-contents', () => ({ processContextsServer: m.contexts }))
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => m.access(...args),
@@ -1340,7 +1343,16 @@ describe('Copilot background execution and native history', () => {
       ],
     })
   })
-  it('returns complete scoped native lists in their stored order', async () => {
+  it('reads complete ordered history through the authenticated Studio route without dispatch', async () => {
+    const post = (body: CopilotRequest) =>
+      handleStudioRequest(
+        new NextRequest('https://studio.test/api/copilot/native', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        })
+      )
+    m.session.mockResolvedValue({ user: { id: scope.actorUserId } })
+    const list = { command: 'threads.list', workspaceId: scope.workspaceId } as const
     const store = (await m.storage.getStore('memory'))!
     const resourceId = nativeConversationIdentity(scope).resourceId
     for (let i = 0; i < 125; i++)
@@ -1362,7 +1374,7 @@ describe('Copilot background execution and native history', () => {
         updatedAt: new Date(),
       },
     })
-    const threads = (await command({ command: 'threads.list' })).result
+    const threads: CopilotResponse = await (await post(list)).json()
     if (threads.status !== 'threads') throw new Error(JSON.stringify(threads))
     expect(threads.items.map((thread) => thread.id)).toEqual(
       Array.from({ length: 125 }, (_, i) => `thread-${124 - i}`)
@@ -1372,16 +1384,36 @@ describe('Copilot background execution and native history', () => {
         id: `message-${i}`,
         threadId: 'thread-0',
         resourceId,
-        role: 'user' as const,
+        role: i % 2 ? ('assistant' as const) : ('user' as const),
         createdAt: new Date(i * 1000),
         content: { format: 2 as const, parts: [{ type: 'text' as const, text: `Message ${i}` }] },
       })),
     })
-    const history = (await command({ command: 'thread.observe', threadId: 'thread-0' })).result
-    if (history.status !== 'history') throw new Error(JSON.stringify(history))
-    expect(history.items.map((message) => message.id)).toEqual(
+    const observe = {
+      command: 'thread.observe',
+      workspaceId: scope.workspaceId,
+      threadId: 'thread-0',
+    } as const
+    const events = readEvents((await post(observe)).body!)
+    const first = (await events.next()).value
+    await events.return(undefined)
+    if (first?.type !== 'thread.history') throw new Error('Expected native thread history')
+    expect(first.result.items.map((message) => message.id)).toEqual(
       Array.from({ length: 125 }, (_, i) => `message-${i}`)
     )
+    expect(first.result.items.slice(0, 2)).toMatchObject([
+      { role: 'user', parts: [{ type: 'text', text: 'Message 0' }] },
+      { role: 'assistant', parts: [{ type: 'text', text: 'Message 1' }] },
+    ])
+    expect(await (await post({ ...list, workspaceId: 'another-workspace' })).json()).toEqual({
+      status: 'threads',
+      items: [],
+    })
+    m.session.mockResolvedValue({ user: { id: 'another-actor' } })
+    expect(await (await post(list)).json()).toEqual({ status: 'threads', items: [] })
+    expect((await post(observe)).status).toBe(404)
+    expect(m.dispatch).not.toHaveBeenCalled()
+    expect(m.contacts).toHaveLength(0)
   })
   it('persists chat and image history across worker instances before the next turn', async () => {
     setModel({ text: 'Known answer🔥' }, { text: 'Follow-up answer' })

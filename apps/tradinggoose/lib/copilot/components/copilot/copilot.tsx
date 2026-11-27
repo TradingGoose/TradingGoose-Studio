@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -42,6 +43,7 @@ interface CopilotProps {
 
 export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProps) {
   const copilotCopy = useCopilotMessages()
+  const retry = useTranslations('workspace.widgets.stateMessage')('retry')
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -64,7 +66,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
   )
   const state = useCopilotStore()
   const {
-    messages,
     isAborting,
     selectedModel,
     reasoning,
@@ -76,6 +77,11 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
     loadChats,
     error,
   } = state
+  const conversationInScope = state.conversationWorkspaceId === workspaceId
+  const messages = conversationInScope ? state.messages : []
+  const historyError =
+    (conversationInScope && state.historyError) ||
+    (state.chatsWorkspaceId === workspaceId && state.chatsError)
   const { data } = useCopilotModels()
   const model = data?.models.find(({ id }) => id === selectedModel)
   const submitDisabled =
@@ -328,16 +334,31 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
-      {/* Show loading state until fully initialized */}
-      {!isInitialized ? (
-        <div className='flex h-full w-full items-center justify-center'>
-          <div className='flex flex-col items-center justify-center gap-3'>
-            <LoadingAgent size='md' />
-            <p className='text-muted-foreground text-sm'>
-              {copilotCopy.history.loadingChatHistory}
-            </p>
-          </div>
+      {historyError && (
+        <div role='alert' className='px-3 py-2 text-destructive text-sm'>
+          {copilotCopy.history.loadError} {historyError}
+          <Button
+            type='button'
+            size='sm'
+            variant='link'
+            disabled={state.isLoadingChats}
+            onClick={() => void loadChats({ workspaceId })}
+          >
+            {retry}
+          </Button>
         </div>
+      )}
+      {!conversationInScope || (!isInitialized && messages.length === 0) ? (
+        !historyError && (
+          <div className='flex h-full w-full items-center justify-center'>
+            <div className='flex flex-col items-center justify-center gap-3'>
+              <LoadingAgent size='md' />
+              <p className='text-muted-foreground text-sm'>
+                {copilotCopy.history.loadingChatHistory}
+              </p>
+            </div>
+          </div>
+        )
       ) : (
         <>
           {/* Messages area */}
@@ -352,7 +373,11 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
                 ref={messagesContainerRef}
                 className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'
               >
-                {messages.length === 0 && !isTurnInProgress && !editingMessageId ? (
+                {messages.length === 0 &&
+                !historyError &&
+                !state.isLoadingChats &&
+                !isTurnInProgress &&
+                !editingMessageId ? (
                   <div className='flex h-full items-center justify-center p-4'>
                     <CopilotWelcome
                       onQuestionClick={handleSubmit}

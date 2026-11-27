@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { Brain, Check, type LucideIcon } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useShallow } from 'zustand/react/shallow'
 import { ProviderIcon } from '@/components/icons/provider-icon'
 import {
@@ -33,6 +34,7 @@ function SelectorLabel({ label, icon: Icon }: { label: string; icon?: LucideIcon
 
 export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
   const { models: copy, reasoning: reasoningCopy } = useCopilotMessages()
+  const retry = useTranslations('workspace.widgets.stateMessage')('retry')
   const catalog = useCopilotModels()
   const { selectedModel, setSelectedModel, reasoning, setReasoning, busy } = useCopilotStore(
     useShallow((state) => ({
@@ -50,7 +52,7 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
   const selectedLevel =
     savedLevel && (busy || option?.values.includes(savedLevel)) ? savedLevel : option?.defaultValue
   useEffect(() => {
-    if (!catalog.data || busy) return
+    if (!catalog.data || catalog.isError || busy) return
     const firstModel = catalog.data.models[0]?.id ?? null
     if (!selected && selectedModel !== firstModel) setSelectedModel(firstModel)
     else if (selected && savedLevel !== selectedLevel)
@@ -58,6 +60,7 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
   }, [
     busy,
     catalog.data,
+    catalog.isError,
     savedLevel,
     selected,
     selectedLevel,
@@ -68,7 +71,7 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
 
   const unavailable = catalog.isPending
     ? copy.loading
-    : selectedModel || (catalog.isError && !catalog.data)
+    : selectedModel || catalog.isError
       ? copy.loadError
       : copy.unconfigured
 
@@ -76,7 +79,7 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
     <>
       <DropdownMenu onOpenChange={(open) => open && void catalog.refetch()}>
         <DropdownMenuTrigger
-          disabled={busy || !catalog.data?.models.length}
+          disabled={busy || (!catalog.isError && !catalog.data?.models.length)}
           render={
             <Button
               variant='outline'
@@ -91,6 +94,20 @@ export function ModelSelector({ isNearTop }: { isNearTop: boolean }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align='start' side={isNearTop ? 'bottom' : 'top'} className='p-0'>
           <div className='max-h-64 min-w-[160px] max-w-[min(360px,90vw)] overflow-y-auto p-1'>
+            {catalog.isError && (
+              <>
+                <p role='alert' className='px-2 py-1 text-destructive text-xs'>
+                  {copy.loadError} {catalog.error?.message}
+                </p>
+                <DropdownMenuItem
+                  closeOnClick={false}
+                  disabled={catalog.isFetching}
+                  onClick={() => void catalog.refetch()}
+                >
+                  {retry}
+                </DropdownMenuItem>
+              </>
+            )}
             {catalog.data?.models.map(({ id, label }) => (
               <DropdownMenuItem
                 key={id}

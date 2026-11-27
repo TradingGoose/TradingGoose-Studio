@@ -502,7 +502,9 @@ export function ComboBox({
       )}
       {isModelPicker && registryError && (
         <div role='alert' className='mt-1 text-destructive text-xs'>
-          <p>{translateWorkflowLabel(locale, 'modelRegistryUnavailable')}</p>
+          <p>
+            {translateWorkflowLabel(locale, 'modelRegistryUnavailable')} {registryError}
+          </p>
           <Button
             variant='ghost'
             size='sm'

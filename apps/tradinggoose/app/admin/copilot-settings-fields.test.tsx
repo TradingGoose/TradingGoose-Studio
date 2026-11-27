@@ -259,7 +259,31 @@ it('shows loading and retry states without offering fixed providers', async () =
   )
   await click('Try again')
   expect(loadRegistry).toHaveBeenCalledTimes(2)
+  await act(async () => useModelRegistry.setState({ error: undefined, providers: [] }))
+  expect(container.querySelector('[role="alert"]')).toBeNull()
   expect(settings.models).toEqual([])
+})
+
+it('retains the last registry on an unreadable response until retry returns an empty catalog', async () => {
+  const providers = useModelRegistry.getState().providers
+  const fetch = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(new Response('<html>failure</html>', { status: 500 }))
+    .mockResolvedValueOnce(new Response(''))
+    .mockResolvedValueOnce(Response.json({ providers: [], managedProviders: [] }))
+  try {
+    for (const status of [500, 200]) {
+      await originalRegistry.load()
+      expect(useModelRegistry.getState().providers).toBe(providers)
+      expect(useModelRegistry.getState().error).toContain(`HTTP ${status}`)
+    }
+    await originalRegistry.load()
+    expect(useModelRegistry.getState().providers).toEqual([])
+    expect(useModelRegistry.getState().error).toBeUndefined()
+    expect(fetch).toHaveBeenCalledTimes(3)
+  } finally {
+    fetch.mockRestore()
+  }
 })
 
 it('keeps an unlisted saved choice visible and leaves settings unchanged on registry failure', async () => {

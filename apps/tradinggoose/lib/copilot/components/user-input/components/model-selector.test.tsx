@@ -96,13 +96,60 @@ it('shows loading, unavailable, and unconfigured states without choosing a fixed
   render()
   expect(container.textContent).toContain('Loading models')
   expect(container.querySelector('button')?.disabled).toBe(true)
-  catalog = { ...catalog, isPending: false, isError: true }
+  catalog = { ...catalog, isPending: false, isError: true, error: new Error('HTTP 500') }
   render()
   expect(container.textContent).toContain('Unavailable')
+  expect(container.querySelector('button')).toBeEnabled()
+  expect(container.querySelector('[role="alert"]')).toHaveTextContent('HTTP 500')
+  const retry = [...container.querySelectorAll('button')].find(
+    (item) => item.textContent === 'Retry'
+  )!
+  act(() => retry.click())
+  expect(catalog.refetch).toHaveBeenCalledOnce()
   catalog = { ...catalog, data: { models: [] }, isError: false }
   render()
   expect(container.textContent).toContain('No models configured')
   expect(state.setSelectedModel).not.toHaveBeenCalled()
+})
+
+it('retains the last model query result on invalid responses and accepts a recovered empty catalog', async () => {
+  const { useCopilotModels, copilotModelsKeys } = await vi.importActual<
+    typeof import('@/hooks/queries/copilot-models')
+  >('@/hooks/queries/copilot-models')
+  const cached = { models: [{ id: 'openai/gpt-5', label: 'openai/gpt-5' }] }
+  queryClient.setQueryDefaults(copilotModelsKeys.all, { retry: false })
+  queryClient.setQueryData(copilotModelsKeys.all, cached)
+  const fetch = vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(new Response('<html>failure</html>', { status: 500 }))
+    .mockResolvedValueOnce(new Response(''))
+    .mockResolvedValueOnce(Response.json({ models: [] }))
+  function Catalog() {
+    useCopilotModels()
+    return null
+  }
+  try {
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Catalog />
+        </QueryClientProvider>
+      )
+    )
+    for (const status of [500, 200]) {
+      await act(async () => queryClient.refetchQueries({ queryKey: copilotModelsKeys.all }))
+      expect(queryClient.getQueryData(copilotModelsKeys.all)).toEqual(cached)
+      expect(queryClient.getQueryState(copilotModelsKeys.all)?.error?.message).toContain(
+        `HTTP ${status}`
+      )
+    }
+    await act(async () => queryClient.refetchQueries({ queryKey: copilotModelsKeys.all }))
+    expect(queryClient.getQueryData(copilotModelsKeys.all)).toEqual({ models: [] })
+    expect(queryClient.getQueryState(copilotModelsKeys.all)?.error).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(3)
+  } finally {
+    fetch.mockRestore()
+  }
 })
 
 it('initially selects the first configured model and submits exact IDs while displaying only labels', () => {
@@ -175,8 +222,13 @@ it('preserves a valid selection and replaces a removed selection on catalog refr
   render()
   expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith('deepseek/new-model')
   catalog.data = { models: [] }
+  catalog.isError = true
+  state.setSelectedModel.mockClear()
   render()
-  expect(state.setSelectedModel).toHaveBeenLastCalledWith(null)
+  expect(state.setSelectedModel).not.toHaveBeenCalled()
+  catalog.isError = false
+  render()
+  expect(state.setSelectedModel).toHaveBeenCalledExactlyOnceWith(null)
 })
 
 it.each(['google/gemini-2.5-flash', 'openai/gpt-5'])(

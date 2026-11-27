@@ -634,7 +634,7 @@ describe('canonical browser conversation transport', () => {
       onObserve = observing
       await store().getState().selectChat(chat())
       expect(observing).toHaveBeenCalledOnce()
-      expect(store().getState().error).toBe('Observation unavailable')
+      expect(store().getState().historyError).toBe('Observation unavailable')
       expect(store().getState().isSendingMessage).toBe(false)
     }
   )
@@ -1797,6 +1797,74 @@ describe('edited prompt ownership', () => {
 })
 
 describe('requested conversation scope survives discovery failure', () => {
+  it('retains same-scope chats and messages on list failure, then accepts an empty list', async () => {
+    await store().getState().loadChats({ workspaceId })
+    await store().getState().selectChat(chat())
+    const { chats, messages } = store().getState()
+    expect(messages.map(({ content }) => content)).toEqual([
+      'actual native input',
+      'canonical answer',
+    ])
+    onCommand = (request) =>
+      request.command === 'threads.list' ? new Response('', { status: 503 }) : undefined
+    await store().getState().loadChats({ workspaceId })
+    expect(store().getState()).toMatchObject({
+      chats,
+      messages,
+      chatsError: expect.stringContaining('HTTP 503'),
+    })
+    onCommand = (request) =>
+      request.command === 'threads.list' ? json({ status: 'threads', items: [] }) : undefined
+    await store().getState().loadChats({ workspaceId })
+    expect(store().getState()).toMatchObject({ chats: [], chatsError: null, messages })
+  })
+  it.each([
+    [
+      'non-JSON error',
+      () => new Response('<html>private diagnostic</html>', { status: 503 }),
+      'HTTP 503',
+    ],
+    ['empty stream', () => eventResponse([]), 'without a snapshot'],
+  ] as const)(
+    'retains messages after a %s and refreshes that thread on retry',
+    async (_, failedResponse, reason) => {
+      await store().getState().selectChat(chat())
+      const { messages } = store().getState()
+      onObserve = failedResponse
+      await store().getState().selectChat(chat())
+      expect(store().getState()).toMatchObject({
+        messages,
+        historyError: expect.stringContaining(reason),
+      })
+      onObserve = () => observingStream(historyResult([history[0]])).response
+      await store().getState().loadChats({ workspaceId })
+      expect(store().getState().historyError).toBeNull()
+      expect(
+        store()
+          .getState()
+          .messages.map(({ content }) => content)
+      ).toEqual(['actual native input'])
+    }
+  )
+  it('discards a retired actor’s late history failure after reset', async () => {
+    const oldStore = store()
+    const late = defer<Response>()
+    onObserve = () => late.promise
+    const pending = oldStore.getState().selectChat(chat())
+    resetCopilotStoreRegistry()
+    const nextActor = getCopilotStore(
+      buildCopilotWorkspaceChannelId({ authenticatedUserId: 'next-actor', workspaceId })
+    )
+    late.resolve(new Response('private details', { status: 403 }))
+    await pending
+    for (const instance of [oldStore, nextActor]) {
+      expect(instance.getState()).toMatchObject({
+        currentChat: null,
+        messages: [],
+        historyError: null,
+      })
+    }
+  })
   it.each([workspaceId, null])(
     'keeps requested scope %s on failure then sends there',
     async (requested) => {
@@ -1826,18 +1894,30 @@ describe('requested conversation scope survives discovery failure', () => {
     ).toEqual([workspaceId, workspaceId])
     expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
   })
-  it('keeps the newer explicit scope when the earlier discovery fails late', async () => {
-    const first = defer<Response>()
-    onCommand = (request) =>
-      request.command === 'threads.list' && request.workspaceId === workspaceId
-        ? first.promise
-        : undefined
-    const loading = store().getState().loadChats({ workspaceId })
-    await store().getState().loadChats({ workspaceId: null })
-    first.resolve(json({ error: 'unavailable' }, 503))
-    await loading
-    expect(store().getState().conversationWorkspaceId).toBeNull()
-  })
+  it.each(['succeeds', 'fails'])(
+    'keeps the newer scope when earlier discovery %s late',
+    async (outcome) => {
+      const first = defer<Response>()
+      onCommand = (request) =>
+        request.command === 'threads.list' && request.workspaceId === workspaceId
+          ? first.promise
+          : undefined
+      const loading = store().getState().loadChats({ workspaceId })
+      await store().getState().loadChats({ workspaceId: null })
+      first.resolve(
+        outcome === 'fails'
+          ? json({ error: 'unavailable' }, 503)
+          : json({ status: 'threads', items: [] })
+      )
+      await loading
+      expect(store().getState()).toMatchObject({
+        conversationWorkspaceId: null,
+        chatsWorkspaceId: null,
+        chatsError: null,
+        chats: [{ threadId, workspaceId: null }],
+      })
+    }
+  )
   it('does not select a discovered chat after a new turn owns the requested scope', async () => {
     const discovery = defer<Response>()
     const message = defer<Response>()
@@ -1863,14 +1943,21 @@ describe('requested conversation scope survives discovery failure', () => {
     await sending
   })
   it('does not replace an active selected conversation on failed competing discovery', async () => {
+    await store().getState().loadChats({ workspaceId })
     setChat()
+    expect(store().getState().chats).toHaveLength(1)
     onCommand = (request) => {
       if (request.command === 'threads.list') throw new Error('unavailable')
       return undefined
     }
     await store().getState().loadChats({ workspaceId: 'other-workspace' })
-    expect(store().getState().currentChat).toEqual(chat())
-    expect(store().getState().conversationWorkspaceId).toBe(workspaceId)
+    expect(store().getState()).toMatchObject({
+      currentChat: chat(),
+      conversationWorkspaceId: workspaceId,
+      chats: [],
+      chatsWorkspaceId: 'other-workspace',
+      chatsError: 'unavailable',
+    })
   })
 })
 

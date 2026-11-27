@@ -22403,6 +22403,7 @@
           "justNow": "Just now",
           "loading": "Loading…",
           "loadingChatHistory": "Loading chat history...",
+          "loadError": "Unable to load chat history.",
           "noChatsYet": "No chats yet",
           "openChatHistory": "Open chat history",
           "deleteChatAria": "Delete chat",

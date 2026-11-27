@@ -92,7 +92,7 @@ const refreshBillingUsage = () => {
 async function requireCopilotStream(response: Response) {
   if (!response.ok) await readNativeCommandResponse(response)
   if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream'))
-    throw new Error('Copilot stream is unavailable')
+    throw new Error(`Copilot returned no event stream (HTTP ${response.status}).`)
   return response.body
 }
 const initialState = {
@@ -105,6 +105,9 @@ const initialState = {
   conversationWorkspaceId: null as string | null,
   currentRunId: null as string | null,
   workflowChatDeployment: null as CopilotStore['workflowChatDeployment'],
+  chatsWorkspaceId: null as string | null,
+  chatsError: null,
+  historyError: null,
   isLoadingChats: false,
   isSendingMessage: false,
   isAwaitingContinuation: false,
@@ -330,6 +333,7 @@ function createCopilotStoreInstance(channelId: string) {
         for (const id of Object.keys(get().toolCallsById))
           if (!projected.toolCallsById[id]) unregisterClientTool(id)
         set({
+          historyError: null,
           messages: projected.messages,
           toolCallsById: projected.toolCallsById,
           isAborting,
@@ -411,6 +415,7 @@ function createCopilotStoreInstance(channelId: string) {
         try {
           while (current()) {
             let retryable = true
+            let receivedHistory = false
             try {
               const response = await postNativeCommand(
                 serializeCopilotRequest({
@@ -434,6 +439,7 @@ function createCopilotStoreInstance(channelId: string) {
                 if (!current()) return false
                 if (event.type === 'thread.history') {
                   applyHistory(event.result, event.activeRunId, submittedRunId)
+                  receivedHistory = true
                   messageId = undefined
                   if (event.error) set({ error: event.error.message })
                   // History refresh does not clear a request failure.
@@ -515,10 +521,20 @@ function createCopilotStoreInstance(channelId: string) {
                     ]
                   )
               }
+              if (!submittedRunId && !receivedHistory)
+                throw new Error('Copilot history response ended without a snapshot.')
             } catch (error) {
               if (!current()) return false
+              const historyReadFailed = !submittedRunId && !receivedHistory
+              if (historyReadFailed) {
+                set({
+                  historyError:
+                    error instanceof Error ? error.message : 'Copilot history is unavailable.',
+                })
+                ready()
+              }
               if (!retryable) {
-                fail(error)
+                if (!historyReadFailed) fail(error)
                 set({
                   isSendingMessage: false,
                   isAwaitingContinuation: Boolean(get().currentRunId),
@@ -962,16 +978,24 @@ function createCopilotStoreInstance(channelId: string) {
           const workspaceId =
             options?.workspaceId !== undefined ? options.workspaceId : get().conversationWorkspaceId
           const generation = ++threadsGeneration
+          const signal = owner.signal
           const id = epoch
           set({
             isLoadingChats: true,
+            chatsWorkspaceId: workspaceId,
+            ...(get().chatsWorkspaceId === workspaceId
+              ? {}
+              : {
+                  chats: get().chats.filter((chat) => chat.workspaceId === workspaceId),
+                  chatsError: null,
+                }),
             ...(!get().currentChat && !get().isSendingMessage && !get().isAwaitingContinuation
               ? { conversationWorkspaceId: workspaceId }
               : {}),
           })
           try {
             if (admission) await admission
-            const threads = await listNativeThreads(workspaceId)
+            const threads = await listNativeThreads(workspaceId, signal)
             if (generation !== threadsGeneration || id !== epoch) return
             const chats: CopilotChat[] = threads.map((thread) => ({
               threadId: thread.id,
@@ -980,14 +1004,19 @@ function createCopilotStoreInstance(channelId: string) {
               createdAt: new Date(thread.createdAt),
               updatedAt: new Date(thread.updatedAt),
             }))
-            set({ chats })
+            set({ chats, chatsError: null })
             // Opening history must not cancel or erase an active first turn or current selection.
             if (
               get().conversationWorkspaceId === workspaceId &&
               (get().currentChat || get().isSendingMessage || get().isAwaitingContinuation)
             ) {
               const currentChat = get().currentChat
-              if (currentChat && !get().abortController && !observation && !stopFor(currentChat))
+              if (
+                currentChat &&
+                !get().abortController &&
+                (!observation || get().historyError) &&
+                !stopFor(currentChat)
+              )
                 await restoreChat(currentChat)
               return
             }
@@ -996,21 +1025,27 @@ function createCopilotStoreInstance(channelId: string) {
             if (selected) await get().selectChat(selected)
             else await get().createNewChat(workspaceId)
           } catch (error) {
-            if (generation === threadsGeneration && id === epoch) fail(error)
+            if (generation === threadsGeneration && id === epoch)
+              set({
+                chatsError:
+                  error instanceof Error ? error.message : 'Copilot thread list is unavailable.',
+              })
           } finally {
             if (generation === threadsGeneration) set({ isLoadingChats: false })
           }
         },
         selectChat: async (chat) => {
           const stop = stopFor(chat)
-          if (ownsChat(chat, epoch) && stop) return
+          const sameChat = ownsChat(chat, epoch)
+          if (sameChat && stop) return
           get().detachStream()
           ++epoch
           set({
             currentChat: chat,
+            historyError: null,
             conversationWorkspaceId: chat.workspaceId,
             currentRunId: stop?.runId ?? null,
-            messages: [],
+            messages: sameChat ? get().messages : [],
             toolCallsById: {},
             error: null,
             isAwaitingContinuation: !!stop,
@@ -1027,6 +1062,7 @@ function createCopilotStoreInstance(channelId: string) {
           rememberCopilotWorkspaceSelection(channelId, scope, null)
           set({
             currentChat: null,
+            historyError: null,
             conversationWorkspaceId: scope,
             currentRunId: null,
             messages: [],

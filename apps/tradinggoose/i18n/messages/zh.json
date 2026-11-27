@@ -22390,6 +22390,7 @@
           "justNow": "刚刚",
           "loading": "加载中…",
           "loadingChatHistory": "正在加载聊天记录...",
+          "loadError": "无法加载聊天记录。",
           "noChatsYet": "还没有聊天",
           "openChatHistory": "打开聊天历史",
           "deleteChatAria": "删除聊天",

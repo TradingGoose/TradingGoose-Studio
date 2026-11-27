@@ -33,7 +33,6 @@ import {
   type ServerPending,
 } from '@/lib/copilot/native/target'
 import { isToolId, ToolArgSchemas } from '@/lib/copilot/registry'
-import { validateCopilotModel } from '@/lib/copilot/settings.server'
 import { getCopilotToolPolicy } from '@/lib/copilot/tool-policy'
 import { dispatchBackgroundExecution } from '@/lib/execution/background-execution'
 import type { PendingExecutionPayload } from '@/lib/execution/pending-execution'
@@ -544,6 +543,7 @@ async function dispatchCopilotCommand(
   try {
     if (request.command === 'message') {
       if (request.threadId) await requireThread(scope, threadId, signal)
+      const { validateCopilotModel } = await import('@/lib/copilot/settings.server')
       admittedRequest = {
         ...request,
         ...(await validateCopilotModel(request.model, request.reasoning)),

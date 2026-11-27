@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, Clock3, Plus, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -223,8 +223,12 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null)
   const [deleteChatId, setDeleteChatId] = useState<string | null>(null)
 
-  const { currentChat, chats, isLoadingChats, isSendingMessage } = useCopilotStore()
-  const grouped = groupChats(chats)
+  const retry = useTranslations('workspace.widgets.stateMessage')('retry')
+  const { currentChat, chats, chatsError, chatsWorkspaceId, isLoadingChats, isSendingMessage } =
+    useCopilotStore()
+  const listInScope = chatsWorkspaceId === workspaceId
+  const grouped = listInScope ? groupChats(chats) : []
+  const loadChats = () => store.getState().loadChats({ workspaceId })
   const groupLabels: Record<ChatGroupKey, string> = {
     today: historyCopy.groups.today,
     yesterday: historyCopy.groups.yesterday,
@@ -240,19 +244,36 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
     } catch {}
   }
 
-  const title = currentChat?.title || historyCopy.newChat
-  const deleteChat = deleteChatId ? chats.find((chat) => chat.threadId === deleteChatId) : null
+  const title =
+    (currentChat?.workspaceId === workspaceId && currentChat.title) || historyCopy.newChat
+  const deleteChat =
+    listInScope && deleteChatId ? chats.find((chat) => chat.threadId === deleteChatId) : null
+
   const dropdownMenuBody = (() => {
-    if (isLoadingChats) {
+    if (!listInScope || (isLoadingChats && grouped.length === 0 && !chatsError)) {
       return <div className='p-3 text-muted-foreground text-sm'>{historyCopy.loading}</div>
     }
 
-    if (grouped.length === 0) {
+    if (grouped.length === 0 && !chatsError) {
       return <div className='p-3 text-muted-foreground text-sm'>{historyCopy.noChatsYet}</div>
     }
 
     return (
       <div className='space-y-4 p-2'>
+        {chatsError && (
+          <div>
+            <p role='alert' className='text-destructive text-sm'>
+              {historyCopy.loadError} {chatsError}
+            </p>
+            <DropdownMenuItem
+              closeOnClick={false}
+              disabled={isLoadingChats}
+              onClick={() => void loadChats()}
+            >
+              {retry}
+            </DropdownMenuItem>
+          </div>
+        )}
         {grouped.map(([groupKey, chatsInGroup]) => (
           <ChatHistoryGroup
             key={groupKey}
@@ -275,7 +296,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
     <div className='flex w-full min-w-0 items-center gap-2'>
       <DropdownMenu
         onOpenChange={(open) => {
-          if (open) void store.getState().loadChats({ workspaceId })
+          if (open) void loadChats()
         }}
       >
         <Tooltip>
@@ -322,7 +343,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
         </DropdownMenuContent>
       </DropdownMenu>
       <AlertDialog
-        open={!!deleteChatId}
+        open={!!deleteChat}
         onOpenChange={(open) => {
           if (!open) setDeleteChatId(null)
         }}

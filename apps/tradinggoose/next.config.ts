@@ -1,3 +1,4 @@
+import { relative } from 'node:path'
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
 import { isDev, isHosted } from '@/lib/environment'
@@ -80,6 +81,7 @@ const nextConfig: NextConfig = {
   output: isTruthy(env.DOCKER_BUILD) ? 'standalone' : undefined,
   outputFileTracingIncludes: {
     '/*': [
+      relative(__dirname, require.resolve('@mastra/code-sdk/package.json')),
       './lib/knowledge/documents/local-heartbeat-worker.mjs',
       '../../node_modules/postgres/package.json',
       '../../node_modules/postgres/src/*.js',

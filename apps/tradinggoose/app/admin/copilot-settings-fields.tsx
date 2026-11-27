@@ -240,9 +240,11 @@ export function CopilotSettingsFields({
           {registryCopy.loadingModels}
         </p>
       ) : null}
-      {error || (!isLoading && !providers.length) ? (
+      {error ? (
         <div role='alert' className='space-y-2 text-destructive text-sm'>
-          <p>{registryCopy.modelRegistryUnavailable}</p>
+          <p>
+            {registryCopy.modelRegistryUnavailable} {error}
+          </p>
           <Button type='button' variant='outline' disabled={isLoading} onClick={() => void load()}>
             {registryCopy.retryModels}
           </Button>
